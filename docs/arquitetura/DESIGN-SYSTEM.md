@@ -1630,9 +1630,9 @@ cabeçalho do Modo Fácil, e desde a v1.2.0 no cabeçalho dos DOIS modos), o
 **relógio com a seta anti-horária** do histórico do culto (`#icoHistorico`,
 v1.2.0 — `history` também está fora do subset), os **três pontos** do menu
 de uma linha (`dotsIconSvg`, v5.258 — `more_vert` não está no subset), o
-ícone **"arquivos+"** (documento com `+`) do botão de importar — hoje o
-`#cronoImportar`, na trilha 1 da barra do Cronograma (v1.13.5; era a porta do meio
-do rodapé, `.import-btn`) —, que diferencia importar ARQUIVOS de abrir os
+ícone **"arquivos+"** (documento com `+`, `#icoArquivoMais`) do importar — hoje o
+ícone do PRIMEIRO bloco da Biblioteca, `li.lib-importar` (v1.14.40; até a v1.14.39 um
+ícone da barra do Cronograma; no Modo Fácil o bloco usa `#icoGaleria`) —, que diferencia importar ARQUIVOS de abrir os
 FAVORITOS (estrela, no botão ao lado — e a mesma estrela na "Nova pasta"),
 os dois botões flutuantes da preview (**cast** e
 **expandir** — `#pvCastBtn`/`#pvFullBtn`),
@@ -1983,10 +1983,9 @@ caixas** — daí o resto desta seção.
   (`--icon-sm`, 20px; `--icon-md`, 22px; `--icon-lg`, 24px), e um botão que não
   esteja em NENHUMA delas cai no atributo `width`/`height` que o HTML escreveu — que pode coincidir
   com o degrau certo por acidente e deixar de coincidir no dia em que alguém
-  mexer no token — e uma asserção sobre a CAIXA aprova os dois. (O
-  `.crono-importar`, v1.13.5, mede `--icon-lg` por regra PRÓPRIA — o degrau a
-  mais de um desenho esparso ao lado do glifo denso. O oráculo FORÇA o token,
-  porque o atributo do HTML vale os mesmos 24.) **Botão de
+  mexer no token — e uma asserção sobre a CAIXA aprova os dois. (A porta do
+  itinerário mede `--icon-lg` por regra PRÓPRIA, `.crono-itin svg` — o
+  atributo do HTML vale os mesmos 24, então quem a medir FORÇA o token.) **Botão de
   ícone novo entra numa das TRÊS listas — ou ganha regra própria com a razão ao
   lado — no lote em que nasce**, e o oráculo que o cobrir mede o
   `<svg>`, não o botão. É a mesma armadilha que a v1.5.19 já tinha consertado

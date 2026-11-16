@@ -250,37 +250,32 @@ try {
   }
 
   // =========================================================================
-  // E · A TRILHA 1 DA BARRA É DO IMPORTAR (v1.13.5)
+  // E · A TRILHA 1 DA BARRA É DA PORTA DO ITINERÁRIO (v1.13.5 → v1.14.40)
   // =========================================================================
-  // Pedido do operador: *"remova o botão de limpar cronograma … no lugar do
-  // esvaziar lista de cronograma, mova o botão de importar arquivo"*.
+  // O LIMPAR saiu na v1.13.5 (*"remova o botão de limpar cronograma"*) e o
+  // IMPORTAR que ficou no lugar dele saiu na v1.14.40 — é o primeiro bloco da
+  // Biblioteca (*"mover a opção de importar arquivo da barra de topo do app para
+  // dentro da biblioteca"*). Quem sobra na trilha 1 é a porta do itinerário.
   {
     await tocarNaGaveta('Cronograma 3');
     const dis = await pg.evaluate(() => {
-      const b = document.getElementById('cronoImportar');
       const h = document.querySelector('.list-header').getBoundingClientRect();
-      const r = b.getBoundingClientRect();
       const t = document.getElementById('cronoTitulo').getBoundingClientRect();
-      // A PRIMEIRA DA TRILHA 1 PASSOU A SER A PORTA DO ITINERÁRIO (Pacote 37: o
-      // operador trocou os dois de lugar), então quem encosta na borda esquerda é
-      // ela, e o Importar entra logo à direita. A regra que este bloco guarda é a
-      // MESMA — o Importar é da trilha 1, não da coluna do título.
       const p = document.getElementById('itinBarBtn');
       const pr = p && p.getClientRects().length ? p.getBoundingClientRect() : null;
       return {
         limpar: !!document.getElementById('cronoLimpar') || !!document.querySelector('.crono-limpar'),
         fn: typeof window.renderCronoLimpar,
-        esq: r.left - h.left, antes: r.right <= t.left,
+        importar: !!document.getElementById('cronoImportar') || !!document.querySelector('.list-header .crono-importar'),
         portaEsq: pr ? pr.left - h.left : null,
-        depoisDaPorta: pr ? Math.abs(r.left - pr.right) <= 12 : false,
+        portaAntes: pr ? pr.right <= t.left : true,
       };
     });
     checar(!dis.limpar && dis.fn === 'undefined',
       'E · o botão de LIMPAR saiu da barra, com o código que o pintava (v1.13.5)', JSON.stringify(dis));
-    const vizinho = dis.portaEsq === null ? dis.esq < 24 : (dis.portaEsq < 24 && dis.depoisDaPorta);
-    checar(vizinho && dis.antes,
-      'E · e o IMPORTAR mora NA BARRA, à DIREITA da porta do itinerário (Pacote 37: ela virou a primeira da '
-      + 'trilha) e antes do título — a casa do limpar',
+    checar(!dis.importar && (dis.portaEsq === null || dis.portaEsq < 24) && dis.portaAntes,
+      'E · e o IMPORTAR saiu da barra (v1.14.40: mora na Biblioteca); a porta do itinerário, à vista, encosta '
+      + 'na borda esquerda, antes do título',
       JSON.stringify(dis));
   }
 
@@ -467,18 +462,17 @@ try {
     await fecharGaveta();
     const r = await pg.evaluate(() => {
       const t = document.getElementById('cronoTitulo').getBoundingClientRect();
-      // O VIZINHO DA ESQUERDA é o Importar. Desde o Pacote 37 a PORTA do itinerário é a
-      // PRIMEIRA da trilha 1 e o Importar entra deslocado à direita dela — o que separa os
-      // dois do título é o Importar, e é a borda dele que a régua mede.
+      // O VIZINHO DA ESQUERDA é a porta do itinerário, quando à vista (o Importar saiu
+      // da barra na v1.14.40); sem ela, a borda da própria barra.
       const p = document.getElementById('itinBarBtn');
       const porta = !!p && p.getClientRects().length > 0;
-      const m = document.getElementById('cronoImportar').getBoundingClientRect();
+      const m = porta ? p.getBoundingClientRect() : { right: document.querySelector('.list-header').getBoundingClientRect().left };
       const g = document.getElementById('settingsBtn').getBoundingClientRect();
       return { porta, esq: t.left - m.right, dir: g.left - t.right, larg: document.documentElement.scrollWidth - innerWidth,
         gear: g.right <= innerWidth };
     });
     checar(r.esq >= 0 && r.dir >= 0 && r.larg <= 0 && r.gear,
-      'L · um nome longo cabe entre o Importar (e a porta do itinerário, à vista) e a engrenagem, sem empurrar ninguém para fora',
+      'L · um nome longo cabe entre a porta do itinerário (à vista) e a engrenagem, sem empurrar ninguém para fora',
       JSON.stringify(r));
   }
 

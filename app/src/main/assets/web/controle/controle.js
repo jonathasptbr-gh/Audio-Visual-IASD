@@ -400,7 +400,6 @@ const cronoAlertaEl = document.getElementById('cronoAlerta');
 const cronoGavetaEl = document.getElementById('cronoGaveta');
 const cronoListaEl = document.getElementById('cronoLista');
 const cronoVeuEl = document.getElementById('cronoVeu');
-const cronoImportarEl = document.getElementById('cronoImportar');
 // A SEGUNDA LINHA DO CRONOGRAMA (v1.14.32): as opções do itinerário — ver
 // `renderItinBar`. Declarada AQUI pela mesma razão do resto desta lista: o
 // `load()` a repinta milhares de linhas antes de onde o cromo é ligado.
@@ -416,7 +415,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.39';
+const WEB_VERSION = '1.14.40';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -11012,8 +11011,8 @@ function marcarGruposDoItinerario(host) {
 }
 
 // O RODAPÉ FIXO da caixa da lista (`#listFoot`), fora da rolagem: as PORTAS
-// (Bíblia · Ferramentas). O IMPORTAR morou aqui da v5.107 à v1.13.4 e foi para a
-// barra do topo (`#cronoImportar`); a barra de seleção múltipla morava aqui até
+// (Bíblia · Ferramentas). O IMPORTAR morou aqui da v5.107 à v1.13.4, na barra do
+// topo até a v1.14.39, e hoje é o primeiro bloco da Biblioteca (`blocoImportar`); a barra de seleção múltipla morava aqui até
 // a v1.13.52.
 // O MOLDE DAS PORTAS do rodapé (v1.5.0): ícone e rótulo na caixa (o ícone à
 // ESQUERDA desde a v1.13.5), `title` igual ao `aria-label`. Uma função e não
@@ -11118,8 +11117,8 @@ function renderListFoot() {
   medirRodapeDaLista();
 }
 
-// O IMPORTAR (v1.13.5, o `#cronoImportar` da barra do topo; era a porta do meio
-// do rodapé). UM botão só, para TODO arquivo — inclusive apresentação (v5.99). O
+// O IMPORTAR (o primeiro bloco da Biblioteca desde a v1.14.40, `blocoImportar`;
+// antes, a barra do topo e a porta do meio do rodapé). UM botão só, para TODO arquivo — inclusive apresentação (v5.99). O
 // que muda é só QUEM abre o seletor:
 //
 //  - no app, o seletor do SISTEMA (`AVNative.pickDoc`). É o único caminho que
@@ -11133,6 +11132,46 @@ function renderListFoot() {
 function importarArquivos() {
   if (window.__NATIVE__) { importarPeloSistema(); return; }
   fileEl.click();
+}
+
+// A PORTA DE IMPORTAR É O PRIMEIRO BLOCO DA BIBLIOTECA (v1.14.40), pedido do operador:
+// *"mover a opção de importar arquivo da barra de topo do app para dentro da biblioteca. Será o
+// primeiro item da biblioteca … Isso vai valer também para o modo simples, mas lá … 'buscar na
+// galeria' ou algo do tipo que seja mais didático"*. Nos DOIS modos, acima dos Favoritos e da
+// Liturgia; o que muda é a fala e o desenho (a folha com o + / a foto).
+//
+// É UM BLOCO DE RAIZ COMO OS FECHADOS: entra na repartição da tampa (`calcularTampa` mede a
+// `.lib-importar-bar`), cresce com eles e anima com eles (`blocoDeRaizFechado`). O toque é do
+// `li` inteiro, como no card — o bloco responde por luz, e não há botão dentro dele.
+// `importarArquivos` não fecha a Biblioteca: quem sai das camadas é a chegada do arquivo
+// (`importShare` / o `change` do `#file`), e desistir do seletor deixa a tela onde estava.
+function blocoImportar() {
+  const simples = appMode === 'simple';
+  const nome = simples ? 'Buscar na galeria' : 'Importar arquivo';
+  const sub = simples ? 'Fotos, vídeos e músicas do celular' : 'Vídeo, música, foto, PDF ou PowerPoint';
+  const li = document.createElement('li');
+  li.className = 'lib-importar';
+  li.setAttribute('role', 'button');
+  li.tabIndex = 0;
+  li.title = nome + ' — ' + sub.charAt(0).toLowerCase() + sub.slice(1);
+  li.setAttribute('aria-label', nome);
+  const bar = document.createElement('div');
+  bar.className = 'lib-importar-bar';
+  const ico = document.createElement('span');
+  ico.className = 'coll-bar-icon';
+  ico.innerHTML = simples ? icoSprite('icoGaleria') : icoSprite('icoArquivoMais');
+  const info = document.createElement('span');
+  info.className = 'coll-bar-info';
+  const n = document.createElement('span'); n.className = 'coll-bar-name'; n.textContent = nome;
+  const t = document.createElement('span'); t.className = 'coll-bar-sub'; t.textContent = sub;
+  info.append(n, t);
+  bar.append(ico, info);
+  li.appendChild(bar);
+  li.addEventListener('click', () => importarArquivos());
+  li.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); importarArquivos(); }
+  });
+  return li;
 }
 
 // Os tipos que o seletor do sistema oferece. PDF e PPTX entram na MESMA lista
@@ -12616,6 +12655,10 @@ function renderCollectionsListMiolo(alvo, redesenhar) {
   // Só a SEÇÃO sai. Os favoritos continuam existindo, continuam sincronizando e
   // voltam inteiros ao trocar de modo — o que muda é a Biblioteca aberta DAQUI
   // mostrar as coleções e mais nada.
+  // O IMPORTAR ABRE A LISTA, nos dois modos (v1.14.40) — ver `blocoImportar`. Não conta como
+  // coleção (`any`): sem acervo, o "Nenhuma coleção" continua dito.
+  alvo.appendChild(blocoImportar());
+
   const favCorpo = appMode === 'simple' ? null : grupo(GRUPO_FAVORITOS, null, {
     // UMA AÇÃO, E ELA FAZ A COISA (v5.254): trazer uma pasta do aparelho.
     //
@@ -14965,7 +15008,7 @@ function calcularTampa(lista, favFechada) {
     }
     n++;
     // Fechada, a caixa é a BARRA. Medir o `<li>` leria um bloco ABERTO com o corpo dele dentro.
-    const barra = b.querySelector('.coll-group-bar, .coll-bar, .row');
+    const barra = b.querySelector('.coll-group-bar, .coll-bar, .row, .lib-importar-bar');
     base += (barra ? barra.getBoundingClientRect().height
       : b.getBoundingClientRect().height);
   }
@@ -15034,7 +15077,7 @@ function medirTampa(lista) {
   const contaFechada = favAbertos ? calcularTampa(lista, true) : null;
   const hFav = contaFechada ? contaFechada.h : h;
   const topoDe = (b) => {
-    const barra = b.querySelector('.coll-group-bar, .coll-bar, .row');
+    const barra = b.querySelector('.coll-group-bar, .coll-bar, .row, .lib-importar-bar');
     const alt = barra ? barra.getBoundingClientRect().height
       : b.getBoundingClientRect().height;
     const alvo = b.classList.contains('coll-group--fav') ? hFav : h;
@@ -15078,7 +15121,8 @@ function acertarTampa(lista) {
 // segue a tampa como sempre seguiu.
 function blocoDeRaizFechado(b) {
   return (b.classList.contains('coll-group--drop') && !b.classList.contains('aberto'))
-    || (b.classList.contains('hymnal-card') && !b.classList.contains('expanded'));
+    || (b.classList.contains('hymnal-card') && !b.classList.contains('expanded'))
+    || b.classList.contains('lib-importar');
 }
 function animarAlturaDeBloco(el, de, para) {
   if (!el || Math.abs(de - para) < 0.5) return;
@@ -39271,7 +39315,11 @@ async function importShare(pending) {
   // `false` daqui é a resposta honesta.
   shareDestinos = ['cronograma'];
   const temLinkYt = !!(pending.url && extractYouTubeId(pending.url));
-  if (files.length || (pending.url && !temLinkYt)) {
+  // NO SIMPLIFICADO A PERGUNTA NÃO EXISTE (`escolherDestinos` devolve `null` ali), e o
+  // `null` NÃO é desistência: perguntar só fora dele. Sem esta guarda o `return false`
+  // de baixo engolia todo arquivo do Modo Fácil — da v1.14.30 à v1.14.39, o share e o
+  // seletor ali não importavam nada.
+  if (!simplificado() && (files.length || (pending.url && !temLinkYt))) {
     const titulo = files.length > 1 ? 'Importar ' + files.length + ' itens' : 'Importar';
     const escolha = await escolherDestinos(titulo);
     if (!escolha || !escolha.length) return false;
@@ -42483,6 +42531,13 @@ function closePlPopup() {
 // ===== eventos =====
 fileEl.addEventListener('change', async () => {
   const files = Array.from(fileEl.files || []);
+  // NO MODO FÁCIL o arquivo vai ao TELÃO, pelo MESMO caminho do share e do seletor do
+  // sistema (`importShare` aceita `File`): a tela não tem Cronograma para recebê-lo.
+  if (simplificado()) {
+    fileEl.value = '';
+    if (files.length) await importShare({ files });
+    return;
+  }
   let naoAbriu = null;
   for (const file of files) {
     // APRESENTAÇÃO escolhida por aqui (só o navegador: no app o botão abre o
@@ -42509,9 +42564,10 @@ fileEl.addEventListener('change', async () => {
     });
   }
   fileEl.value = '';
-  // Importar sempre cai no Cronograma (lista `imports`, via addMedia), e a
-  // folha da Bíblia sai da frente para o operador ver o que acabou de entrar.
-  fecharBiblia();
+  // Importar sempre cai no Cronograma (lista `imports`, via addMedia), e o que
+  // estiver por cima dele — a Biblioteca, de onde o seletor se abre desde a
+  // v1.14.40, e a folha da Bíblia — sai da frente para o operador ver o que entrou.
+  await sairDasCamadas();
   load();
   if (naoAbriu) await avisarNaoAbriu(naoAbriu);
 });
@@ -44366,7 +44422,6 @@ plClearEl.addEventListener('click', (e) => {
     aoConfirmar: limparPlaylist,
   });
 });
-if (cronoImportarEl) cronoImportarEl.addEventListener('click', () => { fecharCronoGaveta(); importarArquivos(); });
 if (cronoTituloEl) cronoTituloEl.addEventListener('click', () => {
   if (cronoGavetaEl && !cronoGavetaEl.hidden && cronoGavetaEl.classList.contains('aberta')) fecharCronoGaveta();
   else abrirCronoGaveta();

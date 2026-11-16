@@ -784,6 +784,17 @@
       <path d="M4.5 14.5v3.2a2.3 2.3 0 0 0 2.3 2.3h10.4a2.3 2.3 0 0 0 2.3-2.3v-3.2"/>
       <path d="M12 3.8v11.6"/><path d="m8.2 11.6 3.8 3.8 3.8-3.8"/>
     </symbol>
+    <!-- A PORTA DE IMPORTAR DA BIBLIOTECA (`blocoImportar`, v1.14.40): a folha com o + no
+         avançado (o desenho do antigo botão da barra do topo) e a FOTO no Modo Fácil, onde
+         ela se chama "Buscar na galeria". -->
+    <symbol id="icoArquivoMais" viewBox="0 0 24 24">
+      <path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M14 3v5h5"/>
+      <path d="M12 12v5.6"/><path d="M9.2 14.8h5.6"/>
+    </symbol>
+    <symbol id="icoGaleria" viewBox="0 0 24 24">
+      <rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.6" cy="9.4" r="1.7"/>
+      <path d="m21 15.5-4.6-4.6L7 20"/>
+    </symbol>
     <!-- O "ABRE OUTRA COISA" (v1.14.5): a seta saindo de uma caixa aberta em cima e à
          direita — o desenho de todo link que leva para FORA da tela atual. Mora no
          "Guia de sonoplastia" de Configurações, que abre uma tela à parte (a página
@@ -1013,25 +1024,10 @@
            voltar do app não reaparece. O title + aria-label ficam: sem nome, um
            leitor de tela anunciaria o caractere da área de uso privado da fonte. -->
       <button id="backBtn" class="back-btn" title="Voltar" aria-label="Voltar" hidden><span class="msym" aria-hidden="true">&#xe5c4;</span></button>
-      <!-- IMPORTAR ARQUIVOS, NA TRILHA 1 DA BARRA (v1.13.5). Pedido do
-           operador: *"no lugar do esvaziar lista de cronograma, mova o botão de
-           importar arquivo para o cronograma. Use é claro um botão de apenas
-           ícone"*. O LIMPAR que morava aqui (v1.8.66 a v1.13.4) saiu: *"sua
-           função basicamente se pode obter pelo botão de excluir cronograma na
-           lista de cronogramas"* — excluir o ÚNICO cronograma o esvazia (ver
-           `excluirCronograma`). E a porta "Importar" do rodapé saiu junto: lá
-           sobram Bíblia e Ferramentas.
-
-           CHAPADO, e é o padrão desta barra: a engrenagem na outra ponta é
-           ícone solto, sem corpo. A caixa mede `--hit` cheio, como a
-           engrenagem: as duas pontas são quadrados iguais e o título fica no
-           eixo. Quem abre o seletor é `importarArquivos` — o do SISTEMA no app
-           (`AVNative.pickDoc`, o único que serve ao PDF), o `#file` no
-           navegador. O desenho é o da porta de antes (a folha com o +). -->
-      <!-- A PORTA DO ITINERÁRIO, À ESQUERDA DO IMPORTAR (Pacote 37: o operador
-           trocou os dois de lugar — *"deixando o itinerário a esquerda"*). É a
-           PRIMEIRA da trilha 1, e o Importar entra deslocado para a direita dela
-           pela margem; as trilhas não mudam e o título não sai do eixo. O DESENHO
+      <!-- (O IMPORTAR saiu desta barra na v1.14.40: é o PRIMEIRO bloco da
+           Biblioteca, nos dois modos — `blocoImportar`.) -->
+      <!-- A PORTA DO ITINERÁRIO, SOZINHA NA TRILHA 1: as trilhas não mudam e o
+           título não sai do eixo. O DESENHO
            é o relógio, e com a faixa ABERTA ele vira um ✕ (`icoCancelar`, escrito
            por `renderItinBar` no `.crono-itin-ico`): o botão deixa de ser só um
            interruptor aceso e passa a dizer o que o toque faz. Leva o ponto do
@@ -1040,11 +1036,6 @@
       <button id="itinBarBtn" class="crono-itin" type="button" title="Itinerário" aria-label="Itinerário" aria-expanded="false" aria-controls="itinBar" hidden>
         <span class="crono-itin-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></span>
         <span class="itin-ponto" aria-hidden="true" hidden></span>
-      </button>
-      <button id="cronoImportar" class="crono-importar" type="button" title="Importar arquivos (mídia, PDF ou PowerPoint)" aria-label="Importar arquivos">
-        <!-- O `width`/`height` do atributo é MORTO — quem manda é o CSS —, e fica
-             porque o `viewBox` sozinho não dá tamanho a um `<svg>` sem CSS. -->
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h7l5 5v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M14 3v5h5"/><line x1="12" y1="12" x2="12" y2="17.6"/><line x1="9.2" y1="14.8" x2="14.8" y2="14.8"/></svg>
       </button>
       <!-- A ORDEM DA FAIXA É saída · lugar · destino (v5.107): "Modo Fácil" à
            esquerda, o nome da tela no meio, "Favoritos" à direita. A seta do
@@ -1150,8 +1141,8 @@
     <!-- RODAPÉ DA CAIXA DA LISTA (v5.107): fora do `<ul>` rolável, então o que
          estiver aqui fica SEMPRE à vista, encostado na caixa de controles.
          São as duas PORTAS, Bíblia e Ferramentas (`.portas-row`; até a v1.13.4
-         eram três, com "Importar" no meio — ele foi para a barra do topo,
-         `#cronoImportar`). A barra de seleção múltipla dividiu esta fatia dela
+         eram três, com "Importar" no meio — hoje ele é o primeiro bloco da
+         Biblioteca, `blocoImportar`). A barra de seleção múltipla dividiu esta fatia dela
          até a v1.13.52. -->
     <div id="listFoot" class="list-foot"></div>
 
@@ -1311,7 +1302,7 @@
     </div>
     </div>
     <!-- Seletor de arquivos do NAVEGADOR: mora aqui, solto e fixo, e quem o
-         abre é o `#cronoImportar` da barra (`importarArquivos`, por
+         abre é o primeiro bloco da Biblioteca (`importarArquivos`, por
          `fileEl.click()`). No app ele não é usado: o seletor é o do sistema
          (`AVNative.pickDoc`). -->
     <input id="file" type="file"
@@ -2024,7 +2015,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.14.39</span>
+          <span id="appVersion">v1.14.40</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>

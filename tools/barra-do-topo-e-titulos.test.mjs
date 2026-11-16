@@ -73,13 +73,12 @@ try {
       setAppMode('full');
       const h = document.querySelector('.list-header');
       const r = h.getBoundingClientRect();
-      // A PORTA DO ITINERÁRIO (`#itinBarBtn`, Pacote 35) é o quarto morador quando à
-      // vista e, desde o Pacote 37, é a PRIMEIRA da trilha 1 — o Importar entra
-      // deslocado à direita dela. Os dois dividem a mesma célula e a simetria é a mesma:
-      // o que se mede é o morador MAIS ALTO e o MAIS BAIXO, não a ordem.
+      // A PORTA DO ITINERÁRIO (`#itinBarBtn`, Pacote 35) é o terceiro morador quando à
+      // vista, sozinha na trilha 1 (o Importar saiu da barra na v1.14.40: é o primeiro
+      // bloco da Biblioteca). O que se mede é o morador MAIS ALTO e o MAIS BAIXO, não a ordem.
       const p = document.getElementById('itinBarBtn');
       const porta = !!p && p.getClientRects().length > 0;
-      const moradores = ['#cronoImportar', '#cronoTitulo', '.list-header .settings-btn']
+      const moradores = ['#cronoTitulo', '.list-header .settings-btn']
         .concat(porta ? ['#itinBarBtn'] : [])
         .map((s) => document.querySelector(s)).filter(Boolean)
         .map((e) => e.getBoundingClientRect());
@@ -104,8 +103,8 @@ try {
         moradores: moradores.length, porta,
       };
     });
-    checar(barra.porta && barra.moradores === 4,
-      onde + ' · (premissa) a barra do topo tem os quatro moradores — a porta do itinerário inclusive', barra);
+    checar(barra.porta && barra.moradores === 3,
+      onde + ' · (premissa) a barra do topo tem os três moradores — a porta do itinerário inclusive (o Importar saiu na v1.14.40)', barra);
     checar(Math.abs(barra.acima - barra.abaixo) < 1,
       onde + ' · 1 · a barra do topo do Cronograma respira IGUAL em cima e '
       + 'embaixo — o `padding-bottom` era ZERO, e os moradores terminavam exatamente '

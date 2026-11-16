@@ -1,5 +1,5 @@
 // ============================================================================
-// LIMPAR O CRONOGRAMA — o EXCLUIR do único (v1.13.5) — e o IMPORTAR na barra
+// LIMPAR O CRONOGRAMA — o EXCLUIR do único (v1.13.5)
 // ============================================================================
 //
 // O botão de limpar morou na trilha 1 da barra do topo da v1.8.66 à v1.13.4.
@@ -26,9 +26,10 @@
 //     na primeira e falha na segunda.
 //  4. O BOTÃO ACESO SOBRE NADA (bloco F). Com o único cronograma vazio o excluir
 //     fica `disabled`, com o `title` (e o `aria-label`) dizendo por quê.
-//  5. O IMPORTAR (blocos A, B, C e H): ele é o morador da trilha 1 — só o ícone,
-//     sem corpo, a caixa da engrenagem, o título no eixo, a tinta acima do piso
-//     nos dois temas, a resposta ao toque — e o toque abre o seletor.
+//  5. A BARRA SEM O LIMPAR (blocos A e B): ele saiu, a porta "Importar" do
+//     rodapé também, e o título continua no eixo. (O IMPORTAR que ocupou a trilha
+//     1 da v1.13.5 à v1.14.39 é o primeiro bloco da Biblioteca desde a v1.14.40 —
+//     o oráculo dele é o `importar-na-biblioteca.test.mjs`.)
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { semRedeExterna } from './sem-rede.mjs';
@@ -111,100 +112,22 @@ const conta = (pg) => pg.evaluate(async () => (await AVDB.listIds('imports')).le
 
 try {
   // =========================================================================
-  // A · O LIMPAR SAIU DA BARRA; O IMPORTAR MORA LÁ — e ele é SÓ o ícone
+  // A · O LIMPAR SAIU DA BARRA (e o IMPORTAR também, na v1.14.40)
   // =========================================================================
   {
     const a = await abrir('dark', 6);
-    const r = await a.pg.evaluate(() => {
-      const b = document.getElementById('cronoImportar');
-      const cs = b && getComputedStyle(b);
-      const h = document.querySelector('.list-header').getBoundingClientRect();
-      const t = document.getElementById('cronoTitulo').getBoundingClientRect();
-      const svg = b && b.querySelector('svg');
-      return {
-        limpar: !!document.getElementById('cronoLimpar') || !!document.querySelector('.crono-limpar'),
-        simboloVelho: !!document.getElementById('icoLimparLista'),
-        // A PORTA "IMPORTAR" DO RODAPÉ saiu junto: lá sobram duas.
-        portaVelha: !!document.querySelector('#listFoot .import-btn'),
-        existe: !!b,
-        // SÓ O ÍCONE: um filho, e ele é o `<svg>` — a regra da faixa, em que o
-        // voltar e a engrenagem também são ícone solto.
-        filhos: b ? [...b.children].map((c) => c.tagName.toLowerCase()) : [],
-        texto: b ? (b.textContent || '').trim() : null,
-        rotulo: b ? b.getAttribute('aria-label') : null,
-        // SEM CORPO: `background: none` computa para `rgba(0, 0, 0, 0)`.
-        fundo: cs && cs.backgroundColor,
-        // NA TRILHA 1, antes do título. Desde o Pacote 37 a PRIMEIRA da trilha é a
-        // porta do itinerário (o operador trocou os dois de lugar) e o Importar entra
-        // logo à direita dela: o que se mede é a borda esquerda do Importar, e ela é
-        // `--hit` + `--sp-2` depois da porta quando ela está à vista.
-        esq: b ? +(b.getBoundingClientRect().left - h.left).toFixed(1) : null,
-        portaEsq: (() => {
-          const p = document.getElementById('itinBarBtn');
-          if (!p || !p.getClientRects().length) return null;
-          const r = p.getBoundingClientRect();
-          return { esq: +(r.left - h.left).toFixed(1), fim: +(r.right - h.left).toFixed(1) };
-        })(),
-        antes: b ? b.getBoundingClientRect().right <= t.left : false,
-        // A CAIXA é a mesma da engrenagem em frente — o `--hit` da barra.
-        cx: b ? +b.getBoundingClientRect().width.toFixed(1) : null,
-        cy: b ? +b.getBoundingClientRect().height.toFixed(1) : null,
-        gear: +document.getElementById('settingsBtn').getBoundingClientRect().width.toFixed(1),
-        // O DESENHO SEGUE `--icon-lg` por REGRA PRÓPRIA, e não o atributo do HTML
-        // — a armadilha muda da v1.8.68. A régua é FORÇAR o token: hoje os dois
-        // valem 24, e "mede 24px" passaria por acidente sem a regra.
-        svgCx: (() => {
-          if (!svg) return null;
-          const de = document.documentElement;
-          de.style.setProperty('--icon-lg', '30px');
-          const w = +svg.getBoundingClientRect().width.toFixed(1);
-          de.style.removeProperty('--icon-lg');
-          return w;
-        })(),
-        lg: 30,
-      };
-    });
+    const r = await a.pg.evaluate(() => ({
+      limpar: !!document.getElementById('cronoLimpar') || !!document.querySelector('.crono-limpar'),
+      simboloVelho: !!document.getElementById('icoLimparLista'),
+      // A PORTA "IMPORTAR" DO RODAPÉ saiu junto: lá sobram duas.
+      portaVelha: !!document.querySelector('#listFoot .import-btn'),
+      importarNaBarra: !!document.getElementById('cronoImportar') || !!document.querySelector('.list-header .crono-importar'),
+    }));
     checar(!r.limpar && !r.simboloVelho && !r.portaVelha,
       'A · o LIMPAR saiu da barra (com o desenho da lixeira-com-lista), e a porta '
       + '"Importar" saiu do rodapé (v1.13.5)', JSON.stringify(r));
-    const trilha1 = r.portaEsq === null
-      ? (r.esq !== null && r.esq < 24)
-      : (r.portaEsq.esq < 24 && Math.abs(r.esq - r.portaEsq.fim) <= 12);
-    checar(r.existe && trilha1 && r.antes,
-      'A · e o IMPORTAR mora na trilha 1 da barra, à esquerda (à direita da porta do itinerário, quando ela está '
-      + 'à vista — Pacote 37) e antes do título',
-      JSON.stringify(r));
-    checar(r.filhos.length === 1 && r.filhos[0] === 'svg' && r.texto === '' && /importar/i.test(r.rotulo || ''),
-      'A · e é SÓ o ícone — nenhum rótulo à vista, e o nome acessível diz o que ele faz',
-      JSON.stringify({ filhos: r.filhos, texto: r.texto, rotulo: r.rotulo }));
-    checar(/,\s*0\)$/.test(r.fundo || ''),
-      'A · e ele é CHAPADO, como a engrenagem: o fundo não pinta', r.fundo);
-    checar(r.cx === r.gear && Math.abs(r.cx - r.cy) < 0.5,
-      'A · e a caixa é a da engrenagem em frente (`--hit`, quadrada)', JSON.stringify(r));
-    checar(r.svgCx === r.lg,
-      'A · e o desenho SEGUE `--icon-lg` (forçado a 30px, mede ' + r.svgCx + 'px) — regra própria, o '
-      + 'degrau a mais de um contorno esparso ao lado da engrenagem densa', JSON.stringify(r));
-    // O TOQUE ABRE O SELETOR. No navegador, o `#file` (o Playwright vê o
-    // `filechooser`); no app, o do sistema (`AVNative.pickDoc`) — aqui com uma
-    // ponte de mentira que só registra a chamada.
-    const [escolha] = await Promise.all([
-      a.pg.waitForEvent('filechooser', { timeout: 5000 }).catch(() => null),
-      a.pg.click('#cronoImportar'),
-    ]);
-    checar(!!escolha && escolha.isMultiple(),
-      'A · e o toque abre o seletor de arquivos do navegador (vários de uma vez)', String(!!escolha));
-    const nativo = await a.pg.evaluate(async () => {
-      const antes = [window.__NATIVE__, window.AVNative];
-      let pediu = null;
-      window.__NATIVE__ = true;
-      window.AVNative = { pickDoc: async (mimes) => { pediu = mimes; return []; } };
-      try { document.getElementById('cronoImportar').click(); await new Promise((f) => setTimeout(f, 50)); }
-      finally { [window.__NATIVE__, window.AVNative] = antes; }
-      return pediu;
-    });
-    checar(typeof nativo === 'string' && /application\/pdf/.test(nativo),
-      'A · e, no app, o toque abre o seletor do SISTEMA (`AVNative.pickDoc`), o único que '
-      + 'serve ao PDF', String(nativo));
+    checar(!r.importarNaBarra,
+      'A · e o IMPORTAR saiu da barra do topo (v1.14.40): mora na Biblioteca', JSON.stringify(r));
     checar(a.erros.length === 0, 'A · nenhum erro de página', a.erros.join(' | '));
     await a.ctx.close();
   }
@@ -213,9 +136,8 @@ try {
   // B · O TÍTULO CONTINUA CENTRADO
   // =========================================================================
   //
-  // As duas pontas da faixa medem `--hit` cheio (o importar e a engrenagem), e
-  // esta é a asserção que prova que a troca não cobrou nada: o centro do título
-  // contra o centro da FAIXA, e não contra a tela.
+  // O centro do título contra o centro da FAIXA, e não contra a tela: as
+  // trilhas das pontas são simétricas, com ou sem morador na da esquerda.
   {
     const a = await abrir('dark', 6);
     const r = await a.pg.evaluate(() => {
@@ -233,33 +155,6 @@ try {
     await a.ctx.close();
   }
 
-  // =========================================================================
-  // C · A TINTA DO IMPORTAR, MEDIDA NOS DOIS TEMAS
-  // =========================================================================
-  //
-  // Lida do RENDERIZADO: ler o nome do token provaria que alguém escreveu
-  // `--accent`, não que o ícone se vê — e a paleta tem cor que some num tema só
-  // (`--on-accent` mede **1,00:1** no claro, branco sobre a barra branca).
-  for (const tema of ['dark', 'light']) {
-    const a = await abrir(tema, 6);
-    const r = await a.pg.evaluate(() => {
-      const b = document.getElementById('cronoImportar');
-      return {
-        tema: document.documentElement.dataset.tema || 'escuro',
-        cor: getComputedStyle(b).color,
-        gear: getComputedStyle(document.getElementById('settingsBtn')).color,
-        barra: getComputedStyle(document.querySelector('.list-header')).backgroundColor,
-      };
-    });
-    checar(r.tema === (tema === 'light' ? 'claro' : 'escuro'),
-      'C · ' + tema + ': o app está NESTE tema', r.tema);
-    const c = razao(r.cor, r.barra);
-    checar(c >= 3 && r.cor === r.gear,
-      'C · ' + tema + ': o ícone mede ' + c + ':1 contra a barra, acima do piso de 3:1, e '
-      + 'veste a tinta da engrenagem em frente — as duas pontas são AÇÕES',
-      JSON.stringify({ cor: r.cor, gear: r.gear, barra: r.barra, razao: c }));
-    await a.ctx.close();
-  }
 
   // =========================================================================
   // D · O EXCLUIR DO ÚNICO PERGUNTA LIMPAR, E O CANCELAR NÃO APAGA NADA
@@ -373,43 +268,6 @@ try {
     await a.ctx.close();
   }
 
-  // =========================================================================
-  // H · O IMPORTAR RESPONDE AO TOQUE
-  // =========================================================================
-  //
-  // A regra do bloco de guardas: *"Bloco novo que hospede controles entra na
-  // lista de guardas no MESMO lote em que nasce"*, e a recíproca vale para o
-  // controle. REVERSÃO: tirar `.crono-importar` do `:is(...)` do `--press`
-  // reprova aqui.
-  {
-    const a = await abrir('dark', 0);
-    const r = await a.pg.evaluate(() => {
-      const b = document.getElementById('cronoImportar');
-      const g = document.getElementById('settingsBtn') || document.querySelector('.settings-btn');
-      const dePress = (el) => {
-        // a regra do `--press` é `:active`; sem pseudo-classe em JS, mede-se a
-        // DECLARAÇÃO: o seletor tem de alcançar o elemento.
-        for (const folha of document.styleSheets) {
-          let regras; try { regras = folha.cssRules; } catch (_) { continue; }
-          for (const reg of regras) {
-            if (!reg.selectorText || !/:active/.test(reg.selectorText)) continue;
-            if (!/var\(--press\)/.test(reg.style.transform || '')) continue;
-            const sem = reg.selectorText.replace(/:active/g, '');
-            try { if (el.matches(sem)) return true; } catch (_) {}
-          }
-        }
-        return false;
-      };
-      return { botao: dePress(b), vizinha: g ? dePress(g) : null };
-    });
-    checar(r.vizinha === true,
-      'H · PREMISSA: a engrenagem da mesma faixa está na lista do `--press` — '
-      + 'sem ela a metade de baixo mediria a ausência da lista inteira', r);
-    checar(r.botao === true,
-      'H · e o importar também: um botão de barra que não afunda ao toque é '
-      + 'indistinguível de um quebrado', r);
-    await a.ctx.close();
-  }
 
   // G · O CRONOGRAMA VAZIO É UMA MARCA-D'ÁGUA (v1.8.67)
   // =========================================================================

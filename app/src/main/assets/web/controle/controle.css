@@ -745,10 +745,10 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   .ctl-btn, .t-btn, .settings-btn,
   .tools-btn, .lib-foot-btn, .back-btn,
   .row-btn, .popup-close, .popup-acao, .versao-txt,
-  /* O IMPORTAR (v1.13.5) e o TÍTULO do Cronograma, e o "Novo cronograma" da
+  /* A PORTA DO ITINERÁRIO e o TÍTULO do Cronograma, e o "Novo cronograma" da
      gaveta (v1.12.54/v1.12.55). Os dois quadrados de cada linha da gaveta já
      entram por `.row-btn`; a LINHA responde por luz (ver `.crono-item:active`). */
-  .crono-importar, .crono-itin, .crono-titulo, .crono-alerta, .crono-novo,
+  .crono-itin, .crono-titulo, .crono-alerta, .crono-novo,
   /* O ⛶ da cifra (v1.6.0): ele nasce no MESMO lote em que entra aqui, que é a
      regra desta lista — um controle novo fora dela fica mudo ao toque sem nada
      na tela dizer por quê. Nenhum ancestral dele responde ao toque. */
@@ -848,17 +848,13 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 }
 /* Barra larga de ação (projetar): o ícone acompanha o alvo. */
 .misc-project svg { display: block; width: var(--icon-lg); height: var(--icon-lg); }
-/* O IMPORTAR DO CRONOGRAMA É `--icon-lg` NUMA CAIXA DE `--hit` (v1.13.5), a
-   combinação que a casa dele já tinha (o limpar da v1.8.69 à v1.13.4), e é a
-   ÚNICA peça do app com ela — por isso tem linha própria, e não uma vírgula na
-   regra acima, cujo comentário fala de BARRAS LARGAS DE AÇÃO.
-
-   O DEGRAU A MAIS É DENSIDADE: a folha com o + é contorno esparso, como a
-   lixeira com lista que morava aqui, e a engrenagem na outra ponta é glifo
-   denso — igualar o TAMANHO não iguala o PESO. (MEDIDO com a lixeira, tinta
-   contra a engrenagem: 20px -> 0,60 · 22px -> 0,74 · 24px -> 0,89.) Fora de toda
-   lista, o svg viveria do atributo do HTML — a armadilha muda da v1.8.68. */
-.crono-importar svg, .crono-itin svg { display: block; width: var(--icon-lg); height: var(--icon-lg); }
+/* A PORTA DO ITINERÁRIO É `--icon-lg` NUMA CAIXA DE `--hit` — a combinação que o
+   importar da barra do topo tinha (v1.13.5 a v1.14.39) — e é a ÚNICA peça do app
+   com ela: por isso a linha própria. O DEGRAU A MAIS É DENSIDADE: o relógio é
+   contorno esparso e a engrenagem na outra ponta é glifo denso — igualar o TAMANHO
+   não iguala o PESO. Fora de toda lista, o svg viveria do atributo do HTML — a
+   armadilha muda da v1.8.68. */
+.crono-itin svg { display: block; width: var(--icon-lg); height: var(--icon-lg); }
 /* A SETA DO TÍTULO é `--icon-sm`, o degrau dos botões de cabeçalho: ela é a
    marca de "isto abre", não um botão por si. */
 .crono-seta { display: block; flex: none; width: var(--icon-sm); height: var(--icon-sm); }
@@ -2579,24 +2575,6 @@ main {
   padding: calc(var(--sp-5) / 2 + env(safe-area-inset-top)) .8rem calc(var(--sp-5) / 2);
 }
 .list-header > .back-btn { grid-column: 1; }
-/* ---------- IMPORTAR ARQUIVOS: a trilha 1 (v1.13.5) ----------
-   Ele mora na MESMA trilha do voltar (escondido em toda passada do
-   `renderListTitle`), a casa que foi da badge de versão (até a v1.8.66) e do
-   LIMPAR (v1.8.66 a v1.13.4). `justify-self: start` porque a trilha é elástica
-   (`minmax(--hit, 1fr)`): sem ele o botão flutuaria no meio da sobra, e o que a
-   faixa promete é um alvo ENCOSTADO no canto, como a engrenagem na outra ponta.
-
-   A COR É `--accent`, A DA ENGRENAGEM EM FRENTE: as duas pontas da faixa são
-   AÇÕES (abrir o seletor, abrir Configurações) com a mesma caixa e a mesma tinta,
-   e o título no meio, `--muted`, é o único que não é ação. (O limpar vestia
-   `--muted` por ser DESTRUTIVO — o vermelho dele era *"muito chamativo"*, v1.8.68
-   —, razão que não vale para quem acrescenta à lista.) MEDIDO, a engrenagem
-   renderiza `--accent` porque `.list-header .settings-btn` (0,2,0) vence a regra
-   base dela; aqui a cor é declarada direto.
-
-   CHAPADO (sem `background`), como a engrenagem: o esqueleto do botão
-   só-de-ícone dá caixa, raio e alvo; o que sobra aqui é a cor. */
-.crono-importar { background: none; color: var(--accent); }
 /* ---------- O ALERTA DE "NÃO ESTÁ PRONTO" (v1.13.52) ----------
    Ícone só, na mesma caixa quadrada do voltar e da engrenagem (ver o esqueleto
    do botão só-de-ícone, mais abaixo) e chapado como eles: o esqueleto dá caixa,
@@ -2610,10 +2588,6 @@ main {
    O DESENHO É SVG inline porque o triângulo de alerta não está no subset da
    fonte (`msym`), e codepoint ausente desenha um retângulo vazio. */
 .crono-alerta { background: none; color: var(--warn); }
-/* `grid-row: 1` EXPLÍCITO porque o `#itinBarBtn` divide a célula com ele: um item só
-   com a coluna definida não sobrepõe outro — o posicionamento automático o descia
-   para uma segunda linha, levando o título e a engrenagem junto. */
-.list-header > .crono-importar { grid-row: 1; grid-column: 1; justify-self: start; }
 /* O PAR nome + alerta ocupa a trilha do meio; o título sozinho continua
    centrado nela quando o alerta está escondido (o caso normal). */
 .list-header > .crono-par { grid-column: 2; justify-self: center; min-width: 0; }
@@ -2797,7 +2771,7 @@ main {
    (fundo, cor e, no `.cue-save-btn`, a borda). O voltar tinha só ~20×20 px —
    o menor alvo do app inteiro, e é a única saída da gaveta de pasta e da
    navegação da Bíblia. */
-.back-btn, .row-btn, .row-slot, .crono-importar, .crono-itin, .crono-alerta,
+.back-btn, .row-btn, .row-slot, .crono-itin, .crono-alerta,
 .cue-save-btn, .popup-close, .popup-acao, .log-copy, .lv-cheia-btn {
   flex-shrink: 0; width: var(--hit); height: var(--hit); padding: 0;
   border: none; border-radius: var(--radius-btn);
@@ -2940,7 +2914,8 @@ main {
    `.portas-row`), e as divide com a barra de seleção múltipla, NUNCA ao mesmo
    tempo. (O "Importar arquivos" morou aqui da v5.107 à v1.13.4 — ele era o
    último item da lista, e com trinta itens a ação mais frequente da tela exigia
-   rolar até o fim. Desde a v1.13.5 ele é o `#cronoImportar` da barra do topo.)
+   rolar até o fim. Da v1.13.5 à v1.14.39 ele morou na barra do topo; hoje é o
+   primeiro bloco da Biblioteca, `blocoImportar`.)
    Vazio, o rodapé não existe — `:empty` some com ele e com o `gap` do `<main>`
    junto, senão sobraria uma faixa de ar acima da caixa de controles nas abas
    que não têm rodapé nenhum. */
@@ -4612,6 +4587,8 @@ main {
    enchendo a tela exatamente como antes (MEDIDO por reversão em
    `lista-da-biblioteca.test.mjs`, casos D5/D5b/F2). */
 .coll-group--drop:first-child { padding-top: 0; margin-top: var(--sp-5); }
+/* O IMPORTAR é o primeiro bloco desde a v1.14.40 (`blocoImportar`): o mesmo respiro. */
+.lib-importar:first-child { margin-top: var(--sp-5); }
 /* ---------- QUEM OCUPA O VÃO É A SEÇÃO DOS FAVORITOS (v5.273/v5.276) --------
    Pedido do operador: *"a visão comum inicial vai ser as listas de coleções
    empilhadas na base, e quando elas acabam, toda a parte da tela que sobrou
@@ -5340,6 +5317,21 @@ main {
 }
 .semana-raiz-lista { margin: 0; }
 
+/* ---------- O IMPORTAR, PRIMEIRO BLOCO DA BIBLIOTECA (v1.14.40) ----------
+   Ver `blocoImportar`. A anatomia é a do CARD FECHADO — o quadrado de `--hit` da
+   `.coll-bar-icon`, o nome e o subtítulo da `.coll-bar-info` — e a altura é a
+   da tampa, pela lista dos blocos fechados acima. O alvo é o `li` inteiro, e ele
+   responde por LUZ como o card (um contêiner não escala: `--press` é de controle
+   folha). No Modo Fácil o recuo e o vão são os da `.coll-bar` dele. */
+.lib-importar {
+  flex-shrink: 0; border-radius: var(--radius-card); cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.lib-importar-bar { display: flex; align-items: center; gap: var(--sp-5); padding: .35rem .7rem; }
+.lib-importar-bar .coll-bar-icon svg { display: block; width: var(--icon-md); height: var(--icon-md); }
+.lib-importar:active { filter: var(--press-luz); }
+body.mode-simple #hymnResults .lib-importar-bar { gap: var(--sp-4); padding-inline: .55rem; }
+
 /* A sentinela do fim da página (ver `fillSongList`). O objetivo é que ela NÃO
    seja vista: o observador dispara 300px antes, então na rolagem normal a
    próxima página já chegou quando esta linha entraria na tela. Ela existe
@@ -5791,7 +5783,8 @@ main {
 /* NÍVEL 1 — o que está na RAIZ da lista é um agrupamento, e agrupamento é poço. */
 .acervo > .coll-group--drop,
 .acervo > .hymnal-card,
-.acervo > .folder-opfs { background: var(--poco); }
+.acervo > .folder-opfs,
+.acervo > .lib-importar { background: var(--poco); }
 /* ---------- E ELE CRESCE PARA PREENCHER A TELA (v1.5.17) ----------
    Relato do operador: *"o aproveitamento da altura não está correto, está
    sobrando. É claro que pode haver telas menores, por isso o tamanho deve ser
@@ -5877,7 +5870,8 @@ main {
    assimétrica e está na folha: o `box-shadow` existe na `.coll-bar` de um card
    aberto e NÃO existe na `.coll-group-bar`. */
 #hymnResults.acervo > .coll-group--drop:not(.aberto),
-#hymnResults.acervo > .hymnal-card:not(.expanded) {
+#hymnResults.acervo > .hymnal-card:not(.expanded),
+#hymnResults.acervo > .lib-importar {
   flex-grow: 0;
   height: var(--tampa-h, auto);
   max-height: var(--bar-raiz-max);
@@ -7483,16 +7477,12 @@ main:has(> .list-body > .tools-sheet:not([hidden])) :is(#itinBar, #itinBarBtn) {
   .itin-txt-longo { display: none; }
   .itin-txt-curto { display: inline; }
 }
-/* A PORTA DA FAIXA, NA BARRA DO TOPO (`#itinBarBtn`): mora na trilha 1 com o importar,
-   na MESMA célula, deslocada pela margem — as trilhas não mudam e o título não sai do
-   eixo. Chapada como o importar; aberta, veste o par de LIGADO. O ponto do "no ar"
+/* A PORTA DA FAIXA, NA BARRA DO TOPO (`#itinBarBtn`): mora sozinha na trilha 1 — as
+   trilhas não mudam e o título não sai do eixo. Chapada, como a engrenagem; aberta, veste o par de LIGADO. O ponto do "no ar"
    é dela agora: um selo no canto, porque a faixa recolhida não desenha nada. */
 .list-header > .crono-itin {
   grid-row: 1; grid-column: 1; justify-self: start;
 }
-/* O IMPORTAR ANDA PARA A DIREITA DA PORTA (Pacote 37): os dois dividem a trilha 1,
-   e quem cede o primeiro lugar agora é o itinerário. */
-.list-header > .crono-importar { margin-left: calc(var(--hit) + var(--sp-2)); }
 .crono-itin-ico { display: inline-flex; align-items: center; justify-content: center; }
 .crono-itin { position: relative; background: none; color: var(--accent); }
 .crono-itin[aria-expanded="true"] { background: var(--btn-accent); }

@@ -64,7 +64,7 @@
 //  T. A CENA ANTIGA `itinerario`: tocá-la ACRESCENTA os horários como momentos (sem
 //     apagar nada, sem duplicar o que já existe, e tocar de novo não duplica).
 //  U. A FAIXA E A PORTA: o app abre com ela recolhida (vazia); a porta `#itinBarBtn` (na
-//     barra, logo depois do Importar) a abre com os sete botões e a fecha, sem gravar nada;
+//     barra, sozinha na trilha 1, antes do título) a abre com os sete botões e a fecha, sem gravar nada;
 //     aberta antes de recarregar, volta recolhida; em 320, 360 e 430 cabe numa linha.
 //  V. SEM FERRAMENTA: `FERRAMENTAS` sem `itinerario`, nenhum id/global removido, e a
 //     folha de Ferramentas só tem os seis tiles.
@@ -504,9 +504,9 @@ try {
       pai: b.parentElement && b.parentElement.tagName,
       porta: {
         visivel: !porta.hidden && porta.getClientRects().length > 0, naBarra: porta.parentElement === topo,
-        // A PORTA É A PRIMEIRA DA TRILHA 1 desde o Pacote 37 (o operador trocou os dois
-        // de lugar): quem vem DEPOIS dela é o Importar, e é assim que a barra se lê.
-        aposImportar: !!porta.nextElementSibling && porta.nextElementSibling.id === 'cronoImportar',
+        // A PORTA É A ÚNICA DA TRILHA 1 desde a v1.14.40 (o Importar foi para a
+        // Biblioteca): quem vem DEPOIS dela é o título, e é assim que a barra se lê.
+        antesDoTitulo: !!porta.nextElementSibling && porta.nextElementSibling.classList.contains('crono-par'),
         expandido: porta.getAttribute('aria-expanded'), controla: porta.getAttribute('aria-controls'),
       },
       ponto: !!p && !p.hidden && getComputedStyle(p).display !== 'none',
@@ -522,10 +522,10 @@ try {
     const f = await faixa();
     checar(f.pai === 'MAIN' && f.irmaDoTopo && f.corpo,
       'U · a faixa é IRMÃ da barra do topo (`.list-header`), dentro do `<main>`, antes do corpo da lista', f);
-    checar(!f.aberta && f.filhos.length === 0 && f.porta.visivel && f.porta.naBarra && f.porta.aposImportar
+    checar(!f.aberta && f.filhos.length === 0 && f.porta.visivel && f.porta.naBarra && f.porta.antesDoTitulo
       && f.porta.expandido === 'false' && f.porta.controla === 'itinBar' && !f.ponto,
       'U · RECOLHIDA a faixa não desenha nada (vazia, `hidden`); a porta `#itinBarBtn` mora NA barra, logo ANTES do '
-      + 'Importar (`aria-expanded="false"`, `aria-controls="itinBar"`), sem o ponto (nada no ar)', f);
+      + 'título (`aria-expanded="false"`, `aria-controls="itinBar"`), sem o ponto (nada no ar)', f);
   }
   await abrirFaixa();
   {

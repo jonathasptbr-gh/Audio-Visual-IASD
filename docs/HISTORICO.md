@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.40** — o importar sai da barra do topo e vira o primeiro bloco da Biblioteca ("Buscar na galeria" no Modo Fácil); e o Modo Fácil volta a importar arquivo, quebrado desde a v1.14.30 (só web).
 - **v1.14.39** — os ajustes do operador à v1.14.38: os três de estado cinzas ligados e vermelhos desligados, as horas riscadas, a folga da faixa e a seta de volta à esquerda (só web).
 - **v1.14.38** — Pacote 37: o subtítulo do momento com o referente, as animações da lista e da faixa, a aba no padrão do deck e a seta do grupo na extrema direita (só web).
 - **v1.14.37** — a faixa do itinerário não se fecha mais sozinha, e o lápis e a lixeira do momento só aparecem com ela aberta; a seta do grupo no tamanho dos vizinhos (Pacote 36, os ajustes do operador; só web).
@@ -838,6 +839,51 @@ apagada da que a criou.
   339,07 / 339,07 px; larguras 83,5 / 83,5 mm.
 - **As páginas não se moveram:** 22 (Por um dia) e 88 (Tempo integral), nos dois formatos, e o
   `antesDaPauta` = depois = PDF continua cobrando isso.
+
+---
+
+## v1.14.40 — o importar na Biblioteca, e o Modo Fácil importando de novo
+
+**Pedido do operador (16/11):** *"Vamos mover a opção de importar arquivo da barra de topo do
+app, para dentro da biblioteca. Será o primeiro item da biblioteca, um botão de importar
+arquivo. Isso vai valer também para o modo simples, mas lá tente colocar o nome de 'buscar na
+galeria' ou algo do tipo que seja mais didático ou lúdico."* Só web.
+
+1. **`#cronoImportar` saiu da `.list-header`** (com as regras `.crono-importar`: a cor, o
+   `grid-row`, a margem que o deslocava à direita da porta, e a vírgula nas listas do `--press` e
+   do botão só-de-ícone). A porta `#itinBarBtn` ficou SOZINHA na trilha 1; o `.crono-itin svg`
+   segue em `--icon-lg`.
+2. **`blocoImportar()`** — o primeiro filho do acervo, inserido no topo de
+   `renderCollectionsListMiolo` (antes dos Favoritos e da Liturgia), nos dois modos, inclusive na
+   passada de esqueleto (as duas listas do `reconciliarAcervo` o têm). `li.lib-importar`
+   (`role=button`, toque e Enter/Espaço no `li` inteiro, luz no `:active`) > `.lib-importar-bar` >
+   `.coll-bar-icon` + `.coll-bar-info`. Avançado: "Importar arquivo" / `#icoArquivoMais` (o desenho
+   do botão antigo, agora no sprite); Modo Fácil: **"Buscar na galeria"** / `#icoGaleria` (novo),
+   com o subtítulo "Fotos, vídeos e músicas do celular". É bloco de raiz FECHADO para a tampa:
+   `height: --tampa-h` pela regra dos fechados, `calcularTampa`/`medirTampa` medem a
+   `.lib-importar-bar`, `blocoDeRaizFechado` o inclui (anima com os Favoritos), `--poco` de
+   nível 1 e `.lib-importar:first-child { margin-top: --sp-5 }` (o respiro do primeiro filho fora
+   do `#hymnResults`). Não conta no `any`.
+3. **A Biblioteca não fecha ao abrir o seletor** — desistir deixa a tela onde estava. Quem sai das
+   camadas é a chegada: `importShare` (app) e o `change` do `#file` (navegador), que trocou o
+   `fecharBiblia()` por `await sairDasCamadas()` (a Biblioteca em tela cheia cobria o Cronograma
+   onde o arquivo entrou). No navegador, no Modo Fácil, o `change` passa os arquivos a
+   `importShare({ files })` — prateleira avulsa e cena —, e não ao `addMedia` do Cronograma.
+4. **O DEFEITO DA v1.14.30, achado no caminho:** `importShare` chamava `escolherDestinos` também
+   no Modo Fácil, onde ele devolve `null` por construção, e o `return false` da desistência
+   (*"fechar sem tocar não importa nada"*) engolia TODO arquivo: o share e o seletor do sistema não
+   importavam nada no Modo Fácil. A pergunta agora só acontece com `!simplificado()`.
+   Reversão medida: tirar a guarda reprova os dois casos B do oráculo novo.
+5. **Tour:** o passo `#cronoImportar` saiu do avançado (o `#libBar` cita o "Importar arquivo"); o
+   simples ganhou `#hymnResults .lib-importar` "Buscar na galeria" (`opcional`), antes da Liturgia.
+
+**Oráculos.** Novo `importar-na-biblioteca.test.mjs` (A avançado, B Modo Fácil destravado).
+`limpar-cronograma` perdeu o importar da barra (A encolheu; C e H apagados); `cronogramas-multiplos`
+E/L, `barra-do-topo-e-titulos` (três moradores), `itinerario` U (`antesDoTitulo`), `tour` C/B2,
+`lista-da-biblioteca` (dez blocos; `importar` no `ler`), `semana-item` I2 (o primeiro bloco DE
+ACERVO), `modo-simples-biblioteca-tamanho` G (a linha medida vai ao meio da tela: com o bloco a mais
+ela caía na borda e a faixa de baixo saía da captura) e `smoke` (o caso "todo ponto da linha" tira o
+bloco da lista de medida, que vive no fluxo do `<body>`: os 55 px a punham sob a barra da Biblioteca).
 
 ---
 

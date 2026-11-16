@@ -14,7 +14,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ [Imp][Itin]        CRONOGRAMA                    [Cfg]  │ ← .list-header (topo; sem appbar)
+│ [Itin]             CRONOGRAMA                    [Cfg]  │ ← .list-header (topo; sem appbar)
 │ [olho][pauta][⏱]  [−5] no horário [+5]  [+]             │ ← #itinBar (a segunda linha: estado · atraso · criação; aberta pelo [Itin], nasce recolhida = vazia)
 │  ┌───────────────────────────────────────────────────┐  │
 │  │  item 1                                           │  │  ← .lib-list
@@ -44,12 +44,11 @@ IRMÃ da barra do topo e não filha dela — a barra é uma grade de três trilh
 ao pixel (`--hit`), e uma linha a mais dentro dela mexeria na conta dos três
 moradores. **Nasce SEMPRE recolhida, e recolhida é vazia e `hidden`: não desenha
 nem ocupa nada.** Quem a abre e fecha é a PORTA `#itinBarBtn` (`.crono-itin`, o
-`[Itin]` do desenho), na própria barra: logo depois do `#cronoImportar`, na MESMA
-célula (1,1) da grade, deslocada por `margin-left: calc(var(--hit) + var(--sp-2))`
-— as trilhas não mudam e o `#listTitle` fica no eixo; por isso o
-`.crono-importar` leva `grid-row: 1` explícito (sem ele o posicionamento
-automático o desceria para uma segunda linha). Aberta, a faixa se recolhe sozinha
-depois de `ITIN_FAIXA_FECHO_MS` (5 s) sem toque nela, e nada disso é gravado.
+`[Itin]` do desenho), na própria barra: SOZINHA na trilha 1, a célula (1,1) da
+grade (`.list-header > .crono-itin { grid-row: 1; grid-column: 1; justify-self:
+start }`) — as trilhas não mudam e o `#listTitle` fica no eixo (até a v1.14.39 ela
+dividia a célula com o importar, que hoje é o primeiro bloco da Biblioteca). Aberta, ela só se fecha pela
+porta (o fecho sozinho de 5 s saiu na v1.14.37), e nada disso é gravado.
 TRANSPARENTE (sem fundo), em TRÊS SEÇÕES `div.itin-secao` (`role="group"`), separadas
 SÓ por espaço: ESTADO (telão · momentos · horários; soltos, com o par de ligado) ·
 ATRASO (os ±5 em cartão `--surface`, o atraso sem caixa) · CRIAÇÃO (o `+`, sólido em

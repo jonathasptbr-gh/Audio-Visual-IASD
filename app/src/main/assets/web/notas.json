@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.14.40",
+    "itens": [
+      "O botão de importar arquivo saiu da barra do topo: agora é o primeiro item da Biblioteca.",
+      "No Modo Fácil ele se chama \"Buscar na galeria\": escolha uma foto, vídeo ou música e ela vai para a TV.",
+      "Consertado: no Modo Fácil, arquivos compartilhados ou escolhidos do celular não entravam no app."
+    ]
+  },
+  {
     "versao": "1.14.39",
     "itens": [
       "Na aba do itinerário, os três botões de estado ficam cinzas quando ligados, como os dos controles.",

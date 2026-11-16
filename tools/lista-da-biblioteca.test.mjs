@@ -1432,7 +1432,8 @@ try {
       if (s.getAnimations().some((a) => a.playState === 'running')) return false;
       if (s.getBoundingClientRect().bottom > window.innerHeight + 1) return false;
       // O FATO que interessa: a lista está COMPLETA e o `medirTampa` já escreveu.
-      return [...el.children].filter((n) => n.nodeType === 1).length === 9
+      // nove blocos de acervo + o IMPORTAR, o primeiro desde a v1.14.40 (`blocoImportar`)
+      return [...el.children].filter((n) => n.nodeType === 1).length === 10
         && !!getComputedStyle(el).getPropertyValue('--tampa-h').trim();
     }, 'a Biblioteca assenta com os nove blocos e a tampa MEDIDA')) {
       await cF.close();
@@ -1805,6 +1806,7 @@ try {
     const ler = () => [...hymnResultsEl.children].map((li) => {
       if (li.classList.contains('coll-group')) return 'grupo:' + (li.dataset.grupo || '');
       if (li.classList.contains('semana-raiz')) return 'semana';
+      if (li.classList.contains('lib-importar')) return 'importar';
       const card = li.querySelector('.coll-bar-name');
       return 'card:' + (card ? card.textContent : (li.className || '?'));
     });

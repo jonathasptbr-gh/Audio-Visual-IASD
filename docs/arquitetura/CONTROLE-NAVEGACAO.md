@@ -68,10 +68,10 @@ da folha de Ferramentas mandaria o título para a trilha errada.
 
 Eram TRÊS da v1.5.0 à v1.13.4 — *"na base dela se mantém o botão de importar
 arquivos no centro, a esquerda o botão de bíblia e a direita o botão de
-ferramentas"* —, e o IMPORTAR foi para a trilha 1 da barra do topo
-(`#cronoImportar`, ver "Os cronogramas múltiplos"): *"no lugar do esvaziar lista
-de cronograma, mova o botão de importar arquivo para o cronograma … Deixando na
-base, apenas bíblia e ferramentas"*.
+ferramentas"* —, e o IMPORTAR saiu do rodapé: *"Deixando na base, apenas bíblia
+e ferramentas"*. Hoje ele é o PRIMEIRO bloco da Biblioteca (`li.lib-importar`,
+`blocoImportar`, v1.14.40; da v1.13.5 à v1.14.39 morou na trilha 1 da barra do
+topo) — ver CONTROLE-BIBLIOTECA, "O primeiro bloco da raiz: o IMPORTAR".
 
 A ordem é a da leitura: o que se **consulta** à esquerda, o que se **produz** à
 direita. `flex: 1 1 0` — base ZERO, porque com `auto` "Ferramentas" partiria maior

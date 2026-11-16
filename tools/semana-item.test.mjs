@@ -330,7 +330,9 @@ try {
     return {
       serieCard: cards.some((t) => /Provai e Vede|Informativo Mundial/.test(t)),
       hinarios: cards.filter((t) => /Hinário Adventista/.test(t)).length,
-      primeiro: lista.firstElementChild ? lista.firstElementChild.className : '',
+      // O primeiro bloco DE ACERVO: acima dele mora só o IMPORTAR (v1.14.40, `blocoImportar`).
+      primeiro: (() => { const p = lista.querySelector(':scope > :not(.lib-importar)'); return p ? p.className : ''; })(),
+      importarAntes: !!lista.firstElementChild && lista.firstElementChild.classList.contains('lib-importar'),
       rot: bloco ? bloco.querySelector('.serie-destaque-rot').textContent : null,
       data: bloco ? bloco.querySelector('.serie-destaque-data').textContent : null,
       linhas,
@@ -341,8 +343,8 @@ try {
     'I1 · no MODO FÁCIL nenhum card de coleção do Provai e Vede ou do Informativo na raiz', iFacil);
   // O BLOCO É O DA LITURGIA (v1.13.60): ele substituiu o "Este sábado" e leva, na mesma caixa,
   // os vídeos da semana e os dois elementos fixos.
-  checar(/semana-raiz/.test(iFacil.primeiro) && iFacil.rot === 'Liturgia' && iFacil.data === datas.sab,
-    'I2 · no lugar deles, o PRIMEIRO bloco da raiz diz "Liturgia" e a DATA do sábado', { iFacil, datas });
+  checar(/semana-raiz/.test(iFacil.primeiro) && iFacil.importarAntes && iFacil.rot === 'Liturgia' && iFacil.data === datas.sab,
+    'I2 · no lugar deles, o PRIMEIRO bloco de acervo da raiz (logo abaixo do importar, v1.14.40) diz "Liturgia" e a DATA do sábado', { iFacil, datas });
   checar(iFacil.linhas.length === 2 && iFacil.linhas[0].nome === 'Informativo Mundial das Missões'
       && iFacil.linhas[1].nome === 'Provai e Vede',
     'I3 · com UMA linha por série — o vídeo da semana de cada uma, direto na raiz', iFacil.linhas);

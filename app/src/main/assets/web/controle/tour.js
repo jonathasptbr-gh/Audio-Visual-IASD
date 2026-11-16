@@ -103,6 +103,8 @@
       // tour não abre nada (os cartões nascem fechados): cada passo aponta o que já está à vista, e
       // o toque que toca e o download de uma música avulsa vão no texto dos passos que têm peça em
       // qualquer instalação (o cartão e a seta).
+      { alvo: '#hymnResults .lib-importar', titulo: 'Buscar na galeria',
+        texto: 'O primeiro item da lista: toque para escolher uma foto, um vídeo ou uma música do celular. Ele vai direto para a TV.', opcional: true },
       { alvo: '#hymnResults .semana-raiz', titulo: 'Liturgia',
         texto: 'Os itens fixos do culto deste sábado: vídeos da semana e hinos, na ordem. Toque numa linha e ela toca na TV na hora.', opcional: true },
       { alvo: '#hymnResults .hymnal-card > .coll-bar', titulo: 'Coleções',
@@ -147,14 +149,12 @@
       { alvo: '#itinBarBtn', titulo: 'Itinerário',
         texto: 'Os momentos do culto ficam na lista, com a hora de cada um; arraste as mídias para debaixo deles. Toque aqui para abrir as opções: mostrar a lista na TV, ocultar os momentos da lista, esconder as horas, adiantar ou atrasar tudo de uma vez e adicionar um momento.',
         opcional: true },
-      { alvo: '#cronoImportar', titulo: 'Importar',
-        texto: 'Toque para trazer do celular vídeos, músicas, fotos, PDF ou PowerPoint. Eles entram no Cronograma.' },
       { alvo: '#bibleBtn', titulo: 'Bíblia',
         texto: 'Toque para abrir a Bíblia e escolher livro, capítulo e versículo para mostrar na TV.' },
       { alvo: '#toolsBtn', titulo: 'Ferramentas',
         texto: 'Toque para abrir Relógio, Cronômetro, Timer, Mensagens e Sorteio, que aparecem em cartões na TV.' },
       { alvo: '#libBar', titulo: 'Biblioteca',
-        texto: 'Toque para abrir a Biblioteca e buscar hinos, álbuns e mídias. Tocando numa música, aparecem as opções dela.',
+        texto: 'Toque para abrir a Biblioteca e buscar hinos, álbuns e mídias. Tocando numa música, aparecem as opções dela. O primeiro item dela, Importar arquivo, traz do celular vídeos, músicas, fotos, PDF ou PowerPoint.',
         semAlvo: 'A Biblioteca fica logo abaixo do Cronograma: toque nela para buscar hinos, álbuns e mídias.' },
       // OS CONTROLES, UM A UM (v1.14.20): eram um passo só ("Controles"). A barra de progresso, a
       // prévia com as duas setas, o grupo de tocar e os exclusivos do Avançado, cada um com o balão

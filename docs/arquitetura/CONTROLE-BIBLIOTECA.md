@@ -661,6 +661,24 @@ lista.
 nó é o MESMO entre uma abertura e a seguinte, então ele guardava a rolagem da vez
 anterior e a Biblioteca reabria no meio de um hinário.
 
+#### O primeiro bloco da raiz: o IMPORTAR (v1.14.40)
+
+`blocoImportar()` monta o PRIMEIRO filho do `#hymnResults.acervo`, nos DOIS modos,
+no topo do `renderCollectionsListMiolo` — a ordem da raiz é **importar · Favoritos ·
+Liturgia (`.semana-raiz`) · coleções**. Até a v1.14.39 o importar era um ícone da
+barra do topo do Cronograma.
+
+| o quê | como |
+|---|---|
+| a forma | `li.lib-importar` (`role="button"`, `tabindex=0`, Enter/Espaço) > `div.lib-importar-bar` > `span.coll-bar-icon` (svg do sprite, `--icon-md`) + `span.coll-bar-info` (`.coll-bar-name` + `.coll-bar-sub`). O toque é do `li` INTEIRO; responde por LUZ (`filter: var(--press-luz)` no `:active`) |
+| o texto | Avançado: "Importar arquivo" · "Vídeo, música, foto, PDF ou PowerPoint" · `#icoArquivoMais`. Modo Fácil: "Buscar na galeria" · "Fotos, vídeos e músicas do celular" · `#icoGaleria` |
+| a caixa | bloco de raiz como os FECHADOS: `height: var(--tampa-h)` (na regra dos `.coll-group--drop:not(.aberto)`/`.hymnal-card:not(.expanded)`), fundo `--poco`; `calcularTampa`/`medirTampa` medem a `.lib-importar-bar`, e `blocoDeRaizFechado` o inclui (anima junto quando os Favoritos abrem/fecham) |
+| o `any` | NÃO conta: sem acervo, "Nenhuma coleção disponível" continua |
+| o toque | `importarArquivos()`: app → `AVNative.pickDoc` (seletor do sistema, `IMPORT_MIMES`); navegador → `#file`. A Biblioteca NÃO fecha ao abrir o seletor: quem sai das camadas é a CHEGADA do arquivo (`importShare` no app; o `change` do `#file` no navegador) |
+| o destino | Avançado: `imports` (o Cronograma; `escolherDestinos` pergunta só com `!simplificado()`). Modo Fácil: a prateleira avulsa (`avulsos`) e a cena (`currentId`) |
+
+Oráculo: `importar-na-biblioteca.test.mjs`.
+
 #### O rodízio das coleções, e os Favoritos ocupando o vão
 
 ```
@@ -1385,7 +1403,7 @@ múltipla (`#selbar`) foi a segunda até a v1.13.52, e saiu com o modo que ela
 servia.
 
 O lugar das portas foi decidido pelo que ele custa em outro: o "Importar
-arquivos" (v5.107 a v1.13.4 — hoje na barra do topo) como último `<li>` do
+arquivos" (v5.107 a v1.13.4 — hoje o primeiro bloco da Biblioteca) como último `<li>` do
 `<ul>` exigia rolar trinta itens para alcançar a ação mais frequente da tela.
 
 Dois detalhes que o mecanismo exige:
@@ -1398,8 +1416,10 @@ Dois detalhes que o mecanismo exige:
   e deixada para o fim ela desenhava a faixa das portas embaixo da grade de
   livros da Bíblia.
 O `<input type="file" multiple>` (`#file`, com o listener já registrado) mora solto
-e FIXO no `<main>` desde a v1.13.5: quem o abre é o `#cronoImportar` da barra, por
-`fileEl.click()` dentro do toque (no navegador; no app o seletor é o do sistema).
+e FIXO no `<main>` desde a v1.13.5: quem o abre é o `li.lib-importar` da Biblioteca
+(`importarArquivos`), por `fileEl.click()` dentro do toque (no navegador; no app o
+seletor é o do sistema). O `change` dele fecha as camadas (`await sairDasCamadas()`) e,
+no Modo Fácil, passa os arquivos a `importShare({ files })` em vez do `addMedia`.
 
 **Navegação persistente:** trocar de aba não reseta a busca. A posição de scroll
 é guardada por aba (`scrollPos`, chave `scrollKey()`) e restaurada **só na
