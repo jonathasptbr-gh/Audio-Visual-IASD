@@ -654,6 +654,7 @@ jobs:
           rodar tools/passador-cabe.test.mjs
           rodar tools/passador-espera.test.mjs
           rodar tools/passador-publico.test.mjs
+          rodar tools/passador-grupo.test.mjs
           rodar tools/abertura-e-transferencia.test.mjs
           rodar tools/edicao-de-midia.test.mjs
           rodar tools/pacote-ida-e-volta.test.mjs

@@ -168,18 +168,40 @@ if (/\b55\b/.test(ctrlLink) && /numeroDoWhatsapp/.test(ctrlLink)) {
     'com DDD e sem 55, o `wa.me` não acha a conversa');
 }
 
-// OS ATALHOS existem na folha de conexão — e o LINK NÃO (v1.14.57: o operador
-// cortou o segundo endereço escrito e a descrição; ficaram dois ícones).
+// O CARTÃO DO PASSADOR existe na folha de conexão, e ele é UM só (v1.14.64): os
+// dois botões COM RÓTULO, a mensagem que viaja e a linha do número moram na
+// mesma caixa. Até a v1.14.63 eram dois nós irmãos — dois ícones soltos e um
+// cartão de WhatsApp separado —, e o operador leu exatamente isso: *"tratados
+// como não do mesmo grupo ou ação"*.
 const htmlCast = ler(join(WEB, 'controle/index.html'));
-for (const id of ['passadorCopyBtn', 'passadorZapBtn', 'castZap', 'passadorZapNum', 'passadorZapAbrir']) {
+for (const id of ['passadorGrupo', 'passadorCopyBtn', 'passadorZapBtn', 'passadorMsg', 'castZap', 'passadorZapNum', 'passadorZapAbrir']) {
   if (new RegExp('id="' + id + '"').test(htmlCast)) ok(`a folha de conexão tem o \`#${id}\``);
   else nao(`a folha de conexão tem o \`#${id}\``,
-    'sem ele o passador não tem atalho nem zona de envio no WhatsApp');
+    'sem ele o passador não tem atalho nem a linha de envio no WhatsApp');
 }
+
+// A MENSAGEM É O QUE SE ESCREVE NA TELA, e o que NÃO se escreve é um SEGUNDO
+// ENDEREÇO copiável (`#passadorUrl`, o nó da v1.14.56): o passador continua
+// sendo opção do endereço do telão, não um segundo endereço. Desde a v1.14.64 a
+// folha mostra a MENSAGEM (o link público + o endereço cru) — é ela que diz o
+// que se compartilha, e é o texto que viaja no `?text=`.
 if (/id="passadorUrl"/.test(htmlCast)) {
-  nao('o link do passador NÃO se escreve na tela',
-    'o pedido é atalho de ícone: link e descrição escritos de volta é o desenho que saiu');
-} else ok('o link do passador NÃO se escreve na tela (atalhos de ícone)');
+  nao('a folha NÃO tem um segundo endereço copiável',
+    'o desenho que saiu na v1.14.57 é o do endereço escrito com botão de copiar próprio');
+} else ok('a folha NÃO tem um segundo endereço copiável (`#passadorUrl`)');
+
+// OS DOIS RÓTULOS, no HTML: o texto visível é o que o oráculo de Chromium lê, e
+// aqui ele é cobrado no passo que BARRA o build — uma remoção futura não chega
+// ao canal nem para ser medida.
+for (const [id, rotulo] of [
+  ['passadorCopyBtn', 'Copiar link'],
+  ['passadorZapBtn', 'Enviar no WhatsApp'],
+]) {
+  const m = htmlCast.match(new RegExp('id="' + id + '"[\\s\\S]*?</button>'));
+  if (m && m[0].includes('>' + rotulo + '<')) ok(`o \`#${id}\` diz "${rotulo}" no próprio botão`);
+  else nao(`o \`#${id}\` diz "${rotulo}" no próprio botão`,
+    'ícone sozinho não diz o que se compartilha — foi o relato do operador em 16/11');
+}
 
 // A MENSAGEM: o link do site na PRIMEIRA linha (sozinho, porque com prosa em
 // volta o WhatsApp deixa de reconhecer o endereço) e o endereço CRU na

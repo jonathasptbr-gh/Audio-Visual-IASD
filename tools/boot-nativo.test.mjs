@@ -4238,21 +4238,25 @@ try {
     'terminado, ele volta a nomear a ação (nada de recado grudado)', emCurso.voltou);
   checar(redeOn.semTrilho, 'e não sobrou interruptor nenhum na folha de conexão');
 
-  // ---- OS ATALHOS DO PASSADOR: dois ícones, a zona e o texto (v1.14.57) --
+  // ---- O CARTÃO DO PASSADOR: os dois rótulos, a mensagem e a linha (v1.14.64) --
   //
-  // O operador cortou o segundo endereço escrito: o passador é uma opção ao
-  // lado do endereço do telão, com dois ícones, e a zona do WhatsApp abre
-  // ABAIXO dos ícones pelo MESMO botão que a fecha. Aqui se mede o desenho
-  // (ícones à vista, nada de link escrito, a zona abrindo e fechando) e as
-  // três contas que o `passador-fronteira` não alcança porque dependem do
-  // estado que o shell entrega.
+  // A v1.14.57 tinha cortado os textos (dois ícones `.log-copy`); o operador
+  // voltou atrás porque ícone sozinho não diz o que se compartilha, e porque o
+  // cartão dos botões e a zona do WhatsApp liam como dois assuntos. Agora os
+  // dois botões têm RÓTULO, a mensagem que viaja aparece no mesmo cartão
+  // (`#passadorMsg`) e a linha do número abre e fecha pelo MESMO botão que a
+  // nomeia. Aqui se mede o desenho e as três contas que o `passador-fronteira`
+  // não alcança porque dependem do estado que o shell entrega.
   //
   // DESDE A v1.14.59 o link é o da PÁGINA PÚBLICA do site (o WhatsApp não
   // reconhece IPv4 privado com porta), e a mensagem leva o link na primeira
-  // linha e o endereço cru na segunda.
+  // linha e o endereço cru na segunda — e desde a v1.14.64 ela está ESCRITA na
+  // folha, para o operador ver o que o toque manda.
   const passador = await pg2.evaluate(() => {
     const zona = document.getElementById('castZap');
     const botao = document.getElementById('passadorZapBtn');
+    const grupo = document.getElementById('passadorGrupo');
+    const msg = document.getElementById('passadorMsg');
     const antes = { fechada: zona.hidden, expandido: botao.getAttribute('aria-expanded') };
     botao.click();
     const abriu = { visivel: !zona.hidden, expandido: botao.getAttribute('aria-expanded') };
@@ -4260,36 +4264,48 @@ try {
     const fechou = { fechada: zona.hidden, expandido: botao.getAttribute('aria-expanded') };
     const base = 'http://192.168.0.14:8787';
     const link = linkDoPassador(base);
+    const rotulo = (id) => {
+      const b = document.getElementById(id);
+      return b ? (b.textContent || '').replace(/\s+/g, ' ').trim() : '';
+    };
     return {
-      icones: ['passadorCopyBtn', 'passadorZapBtn'].map((id) => {
-        const b = document.getElementById(id);
-        return !!b && b.getClientRects().length > 0 && b.classList.contains('log-copy');
-      }),
+      rotulos: [rotulo('passadorCopyBtn'), rotulo('passadorZapBtn')],
+      // O GRUPO É UM: os dois botões, a mensagem e a linha do número na MESMA
+      // caixa (a estrutura que o olho lê como uma ação só).
+      umCartao: [zona, msg, document.getElementById('passadorCopyBtn'), botao]
+        .every((el) => !!el && !!grupo && grupo.contains(el)),
+      tituloGrupo: (document.getElementById('passadorRot') || {}).textContent,
+      mensagemNaTela: msg ? msg.textContent : '',
       semLink: !document.getElementById('passadorUrl'),
-      tituloZona: (zona.querySelector('.cast-rot') || {}).textContent,
       antes, abriu, fechou,
       ddd: numeroDoWhatsapp('51 99999-9999'),
       internacional: numeroDoWhatsapp('+55 (51) 99999-9999'),
       lixo: numeroDoWhatsapp('123'),
       semBarra: linkDoPassador('http://10.0.0.2:8787/'),
       zap: zapDoPassador('5551999999999', mensagemDoPassador(link, hostDoPassador(base))),
+      mensagem: mensagemDoPassador(link, hostDoPassador(base)),
       zapDeveria: 'https://wa.me/5551999999999?text=' + encodeURIComponent(
         link + '\nSe o link não abrir, use: 192.168.0.14:8787'),
       linkVivo: linkDoPassadorAtual(),
     };
   });
-  checar(passador.icones.every(Boolean),
-    'os dois atalhos do passador são ícones do tamanho do copiar do endereço');
+  checar(passador.rotulos[0] === 'Copiar link' && passador.rotulos[1] === 'Enviar no WhatsApp',
+    'os dois botões do passador DIZEM o que fazem (ícone ao lado do texto, nunca sozinho)',
+    passador.rotulos.join(' | '));
+  checar(passador.umCartao && passador.tituloGrupo === 'Passador de slides',
+    'e os dois, a mensagem e a linha do número são UM cartão nomeado', passador.tituloGrupo);
+  checar(passador.mensagemNaTela === passador.mensagem
+    && passador.mensagem === decodeURIComponent(passador.zap.split('?text=')[1] || ''),
+    'a mensagem que a folha mostra é a MESMA que viaja no `?text=` do WhatsApp',
+    JSON.stringify(passador.mensagemNaTela));
   checar(passador.semLink,
-    'e o link do passador NÃO se escreve na folha — é atalho, não endereço');
+    'e não voltou o segundo ENDEREÇO copiável (`#passadorUrl`) — o que se escreve é a mensagem');
   checar(passador.antes.fechada && passador.antes.expandido === 'false',
     'a zona do WhatsApp nasce FECHADA e o botão diz isso (`aria-expanded`)');
   checar(passador.abriu.visivel && passador.abriu.expandido === 'true',
     'e o MESMO botão a abre, sem popup por cima da folha');
   checar(passador.fechou.fechada && passador.fechou.expandido === 'false',
     'e o mesmo botão a fecha, que é o pedido');
-  checar(passador.tituloZona === 'Enviar no WhatsApp',
-    'a zona tem um título só: "Enviar no WhatsApp"', passador.tituloZona);
   checar(passador.ddd === '5551999999999' && passador.internacional === '5551999999999',
     'o número com DDD ganha o 55, e o que já vem internacional fica igual', passador.ddd);
   checar(passador.lixo === '' &&

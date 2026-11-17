@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.64** — Pacote 44: o cartão do passador de slides vira UMA ação só — os dois botões voltam a ter texto ("Copiar link" / "Enviar no WhatsApp", ícone ao lado e nome acessível do conteúdo) e a mensagem que viaja aparece no mesmo cartão, acima da linha do número, que abre e fecha pelo próprio botão (só web).
 - **v1.14.63** — Duas correções do itinerário por fora da fila (pedido de 2026-11-16 22:37): o toque num momento sem mídias é inerte — a edição fica no lápis da linha, com a faixa aberta —, e a sub-aba de criar/editar ganha o vão de `--sp-3` (5,59px) da faixa e os quatro cantos do `--radius-sheet` (18px) (só web).
 - **v1.14.62** — Pacote 42: o momento do itinerário perde o corpo do card e vira uma lista de tópicos (34px em vez de 45,2, passo de 39,6 em vez de 50,8, e 11 momentos na tela de 390 onde cabiam 9), com o eixo do nome, o toque e o respiro do grupo intactos (só web).
 - **v1.14.61** — Pacote 46: o estado e a conexão do passador de slides centralizados no quadro do meio (saem a pílula do topo, o status do cabeçalho e a legenda repetida nos três quadros; conectado é silêncio, e a queda aparece dentro do quadro) (só web).
@@ -796,6 +797,70 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.14.64 — o cartão do passador vira uma ação só, e os botões voltam a dizer o que fazem
+
+**Pacote 44** (pedido do operador, 2026-11-16 20:05), só web: `SHELL_VERSION` 89
+(o shell não foi tocado), `minShell` 83, **sem `shellTag`** — a Release da
+v1.14.56 já publicou todo o Kotlin. Degrau CORREÇÃO.
+
+**O PEDIDO, literal:** *"pode ficar a vontade para retornar com os dois textos
+nos botões de copiar e enviar pelo whatsapp para o passador de slides. Na última
+sessão foi feito só os ícones, mas nenhum deles deixa claro oque ele está
+compartilhando. Então pode voltar com os textos nos botões. E integre melhor o
+card desse botões com a parte da mensagem do link pelo whatsapp. Eles estão
+ficando visualmente tratados como não do mesmo grupo ou ação."*
+
+**O DEFEITO ERA DE LEITURA, e é a razão de o oráculo ser de Chromium.** A
+v1.14.57 cortou os textos por um pedido daquele dia (o segundo endereço escrito
+saiu e ficaram dois ícones `.log-copy`), e o desenho não quebrou nada: o botão
+de ícone continuava copiando o link certo e o campo do número continuava abrindo
+o WhatsApp. O que faltava era o operador saber o que o toque manda — e o cartão
+dos ícones morava solto, logo acima de um `#castZap` com superfície própria, o
+que o olho lia como dois assuntos.
+
+**O DESENHO.** Um contêiner só, `.cast-passador` (`#passadorGrupo`), com a
+MESMA `--surface` e o mesmo `--radius-card` do cartão do endereço — o vocabulário
+do app, não um componente novo. Dentro, na ordem da decisão: o nome do grupo
+(`.cast-rot` "Passador de slides", que responde "o que se compartilha"), as DUAS
+ações com texto e ícone ao lado (`.cast-passador-btn`, `--surface-2` e
+`--radius-btn`, `min-height: var(--hit)`), a MENSAGEM que viaja (`#passadorMsg`,
+monoespaçada, `pre-line`, `--muted`) e a linha do número — que ABRE e FECHA pelo
+próprio botão que a nomeia (`aria-expanded`) e **deixou de pintar superfície
+própria**: um segundo `--surface` ali dentro recriaria o "são duas coisas". A
+mensagem é o que responde ao pedido — ela é a mesma que o `zapDoPassador` põe no
+`?text=` (uma função, dois consumidores: `mensagemDoPassador`), escrita por
+`pintarMensagemDoPassador` a cada `renderCast`.
+
+**O QUE NÃO MUDOU, DE PROPÓSITO.** O link copiado continua sendo o da PÁGINA
+PÚBLICA do site (v1.14.59) e a mensagem continua com o endereço cru na segunda
+linha (o `passador-fronteira` trava as duas desde então) — o lote é de rótulo e
+de estrutura, não do formato do link. O `#cast-extras` sai.
+
+**MEDIDO** (390×844 · 360×640, com a transmissão ligada): botões **173×34** e
+**158×34**, rótulos `55/55` e `103/103` (nenhum truncado), mensagem **351,6** e
+**321,6** px de largura com 30,4 px de altura (as duas linhas desenhadas), grupo
+367,6 e 337,6 px (cabe na folha), folha 382,3 e 396,3 px — o `--hit` lido do
+`:root` é 34 e os dois alvos medem exatamente ele. Nada estoura em 360.
+
+**ORÁCULOS.** `tools/passador-grupo.test.mjs` (**novo**, Chromium): rótulos
+visíveis e nome acessível, o valor copiado lido da ÁREA DE TRANSFERÊNCIA, o
+`?text=` do `wa.me` comparado com a mensagem da tela, a estrutura do grupo (uma
+superfície, um raio, e a linha do número sem fundo), as duas linhas desenhadas e
+selecionáveis, e a geometria nas duas telas. O `passador-fronteira` passou a
+cobrar os dois rótulos no HTML (o passo que BARRA o build) e a chamar de
+"segundo endereço copiável" o que ele proíbe (`#passadorUrl`); o `boot-nativo`
+trocou a asserção dos ícones pela dos rótulos e acrescentou a mensagem na tela e
+o cartão único. **Reversões medidas:** tirar as duas `<span>` de rótulo reprova
+seis asserções em cada tamanho; tirar a linha do número de dentro do cartão
+reprova a asserção do grupo nos dois.
+
+**O QUE NÃO DEU PARA MEDIR:** o leitor de tela de verdade (aqui só o nome
+acessível computado) e a área de transferência no WebView do aparelho — o oráculo
+usa a Clipboard API do Chromium, que é o mesmo caminho do `copiarTexto`, mas não
+o mesmo aparelho. A linha do `RESIDUOS` diz isso.
 
 ---
 

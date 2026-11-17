@@ -482,7 +482,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.63';
+const WEB_VERSION = '1.14.64';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -717,6 +717,9 @@ const castUrlEl = document.getElementById('castUrl');
 const castUrlCopyEl = document.getElementById('castUrlCopy');
 const passadorCopyBtnEl = document.getElementById('passadorCopyBtn');
 const passadorZapBtnEl = document.getElementById('passadorZapBtn');
+// A MENSAGEM que o cartão do passador mostra desde a v1.14.64 — a mesma que o
+// `zapDoPassador` põe no `?text=` do WhatsApp. Ver `pintarMensagemDoPassador`.
+const passadorMsgEl = document.getElementById('passadorMsg');
 const castZapEl = document.getElementById('castZap');
 const passadorZapNumEl = document.getElementById('passadorZapNum');
 const passadorZapAbrirEl = document.getElementById('passadorZapAbrir');
@@ -34651,11 +34654,11 @@ if (castUrlCopyEl) {
 // ===== O PASSADOR DE SLIDES: OS DOIS ATALHOS (v1.14.57) =====
 //
 // O passador é uma OPÇÃO do endereço do telão, e não um segundo endereço na
-// folha: o link dele não se escreve na tela, e as duas ações são dois ícones
-// ao lado do copiar do endereço. A conta do link mora aqui, e não dentro do
-// `renderCast`, porque é o que o oráculo mede — o endereço da rede, a página
-// pública do site e a rota que o `EspelhoServidor.kt` ainda serve são três
-// lugares, e a conta que os junta tem de ser uma só.
+// folha: o que a folha escreve dele é a MENSAGEM que viaja (`#passadorMsg`,
+// v1.14.64), num cartão só com as duas ações. A conta do link mora aqui, e não
+// dentro do `renderCast`, porque é o que o oráculo mede — o endereço da rede, a
+// página pública do site e a rota que o `EspelhoServidor.kt` ainda serve são
+// três lugares, e a conta que os junta tem de ser uma só.
 //
 // O QUE CIRCULA É O LINK DO SITE, e não o endereço do aparelho: o WhatsApp não
 // reconhece IPv4 privado com porta como endereço, e a mensagem chega como
@@ -34694,10 +34697,25 @@ function linkDoPassador(endereco) {
 }
 
 // O link do momento: o endereço que a última leitura do shell trouxe. Lido de
-// `mirrorEstado` (e não de um nó da tela) porque desde a v1.14.57 o link não
-// aparece escrito em lugar nenhum.
+// `mirrorEstado` (e não de um nó da tela), porque o nó mostra a mensagem — que
+// é derivada — e ler a derivada de volta é como as duas divergem no dia em que
+// o IP muda.
 function linkDoPassadorAtual() {
   return linkDoPassador((mirrorEstado || {}).endereco);
+}
+
+// A MENSAGEM NA TELA, e ela é a MESMA que vai no `?text=` do WhatsApp (v1.14.64):
+// uma função, dois consumidores. Ela nasceu porque ícone sozinho não diz o que
+// se compartilha — o operador leu os dois atalhos da v1.14.57 como "não sei o
+// que isto manda". Vazia (bloco fora de cena) sem endereço: um cartão que
+// promete um link que não existe é pior que cartão nenhum.
+function pintarMensagemDoPassador() {
+  if (!passadorMsgEl) return;
+  const base = (mirrorEstado || {}).endereco;
+  const link = linkDoPassador(base);
+  const msg = link ? mensagemDoPassador(link, hostDoPassador(base)) : '';
+  if (passadorMsgEl.textContent !== msg) passadorMsgEl.textContent = msg;
+  passadorMsgEl.hidden = !msg;
 }
 
 // O NÚMERO DO WHATSAPP: o `wa.me` exige DDI+DDD sem sinal nenhum, e o que o
@@ -46350,6 +46368,10 @@ function renderCast() {
   // UM ENDEREÇO SÓ: o IP. Um nome mDNS não resolve no Chrome do Android nem na
   // maioria das Smart TVs, que são exatamente as telas deste recurso.
   texto2(castUrlEl, e.endereco || '');
+  // O CARTÃO DO PASSADOR ESCREVE A MENSAGEM que as duas ações movem (v1.14.64):
+  // sem ela o par de botões volta a ser o que o operador reprovou — duas ações
+  // que não dizem o que compartilham.
+  pintarMensagemDoPassador();
   renderCastTelas(telas);
 }
 

@@ -97,7 +97,6 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **13** — Estudos (não são fila de execução) | 4 | estudo | nenhuma entrega |
 | **16** — O cronograma pronto: o organizador entrega o culto ao sonoplasta | 8 (I4×U2) | pedido | planejamento → Kotlin + web |
 | **29** — Guia do site: a captura da lista de Ferramentas e do Cronograma | 2 (I2×U1) | resíduo | só site (pede o app em tela) |
-| **44** — Conectar: os botões com texto e o card integrado | 4 (I2×U2) | pedido | só web |
 | **45** — Pop-up de volume na abertura, e a porta do tour | 9 (I3×U3) | pedido | web + shell (APK no CI) |
 
 ---
@@ -113,7 +112,6 @@ diferentes, e um lote nunca mistura dois temas.
 |---|---|---|
 | **Cronograma e destinos** | 16 | a abertura antes do culto, e o organizador entregando o culto pronto |
 | **Site** | 29 | as capturas do guia |
-| **Passador de slides** | 44 | o convite que manda o link |
 | **Abertura** | 45 | o volume, a porta do tour e a ordem entre eles |
 | **Fila anterior a 14/11** | 5 | a tela de espera do Itinerário, na ordem que a fila já tinha |
 | **Estudos** | 13 | não são fila de execução: a entrega é a decisão do operador |
@@ -160,7 +158,6 @@ ordem; a fila é dele.
 | 13.3 | layout de paisagem (o app no Windows saiu) | | 3 | 1 | 3 | estudo |
 | **16** | **O cronograma pronto: o organizador entrega o culto** | pedido | 4 | 2 | **8** | planejamento |
 | **29** | **Guia do site: a captura da lista de Ferramentas e do Cronograma** | resíduo | 2 | 1 | **2** | site |
-| **44** | **Conectar: os botões com texto e o card integrado** | pedido | 2 | 2 | **4** | web |
 | **45** | **Pop-up de volume na abertura, e a porta do tour** | pedido | 3 | 3 | **9** | web + shell |
 
 ---
@@ -332,28 +329,6 @@ operador manda a captura, ou ela sai da prévia visual no Chromium.
 
 ---
 
-## Pacote 44 — Conectar: os botões com texto e o card integrado
-
-**Nota 4 (I2×U2) · pedido · só web**
-
-**Onde:** a folha de **conectar a um navegador** no controle, os dois botões do passador de slides
-e o bloco que mostra a mensagem do link.
-
-**O pedido (2026-11-16, 20:05):** *"pode ficar a vontade para retornar com os dois textos nos
-botões de copiar e enviar pelo whatsapp para o passador de slides. Na última sessão foi feito só
-os ícones, mas nenhum deles deixa claro oque ele está compartilhando. Então pode voltar com os
-textos nos botões. E integre melhor o card desse botões com a parte da mensagem do link pelo
-whatsapp. Eles estão ficando visualmente tratados como não do mesmo grupo ou ação."*
-
-**O que muda:** os textos voltam nos dois botões ("Copiar link" / "Enviar no WhatsApp"), e o card
-dos botões + a mensagem do link passam a ler como **um grupo só**, com hierarquia — hoje parecem
-duas ações independentes.
-
-**Trava:** é a MESMA folha que o Pacote 41 acabou de mexer na v1.14.59. Ler o estado atual antes;
-não vale voltar ao desenho anterior ao 41.
-
----
-
 ## Pacote 45 — Pop-up de volume na abertura, e a porta do tour
 
 **Nota 9 (I3×U3) · pedido · web + shell (o APK sai no CI)**
@@ -398,6 +373,8 @@ bloqueia de fato).
 ---
 
 ## O que saiu desta lista (rastro, não log)
+
+**v1.14.64 (2026-11-17), só web:** o **Pacote 44** — o cartão do passador de slides vira UMA ação só: os dois botões voltam a ter TEXTO ("Copiar link" / "Enviar no WhatsApp", ícone ao lado e com o nome acessível do conteúdo), e a MENSAGEM que viaja aparece no mesmo cartão (`#passadorMsg`, as duas linhas da v1.14.59), acima da linha do número — que abre e fecha pelo próprio botão que a nomeia. `.cast-passador` é o contêiner único, com a mesma `--surface` e o mesmo `--radius-card` do cartão do endereço, e a linha do WhatsApp deixou de pintar superfície própria (era o que fazia o grupo ler como dois assuntos). Oráculo `passador-grupo` (novo, Chromium) e o `passador-fronteira`/`boot-nativo` atualizados, com as duas reversões provadas. Nota em `docs/HISTORICO.md`.
 
 **v1.14.62 (2026-11-16), só web:** o **Pacote 42** — o momento do itinerário perde o CORPO do card: o `padding` vertical do `.row` (5,6 em cima e embaixo), que não pintava nada e só ocupava altura, sai, e a linha passa a medir o próprio conteúdo — 34px (o piso `--hit` dos botões) contra 51,2 de uma mídia. Dois momentos consecutivos ficam a 39,59px (a linha mais o `gap` da lista, `--sp-3`, o respiro de uma linha de tópico), contra 50,78 antes, e numa lista só de momentos cabem 11 na tela de 390×844 (antes 9) e 6 na de 360×640 (antes 5). O eixo do nome, a fonte, o `--hit` e o respiro do GRUPO (a `margin-top` de `--sp-4`) ficam como estavam — a moldura do grupo é outra caixa e continua fora deste lote. Oráculo `itinerario`, bloco G″ novo, com a reversão provada. Nota em `docs/HISTORICO.md`.
 

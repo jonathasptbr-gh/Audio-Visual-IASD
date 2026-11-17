@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.14.64",
+    "itens": [
+      "Os dois botões do passador de slides voltaram a ter texto: \"Copiar link\" e \"Enviar no WhatsApp\", com ícone ao lado.",
+      "A mensagem que vai no WhatsApp agora aparece no cartão: você vê o que está compartilhando antes de mandar.",
+      "Os botões e a mensagem moram no mesmo cartão, numa caixa só: deixou de parecer que são duas coisas separadas.",
+      "O campo do número abre e fecha pelo mesmo botão, e a caixa dele perdeu o fundo próprio para não parecer outro cartão.",
+      "O botão que está com a linha do número aberta fica marcado na cor do app."
+    ]
+  },
+  {
     "versao": "1.14.63",
     "itens": [
       "Tocar num momento do itinerário sem mídias embaixo não faz mais nada: só recolhe e expande quando há mídias.",
