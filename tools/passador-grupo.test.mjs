@@ -40,8 +40,10 @@
 //     por `box-shadow`, que é o vocabulário do app. Quem navega por teclado
 //     continua vendo onde está.
 //  G. **A GEOMETRIA** — 390×844 e 360×640: nada truncado
-//     (`scrollWidth <= clientWidth + 1`), o par campo+ícone na MESMA linha, o
-//     cartão dentro da folha e todo alvo ≥ o `--hit` lido do `:root`.
+//     (`scrollWidth <= clientWidth + 1`) no rótulo do "Copiar link", na caixa
+//     do número COM os 11 dígitos mascarados e no botão-ícone, a linha única na
+//     ordem `[Copiar link] [caixa] [ícone]`, a soma das três peças dentro da
+//     largura útil do cartão e todo alvo ≥ o `--hit` lido do `:root`.
 //
 //   node tools/passador-grupo.test.mjs
 // ============================================================================
@@ -114,8 +116,19 @@ const medir = (pg) => pg.evaluate(`(() => {
   const rotuloCopiar = copiar && copiar.querySelector('span');
   const use = zap && zap.querySelector('use');
   const hit = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hit'));
+  const gap = linha ? (parseFloat(getComputedStyle(linha).columnGap) || 0) : 0;
+  const rCopiar = copiar && copiar.getBoundingClientRect();
+  const rNum = num && num.getBoundingClientRect();
+  const rZap = zap && zap.getBoundingClientRect();
   return {
     hit,
+    gap,
+    // A SOMA DAS TRÊS PEÇAS + OS DOIS VÃOS contra a largura útil da linha.
+    soma: rCopiar && rNum && rZap ? Math.round((rCopiar.width + rNum.width + rZap.width + 2 * gap) * 10) / 10 : null,
+    larguraDaLinha: linha ? Math.round(linha.clientWidth * 10) / 10 : null,
+    // A ORDEM: [Copiar link] → [caixa] → [ícone], sem sobreposição.
+    ordem: !!(rCopiar && rNum && rZap
+      && rCopiar.right <= rNum.left + 0.5 && rNum.right <= rZap.left + 0.5),
     grupo: caixa(grupo),
     folha: caixa(folha),
     endereco: caixa(endereco),
@@ -141,10 +154,12 @@ const medir = (pg) => pg.evaluate(`(() => {
     temMsg: !!document.getElementById('passadorMsg'),
     temZona: !!document.getElementById('castZap'),
     temAbrir: !!document.getElementById('passadorZapAbrir'),
-    // O CAMPO E O ÍCONE DIVIDEM A LINHA: mesmo topo, e o campo termina antes
-    // de o botão começar.
-    mesmaLinha: !!(num && zap && Math.abs(num.getBoundingClientRect().top - zap.getBoundingClientRect().top) <= 1
-      && num.getBoundingClientRect().right <= zap.getBoundingClientRect().left + 0.5),
+    // OS TRÊS DIVIDEM A LINHA: mesmo topo. Desde a v1.14.67 o "Copiar link"
+    // entra à ESQUERDA da caixa, na mesma linha — os três no mesmo topo, e a
+    // ordem (copiar → caixa → ícone) é medida pelo campo ordem.
+    mesmaLinha: !!(num && zap && copiar
+      && Math.abs(num.getBoundingClientRect().top - zap.getBoundingClientRect().top) <= 1
+      && Math.abs(copiar.getBoundingClientRect().top - num.getBoundingClientRect().top) <= 1),
     dentroDoGrupo: !!grupo && [copiar, num, zap].every((el) => !!el && grupo.contains(el)),
   };
 })()`);
@@ -355,25 +370,41 @@ try {
       'quem navega por teclado VÊ o foco: o anel de 2px do app, por `box-shadow`', foco.boxShadow);
 
     // ---- G. A GEOMETRIA ----------------------------------------------------
-    checar(m.mesmaLinha,
-      'a caixa do número e o botão-ícone dividem a MESMA linha',
-      `${m.num.x}+${m.num.w} → ${m.zap.x}`);
-    checar(m.copiar.h >= m.hit && m.zap.h >= m.hit && m.num.h >= m.hit,
-      `os três alvos cumprem o --hit (${m.hit}px)`,
-      `${m.copiar.h}px · ${m.zap.h}px · ${m.num.h}px`);
-    for (const [nome, c] of [['Copiar link', m.copiar], ['o número', m.num]]) {
-      checar(!c.truncado && c.scrollW <= c.clientW + 1,
-        `${nome} não é truncado a ${tela.nome}`, `${c.scrollW}/${c.clientW} px`);
+    // O PIOR CASO DA CAIXA: 11 dígitos mascarados (`(11) 9 1234-5678`). Medir
+    // com o campo vazio leria o `placeholder`, que não é o que o operador vê
+    // quando digita. O rótulo e o ícone são medidos no mesmo estado.
+    await colarNumero(pg, '11912345678');
+    const mG = await medir(pg);
+    await pg.focus('#passadorZapNum');
+    checar(mG.num && (await estadoDoCampo(pg)).valor === '(11) 9 1234-5678',
+      'o pior caso está na caixa: 11 dígitos mascarados, com o campo focado',
+      (await estadoDoCampo(pg)).valor);
+    checar(mG.mesmaLinha,
+      'o "Copiar link", a caixa do número e o botão-ícone dividem a MESMA linha',
+      `topos: copiar ${mG.copiar.y} · número ${mG.num.y} · ícone ${mG.zap.y}`);
+    checar(mG.ordem,
+      'e a ordem é [Copiar link] → [caixa do número] → [ícone], da esquerda para a direita',
+      `${mG.copiar.x}+${mG.copiar.w} · ${mG.num.x}+${mG.num.w} · ${mG.zap.x}+${mG.zap.w}`);
+    checar(mG.soma !== null && mG.soma <= mG.larguraDaLinha + 1,
+      `as três peças + os dois vãos cabem na largura útil da linha (${mG.larguraDaLinha}px)`,
+      `${mG.soma}px de ${mG.larguraDaLinha}px`);
+    checar(mG.copiar.h >= mG.hit && mG.zap.h >= mG.hit && mG.num.h >= mG.hit,
+      `os três alvos cumprem o --hit (${mG.hit}px)`,
+      `${mG.copiar.h}px · ${mG.zap.h}px · ${mG.num.h}px`);
+    for (const [nome, c] of [['o rótulo do "Copiar link"', mG.rotuloCopiar],
+      ['a caixa do número', mG.num], ['o botão-ícone', mG.zap]]) {
+      checar(c && !c.truncado && c.scrollW <= c.clientW + 1,
+        `${nome} não é truncado a ${tela.nome}`, c ? `${c.scrollW}/${c.clientW} px` : 'sem a peça');
     }
-    checar(m.grupo.x >= m.folha.x - 0.5 && m.grupo.x + m.grupo.w <= m.folha.x + m.folha.w + 0.5,
-      'o cartão cabe na largura da folha', `${m.grupo.w}px de ${m.folha.w}px`);
-    checar(m.grupo.fundo === m.endereco.fundo && m.grupo.raio === m.endereco.raio,
+    checar(mG.grupo.x >= mG.folha.x - 0.5 && mG.grupo.x + mG.grupo.w <= mG.folha.x + mG.folha.w + 0.5,
+      'o cartão cabe na largura da folha', `${mG.grupo.w}px de ${mG.folha.w}px`);
+    checar(mG.grupo.fundo === mG.endereco.fundo && mG.grupo.raio === mG.endereco.raio,
       'e o cartão tem a MESMA superfície e o mesmo raio do cartão do endereço (o vocabulário do app)',
-      `${m.grupo.fundo} / ${m.grupo.raio} contra ${m.endereco.fundo} / ${m.endereco.raio}`);
+      `${mG.grupo.fundo} / ${mG.grupo.raio} contra ${mG.endereco.fundo} / ${mG.endereco.raio}`);
 
     checar(erros.length === 0, 'nenhum erro de página na folha do passador', erros.slice(0, 3).join(' | '));
 
-    vistas[tela.nome] = m;
+    vistas[tela.nome] = mG;
     await ctx.close();
   }
 } finally {
@@ -384,9 +415,11 @@ try {
 // A GEOMETRIA IMPRESSA: o número que o relatório do lote cita sai daqui, da
 // mesma execução que reprova — número medido à parte envelhece em um lote.
 for (const [nome, m] of Object.entries(vistas)) {
-  console.log(`  ${nome}: cartão ${m.grupo.w}x${m.grupo.h} px · linha ${m.linha.w}px`
-    + ` · campo ${m.num.w}x${m.num.h} px · ícone ${m.zap.w}x${m.zap.h} px`
-    + ` · "Copiar link" ${m.copiar.w}x${m.copiar.h} px (${m.rotuloCopiar ? m.rotuloCopiar.scrollW + '/' + m.rotuloCopiar.clientW : '?'})`
+  console.log(`  ${nome}: cartão ${m.grupo.w}x${m.grupo.h} px · linha útil ${m.larguraDaLinha}px`
+    + ` (soma ${m.soma}px, folga ${Math.round((m.larguraDaLinha - m.soma) * 10) / 10}px · ordem ${m.ordem})`
+    + ` · "Copiar link" ${m.copiar.w}x${m.copiar.h} px (rótulo ${m.rotuloCopiar.scrollW}/${m.rotuloCopiar.clientW})`
+    + ` · caixa ${m.num.w}x${m.num.h} px (${m.num.scrollW}/${m.num.clientW})`
+    + ` · ícone ${m.zap.w}x${m.zap.h} px (${m.zap.scrollW}/${m.zap.clientW})`
     + ` · folha ${m.folha.h}px`);
 }
 

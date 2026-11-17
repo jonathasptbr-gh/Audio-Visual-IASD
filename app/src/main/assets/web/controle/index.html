@@ -2059,7 +2059,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.14.66</span>
+          <span id="appVersion">v1.14.67</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
@@ -2900,23 +2900,25 @@
                  `formatarNumeroDoPassador`), porque é o que o oráculo mede. -->
             <div class="cast-passador" id="passadorGrupo" role="group" aria-labelledby="passadorRot">
               <span class="cast-rot" id="passadorRot">Passador de slides</span>
-              <!-- A LINHA DO NÚMERO: a caixa e o botão-ícone lado a lado, na
-                   largura inteira do cartão. O `55` entra sozinho no envio (o
+              <!-- A LINHA DO CARTÃO (v1.14.67): o "Copiar link", a caixa e o
+                   botão-ícone na MESMA linha, nessa ordem — o operador pediu o
+                   "Copiar link" à ESQUERDA da caixa e aceitou o conjunto mais
+                   apertado (17/11). O `55` entra sozinho no envio (o
                    `numeroDoWhatsapp`), o último número fica guardado em
                    `av.passadorZap` — em DÍGITOS — e o texto que viaja é SÓ o
                    link: com prosa em volta o WhatsApp deixa de reconhecer o
                    endereço como clicável, e o endereço cru na segunda linha
                    saiu por decisão do operador (17/11). -->
               <div class="cast-passador-envio">
+                <button type="button" id="passadorCopyBtn" class="cast-passador-btn" title="Copiar o link do passador de slides">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCopiar"/></svg>
+                  <span>Copiar link</span>
+                </button>
                 <input type="tel" id="passadorZapNum" class="cast-zap-num" inputmode="tel" autocomplete="tel" placeholder="(51) 9 9999-9999" aria-label="Número de quem vai passar os slides, com DDD">
                 <button type="button" id="passadorZapBtn" class="cast-passador-icone" title="Enviar no WhatsApp" aria-label="Enviar no WhatsApp">
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCompartilhar"/></svg>
                 </button>
               </div>
-              <button type="button" id="passadorCopyBtn" class="cast-passador-btn" title="Copiar o link do passador de slides">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCopiar"/></svg>
-                <span>Copiar link</span>
-              </button>
             </div>
 
             <ul class="cast-telas" id="castTelas"></ul>

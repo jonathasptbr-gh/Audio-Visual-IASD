@@ -13264,12 +13264,15 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
 /* O CÓDIGO é o accent, e o endereço não: eles não competem, porque o âmbar aqui
    diz "este é o número do momento" — ele muda a cada vez que a transmissão é
    ativada, e o endereço não. Mesma anatomia do PIN que ele substitui. */
-/* O PASSADOR DE SLIDES É UM CARTÃO COM QUATRO COISAS (v1.14.66).
-   O título, a caixa do número, o botão-ícone que envia e o "Copiar link". O
-   operador decidiu em 17/11 que o cartão perde todo o texto complementar: a
-   prévia da mensagem, o "se o link não abrir, use…" e o botão "Enviar no
-   WhatsApp" que abria um campo e um segundo botão. O que fica é a escolha —
-   copiar, ou mandar direto para o número digitado.
+/* O PASSADOR DE SLIDES É UM CARTÃO COM QUATRO COISAS (v1.14.66; a LINHA é uma
+   só desde a v1.14.67). O título, o "Copiar link", a caixa do número e o
+   botão-ícone que envia. O operador decidiu em 17/11 que o cartão perde todo o
+   texto complementar: a prévia da mensagem, o "se o link não abrir, use…" e o
+   botão "Enviar no WhatsApp" que abria um campo e um segundo botão. O que fica
+   é a escolha — copiar, ou mandar direto para o número digitado — e em 17/11
+   ele pediu o "Copiar link" à ESQUERDA da caixa, na mesma linha, aceitando o
+   conjunto mais apertado ("Há espaço para ter o botão de copiar link a
+   esquerda da caixa, mesmo que fique mais apertado, há espaço").
 
    O CARTÃO continua com a MESMA superfície e o mesmo raio do cartão do
    endereço acima (`--surface` + `--radius-card`): é isso que faz o grupo ler
@@ -13280,19 +13283,20 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
   margin-top: var(--sp-3); padding: var(--sp-4);
   background: var(--surface); border-radius: var(--radius-card);
 }
-/* A LINHA DO NÚMERO: o campo e o botão-ícone, na largura inteira do cartão.
-   `min-width: 0` porque o campo é um `<input>` dentro de um flex: sem isso ele
-   se recusa a encolher abaixo do `placeholder` e o botão sai da caixa a 360px.
-   O CAMPO fica com todo o resto da linha: a 390 ele mede 293px e a 360, 263px
-   — o rótulo "Copiar link" NÃO precisou encolher, porque ele mora na linha de
-   baixo, e não disputa largura com o número (a liberdade que o operador deu em
-   17/11 fica registrada como desnecessária, com os números no relatório). */
+/* A LINHA DO CARTÃO: "Copiar link", caixa do número e botão-ícone, na largura
+   inteira — nessa ordem desde a v1.14.67, por pedido do operador (17/11). O
+   "Copiar link" fica com a largura do conteúdo (`flex: 0 0 auto`) e o campo
+   com todo o resto; o `min-width: var(--hit)` dele é o piso de toque (o
+   `0` de antes deixava o `placeholder` decidir o encolhimento). A largura de
+   cada peça e a régua de
+   truncamento (as três com `scrollWidth <= clientWidth + 1`, os alvos ≥
+   `--hit`) são medidas pelo `tools/passador-grupo.test.mjs`. */
 .cast-passador-envio {
   display: flex; align-items: center; gap: var(--sp-3);
   width: 100%; max-width: 22rem;
 }
 .cast-zap-num {
-  flex: 1 1 auto; min-width: 0; min-height: var(--hit);
+  flex: 1 1 auto; min-width: var(--hit); min-height: var(--hit);
   padding: 0 var(--sp-4); border: 0; border-radius: var(--radius-btn);
   background: var(--surface-2); color: var(--text);
   font: inherit; font-size: var(--fs-md);
@@ -13311,8 +13315,8 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
 .cast-zap-num:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
 /* O BOTÃO-ÍCONE. Quadrado no piso de toque do app (`--hit`), sem texto visível
    e com o nome acessível no `aria-label`/`title`. O ícone veste o `--accent`
-   porque ele é a AÇÃO da linha; o "Copiar link" abaixo é a outra saída, e a
-   hierarquia fica na posição, não no grito. */
+   porque ele é a AÇÃO da linha; o "Copiar link", à esquerda, é a outra saída,
+   e a hierarquia fica na posição, não no grito. */
 .cast-passador-icone {
   flex: 0 0 auto;
   display: inline-flex; align-items: center; justify-content: center;
@@ -13323,13 +13327,15 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
 }
 .cast-passador-icone svg { width: var(--icon-sm); height: var(--icon-sm); }
 .cast-passador-icone:active { filter: brightness(1.1); }
-/* O "COPIAR LINK" É A OUTRA SAÍDA, na linha de baixo e na largura do cartão.
-   Rótulo com texto: o operador já disse duas vezes que ícone sozinho não diz o
-   que está compartilhando. O rótulo QUEBRA, NÃO TRUNCA (`overflow-wrap`), pela
-   lição da v1.14.65 — a fonte do runner é 31% mais larga que a daqui, e quem
-   decide a largura do texto é a FONTE, não este lote. */
+/* O "COPIAR LINK" É A OUTRA SAÍDA, à ESQUERDA da caixa e na MESMA linha desde
+   a v1.14.67. Rótulo com texto: o operador já disse duas vezes que ícone
+   sozinho não diz o que está compartilhando. Ele mede o conteúdo
+   (`flex: 0 0 auto`) em vez de esticar: quem cede largura é o campo, e o rótulo
+   QUEBRA, NÃO TRUNCA (`overflow-wrap`), pela lição da v1.14.65 — a fonte do
+   runner é a DejaVu Sans, a mais larga das instaladas, e quem decide a largura
+   do texto é a FONTE, não este lote. */
 .cast-passador-btn {
-  width: 100%; max-width: 22rem; min-width: 0;
+  flex: 0 0 auto; width: auto; max-width: none; min-width: var(--hit);
   display: flex; align-items: center; justify-content: center; gap: var(--sp-2);
   min-height: var(--hit); padding: var(--sp-2) var(--sp-3);
   border: 0; border-radius: var(--radius-btn);

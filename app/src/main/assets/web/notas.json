@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.14.67",
+    "itens": [
+      "O \"Copiar link\" do passador foi para a esquerda da caixa do número, na mesma linha do ícone de compartilhar.",
+      "Ficou mais apertado, mas o rótulo continua dizendo O LINK e os 11 dígitos do número aparecem inteiros.",
+      "A máscara do número, o foco azul e o texto enviado no WhatsApp continuam iguais."
+    ]
+  },
+  {
     "versao": "1.14.66",
     "itens": [
       "O cartão do passador ficou só com o título, a caixa do número, o botão de compartilhar e o \"Copiar link\".",

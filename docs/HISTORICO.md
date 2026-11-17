@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.67** — o "Copiar link" do cartão do passador vai para a ESQUERDA da caixa do número, na MESMA linha (`[Copiar link] [caixa] [ícone]`), com o rótulo inteiro e as três peças sem truncar a 390×844 e 360×640 (só web).
 - **v1.14.66** — o cartão do passador enxuga para quatro coisas (título, caixa do número, botão-ícone e "Copiar link"), a mensagem que viaja passa a ser SÓ o link por decisão do operador, a caixa ganha a máscara `(xx) x xxxx-xxxx` (11) / `(xx) xxxx-xxxx` (10) que não pula o cursor, e o foco nativo amarelo dá lugar ao anel de `--accent` do app (só web).
 - **v1.14.65** — o conserto do vermelho da v1.14.64: o rótulo do passador mede 135px na DejaVu Sans do runner e 103px na fonte desta máquina, então ele passa a QUEBRAR em duas linhas em vez de truncar, e o oráculo mede a ausência de truncamento nos dois viewports em vez de "cabe em 158px" (só web; o mesmo lote da v1.14.64, que nunca chegou ao OTA).
 - **v1.14.64** — Pacote 44: o cartão do passador de slides vira UMA ação só — os dois botões voltam a ter texto ("Copiar link" / "Enviar no WhatsApp", ícone ao lado e nome acessível do conteúdo) e a mensagem que viaja aparece no mesmo cartão, acima da linha do número, que abre e fecha pelo próprio botão (só web).
@@ -799,6 +800,66 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.14.67 — o "Copiar link" à esquerda da caixa do número, na mesma linha
+
+**O PEDIDO DO OPERADOR** (2026-11-17 09:44), só web: `SHELL_VERSION` 89 (o shell
+não foi tocado), `minShell` 83, **sem `shellTag`** — a última Release é a
+v1.14.56 e o shell não mudou desde ela. Degrau CORREÇÃO. A área é o cartão do
+passador na folha de conectar, o mesmo da v1.14.66: o operador mandou o print do
+aparelho e disse *"Há espaço para ter o botão de copiar link a esquerda da
+caixa, mesmo que fique mais apertado, há espaço. Coloque alí"*. Nada de
+passador, site ou volume fora do cartão.
+
+**O DESENHO.** A linha do cartão passa a ter TRÊS peças na MESMA linha, na ordem
+`[Copiar link] [caixa do número] [ícone de compartilhar]`: o "Copiar link" sai
+da linha de baixo e entra antes do campo com `flex: 0 0 auto` — largura do
+conteúdo, não a do cartão — e `min-width: var(--hit)`; o campo continua
+`flex: 1 1 auto` e troca o `min-width: 0` por `var(--hit)`; o botão-ícone não
+muda (34×34). O rótulo **não encurtou**: "Copiar link" inteiro, porque cabe — a
+liberdade do operador ("mesmo que fique mais apertado") não precisou ser usada,
+e não há rótulo sem a palavra "link". A máscara, o foco e o envio não foram
+tocados: o layout mudou, a função é a mesma.
+
+**A GEOMETRIA, com o pior caso** (11 dígitos mascarados, `(11) 9 1234-5678`, e o
+campo focado) no Chromium desta máquina — o `system-ui` resolve para a DejaVu
+Sans, a MAIS LARGA das nove instaladas, que é a mesma do runner. A **390×844**:
+linha útil **352px**, soma das três peças + os dois vãos (5,6px cada) **351,6px**;
+"Copiar link" **102,8×34** com o rótulo **72/72**; caixa **203,6×34** com
+**204/204**; ícone **34×34** com **34/34**. A **360×640**: linha **322px**, soma
+**321,6px**; "Copiar link" **102,8×34** (rótulo **72/72**); caixa **173,6×34**
+(**174/174**); ícone **34×34** (**34/34**). Os três topos iguais e a ordem
+provada por `right <= left + 0,5`; `scrollWidth <= clientWidth + 1` nas TRÊS
+peças; os três alvos no `--hit` de 34. O texto dos 11 dígitos mede **115px**
+(o `scrollWidth` do campo, com os 16px de `padding`, dá **132px**) e a caixa
+oferece **174px** de `clientWidth` — **158px** de área interna a 360 —, então
+sobram **42px** de folga. O cartão cai
+de **113px para 71px** de altura e a folha de **396,9 para 354,9px**; a caixa
+perde 108,4px nos dois viewports (os 102,8 do botão + o vão de 5,6), e é essa a
+conta do "mais apertado".
+
+**COPIAR E ENVIAR, PROVADOS DE NOVO** (a função não mudou): o clipboard recebe
+exatamente `https://audiovisualiasd.com.br/passador?h=192.168.0.14:8787`, e o
+`wa.me` sai como `https://wa.me/55<dígitos>?text=<o link>` — uma linha, sem o
+endereço cru, com o `55` automático. O número continua guardado em dígitos.
+
+**OS ORÁCULOS.** `passador-grupo` mede a geometria com os 11 dígitos e o campo
+focado: a linha única, a ORDEM `[Copiar link] → [caixa] → [ícone]`, a soma das
+três peças dentro da largura útil, a régua de truncamento nas TRÊS peças
+(rótulo, caixa e ícone) e os alvos ≥ `--hit`. `passador-fronteira` (Node puro) e
+`boot-nativo` passaram sem mudança. **Reversões medidas:** (1) devolver o
+"Copiar link" para a linha de baixo reprova a linha única, a ordem e a soma nos
+dois viewports (6 asserções); (2) alargar o rótulo na mesma linha ("Copiar o
+link do passador") espreme a caixa até **132/106** a 390 e **132/76** a 360, e a
+régua do campo fica VERMELHA; com o desenho da v1.14.67, verde.
+
+**O QUE NÃO DEU PARA MEDIR:** o WebView do aparelho, com o teclado aberto e a
+fonte do sistema dele — a geometria e o anel de foco são do Chromium, e a
+Clipboard API é a dele. A fonte medida aqui é a mais larga das instaladas, então
+a folga de ~26px é o que absorve a diferença no aparelho; a linha do
+`RESIDUOS.md` diz o que falta ver com o dedo.
 
 ---
 
