@@ -770,10 +770,12 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
      lado a lado: os dois botões do rodapé da playlist são um PAR, e um recuando
      ao toque enquanto o outro fica parado lê-se como um deles quebrado. */
   .cue-save-btn, .pl-pack, .pl-clear, .yt-search-btn, .log-copy, .hino-indice-chip,
-  /* Os dois botões do passador de slides (v1.14.64), no lote em que nascem —
-     é a regra desta lista. Eles NÃO são `.log-copy` (aquele mede 34×34 fixo e
-     aqui o botão tem texto), então sem esta linha o par ficaria mudo ao toque. */
-  .cast-passador-btn,
+  /* Os dois botões do passador de slides (v1.14.66), no lote em que nascem — é
+     a regra desta lista. O "Copiar link" tem texto; o do envio é um quadrado de
+     `--hit` só com ícone, e nenhum dos dois é `.log-copy` (aquele é o quadrado
+     fixo do copiar endereço, com outra tinta). Sem esta linha os dois ficariam
+     MUDOS ao toque. */
+  .cast-passador-btn, .cast-passador-icone,
   .simple-key, .simple-key--big, .simple-key--pag,
   .lib-search-limpar,
   /* O "Tentar de novo" do aviso do servidor da biblioteca (v1.12.43). */
@@ -13262,39 +13264,72 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
 /* O CÓDIGO é o accent, e o endereço não: eles não competem, porque o âmbar aqui
    diz "este é o número do momento" — ele muda a cada vez que a transmissão é
    ativada, e o endereço não. Mesma anatomia do PIN que ele substitui. */
-/* O PASSADOR DE SLIDES É UM CARTÃO SÓ, E ELE É UMA AÇÃO SÓ (v1.14.64).
-   A v1.14.57 tinha cortado os textos e deixado dois ícones soltos; o operador
-   voltou atrás pelo motivo medido na tela: **ícone sozinho não diz o que se
-   compartilha**, e o cartão dos botões + a zona do WhatsApp liam como dois
-   assuntos. Aqui os dois estão DENTRO da mesma caixa — a mesma superfície e o
-   mesmo raio do cartão do endereço acima (`--surface` + `--radius-card`) —, e a
-   ordem é a da decisão: o nome do grupo, as duas ações, a mensagem que viaja, a
-   linha do número. A fronteira entre a decisão e o detalhe dela é o VÃO, não
-   uma borda: uma segunda superfície dentro do cartão recriaria "são duas
-   coisas". */
+/* O PASSADOR DE SLIDES É UM CARTÃO COM QUATRO COISAS (v1.14.66).
+   O título, a caixa do número, o botão-ícone que envia e o "Copiar link". O
+   operador decidiu em 17/11 que o cartão perde todo o texto complementar: a
+   prévia da mensagem, o "se o link não abrir, use…" e o botão "Enviar no
+   WhatsApp" que abria um campo e um segundo botão. O que fica é a escolha —
+   copiar, ou mandar direto para o número digitado.
+
+   O CARTÃO continua com a MESMA superfície e o mesmo raio do cartão do
+   endereço acima (`--surface` + `--radius-card`): é isso que faz o grupo ler
+   como um. A fronteira entre a decisão e o detalhe dela é o VÃO, não uma borda,
+   e não há segunda superfície dentro dele. */
 .cast-passador {
   display: flex; flex-direction: column; align-items: center; gap: var(--sp-4);
   margin-top: var(--sp-3); padding: var(--sp-4);
   background: var(--surface); border-radius: var(--radius-card);
 }
-/* OS DOIS BOTÕES COM TEXTO. Metade da largura cada, e `min-width: 0` porque são
-   itens de um flex: sem isso o rótulo não encolhe e o par sai da caixa a 360px.
-   O piso é o `--hit` do app, e ele é PISO, não altura: com o rótulo em duas
-   linhas o botão cresce, e o par inteiro cresce junto (`align-items: stretch`).
-
-   A LARGURA DO TEXTO É DO SISTEMA, NÃO DO LOTE (v1.14.65). "Enviar no WhatsApp"
-   media 103px no Chromium desta máquina e **135px no do runner** — o
-   `system-ui` cai em fontes diferentes, e a DejaVu Sans do CI é 31% mais larga
-   que a WenQuanYi Zen Hei daqui. Em 158px de botão sobram ~127px para o rótulo,
-   então o mesmo desenho cabia numa máquina e truncava na outra (`ellipsis`), e
-   o texto que diz o que se compartilha virava "Enviar no WhatsA…". Nenhuma
-   largura em px fecha isso: quem decide é a FONTE. */
-.cast-passador-acoes {
-  display: flex; align-items: stretch; gap: var(--sp-3);
+/* A LINHA DO NÚMERO: o campo e o botão-ícone, na largura inteira do cartão.
+   `min-width: 0` porque o campo é um `<input>` dentro de um flex: sem isso ele
+   se recusa a encolher abaixo do `placeholder` e o botão sai da caixa a 360px.
+   O CAMPO fica com todo o resto da linha: a 390 ele mede 293px e a 360, 263px
+   — o rótulo "Copiar link" NÃO precisou encolher, porque ele mora na linha de
+   baixo, e não disputa largura com o número (a liberdade que o operador deu em
+   17/11 fica registrada como desnecessária, com os números no relatório). */
+.cast-passador-envio {
+  display: flex; align-items: center; gap: var(--sp-3);
   width: 100%; max-width: 22rem;
 }
+.cast-zap-num {
+  flex: 1 1 auto; min-width: 0; min-height: var(--hit);
+  padding: 0 var(--sp-4); border: 0; border-radius: var(--radius-btn);
+  background: var(--surface-2); color: var(--text);
+  font: inherit; font-size: var(--fs-md);
+  appearance: none; -webkit-appearance: none;
+}
+.cast-zap-num::placeholder { color: var(--muted); }
+/* O FOCO DO CAMPO É O DO APP, NÃO O DO WEBVIEW (v1.14.66). O campo nascia sem
+   `outline` declarado, e o WebView desenhava o anel NATIVO dele — o amarelo que
+   o operador viu, fora da paleta do app. A receita dos outros campos da folha
+   (`.lib-search`, `.linha-renome-campo`) zera o `outline`; aqui ele não pode
+   simplesmente sumir, senão quem navega por teclado perde onde está. O anel é o
+   MESMO vocabulário de "isto está em uso" que o app já usa (`.btn-eco`,
+   `.qs-modo[data-bloqueio]`): `box-shadow` com o `--accent`, a dois pixels — e
+   só quando o foco vem do teclado (`:focus-visible`). */
+.cast-zap-num:focus { outline: none; }
+.cast-zap-num:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+/* O BOTÃO-ÍCONE. Quadrado no piso de toque do app (`--hit`), sem texto visível
+   e com o nome acessível no `aria-label`/`title`. O ícone veste o `--accent`
+   porque ele é a AÇÃO da linha; o "Copiar link" abaixo é a outra saída, e a
+   hierarquia fica na posição, não no grito. */
+.cast-passador-icone {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: var(--hit); height: var(--hit);
+  border: 0; border-radius: var(--radius-btn);
+  background: var(--surface-2); color: var(--accent);
+  cursor: pointer; appearance: none; -webkit-appearance: none;
+}
+.cast-passador-icone svg { width: var(--icon-sm); height: var(--icon-sm); }
+.cast-passador-icone:active { filter: brightness(1.1); }
+/* O "COPIAR LINK" É A OUTRA SAÍDA, na linha de baixo e na largura do cartão.
+   Rótulo com texto: o operador já disse duas vezes que ícone sozinho não diz o
+   que está compartilhando. O rótulo QUEBRA, NÃO TRUNCA (`overflow-wrap`), pela
+   lição da v1.14.65 — a fonte do runner é 31% mais larga que a daqui, e quem
+   decide a largura do texto é a FONTE, não este lote. */
 .cast-passador-btn {
-  flex: 1 1 0; min-width: 0;
+  width: 100%; max-width: 22rem; min-width: 0;
   display: flex; align-items: center; justify-content: center; gap: var(--sp-2);
   min-height: var(--hit); padding: var(--sp-2) var(--sp-3);
   border: 0; border-radius: var(--radius-btn);
@@ -13306,71 +13341,9 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
 /* O ícone é o METADADO do rótulo, não o botão: ele fica no `--muted` e não
    divide o peso do texto. */
 .cast-passador-btn svg { flex: 0 0 auto; color: var(--muted); }
-/* O RÓTULO QUEBRA, NÃO TRUNCA. Sem `nowrap`, sem `ellipsis` e sem
-   `overflow: hidden`: quando a fonte do aparelho é larga o texto vira duas
-   linhas ("Enviar no" / "WhatsApp") dentro do mesmo par, em vez de sair
-   cortado. `anywhere` é a rede da fonte extrema — nenhuma palavra pode furar a
-   caixa, como na mensagem abaixo. */
 .cast-passador-btn > span {
   min-width: 0; overflow-wrap: anywhere; line-height: 1.3;
 }
-/* A LINHA DO NÚMERO ABERTA é o estado do PRÓPRIO botão que a abriu, e a cor
-   não é decoração: é o par do `--btn-accent` das outras linhas em que o app
-   mostra "isto está em uso". */
-.cast-passador-btn.ligado { background: var(--btn-accent); color: var(--accent); }
-.cast-passador-btn.ligado svg { color: var(--accent); }
-/* A MENSAGEM QUE VIAJA. Duas linhas desde a v1.14.59 — o link público e o
-   endereço cru —, e `pre-line` é o que as mantém separadas. `anywhere` porque
-   o link do site com a query passa de 300px num aparelho de 360; sem ele a
-   caixa estoura para o lado (o defeito clássico desta peça). O `user-select:
-   text` é o que faz long-press copiar o endereço daqui — e ele precisa de
-   `!important` porque o reset do topo da folha põe `none !important` em `*`:
-   sem ele a declaração perde para o reset e o bloco fica INSELEÇÃO, com o
-   texto na tela e nada para copiar (o modo de falhar é mudo). Monoespaçada e
-   no `--muted`: é endereço, não chamada. */
-.cast-passador-msg {
-  width: 100%; max-width: 22rem; margin: 0;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: var(--fs-xs); line-height: 1.4; color: var(--muted);
-  white-space: pre-line; overflow-wrap: anywhere;
-  -webkit-user-select: text !important; user-select: text !important;
-}
-.cast-passador-msg[hidden] { display: none; }
-/* A LINHA DO WHATSAPP. Ela abre ABAIXO do resto, como uma linha do cartão e
-   não como popup: um popup por cima da folha que já é popup cobraria duas
-   saídas para o mesmo erro. Quem a abre e a fecha é o MESMO botão (o de
-   contato), e é por isso que ele carrega `aria-expanded`.
-   SEM superfície própria desde a v1.14.64: ela é a terceira linha do cartão do
-   passador, e um segundo `--surface` aqui dentro é exatamente o que fazia o
-   grupo ler como duas coisas. */
-.cast-zap {
-  display: flex; flex-direction: column; align-items: center; gap: var(--sp-2);
-  width: 100%;
-}
-.cast-zap[hidden] { display: none; }
-/* O CAMPO E O "Abrir" DIVIDEM UMA LINHA. `min-width: 0` no campo porque ele é
-   um `<input>` dentro de um flex: sem isso ele não encolhe abaixo do
-   `placeholder` e o botão sai da caixa a 320px. */
-.cast-zap-linha {
-  display: flex; align-items: center; gap: var(--sp-3);
-  width: 100%; max-width: 22rem;
-}
-.cast-zap-num {
-  flex: 1 1 auto; min-width: 0; min-height: 2.25rem;
-  padding: 0 var(--sp-4); border: 0; border-radius: var(--radius-btn);
-  background: var(--surface-2); color: var(--text);
-  font: inherit; font-size: var(--fs-md);
-}
-.cast-zap-num::placeholder { color: var(--muted); }
-/* "Abrir" é o PRIMÁRIO da zona: é a única ação dela. */
-.cast-zap-abrir {
-  flex: 0 0 auto; min-height: 2.25rem; padding: 0 var(--sp-6);
-  border: 0; border-radius: var(--radius-pill);
-  background: var(--btn-accent); color: var(--text);
-  font: inherit; font-size: var(--fs-md); font-weight: var(--fw-medio);
-  cursor: pointer;
-}
-.cast-zap-abrir:active { filter: brightness(1.1); }
 /* Quem está vendo. Uma linha por tela, com a ação à direita — o padrão de
    lista do resto do app, não um cartão novo.
    O vão de cima é dela desde a v1.14.64: quem o dava era a margem do bloco do

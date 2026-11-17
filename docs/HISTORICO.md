@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.66** — o cartão do passador enxuga para quatro coisas (título, caixa do número, botão-ícone e "Copiar link"), a mensagem que viaja passa a ser SÓ o link por decisão do operador, a caixa ganha a máscara `(xx) x xxxx-xxxx` (11) / `(xx) xxxx-xxxx` (10) que não pula o cursor, e o foco nativo amarelo dá lugar ao anel de `--accent` do app (só web).
 - **v1.14.65** — o conserto do vermelho da v1.14.64: o rótulo do passador mede 135px na DejaVu Sans do runner e 103px na fonte desta máquina, então ele passa a QUEBRAR em duas linhas em vez de truncar, e o oráculo mede a ausência de truncamento nos dois viewports em vez de "cabe em 158px" (só web; o mesmo lote da v1.14.64, que nunca chegou ao OTA).
 - **v1.14.64** — Pacote 44: o cartão do passador de slides vira UMA ação só — os dois botões voltam a ter texto ("Copiar link" / "Enviar no WhatsApp", ícone ao lado e nome acessível do conteúdo) e a mensagem que viaja aparece no mesmo cartão, acima da linha do número, que abre e fecha pelo próprio botão (só web).
 - **v1.14.63** — Duas correções do itinerário por fora da fila (pedido de 2026-11-16 22:37): o toque num momento sem mídias é inerte — a edição fica no lápis da linha, com a faixa aberta —, e a sub-aba de criar/editar ganha o vão de `--sp-3` (5,59px) da faixa e os quatro cantos do `--radius-sheet` (18px) (só web).
@@ -798,6 +799,88 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.14.66 — o cartão do passador com quatro coisas, a máscara do número e o foco do app
+
+**O PEDIDO DO OPERADOR** (2026-11-17 09:00), só web: `SHELL_VERSION` 89 (o shell
+não foi tocado), `minShell` 83, **sem `shellTag`** — nenhuma Release pendente.
+Degrau CORREÇÃO. O cartão do passador — o mesmo que saiu na v1.14.64/65 — perde
+todo o texto complementar e ganha a caixa do número com máscara. Nada de
+passador, site ou volume fora do cartão.
+
+**O DESENHO.** O cartão passa a ter QUATRO coisas, e só elas: o título
+("Passador de slides"), a caixa do número, o botão-ícone do envio e o "Copiar
+link". Saem a prévia da mensagem (`#passadorMsg`), a linha "se o link não abrir,
+use…", a zona `#castZap` e o segundo botão `#passadorZapAbrir`; a tecla que
+abria e fechava a zona (`alternarZonaDoZap`) e o `aria-expanded` vão junto. O
+campo e o ícone moram numa linha (`.cast-passador-envio`), e o "Copiar link" fica
+na linha de baixo: **não foi preciso encolher o rótulo** (a liberdade que o
+operador deu às 09:03), porque ele não disputa largura com o número. MEDIDO no
+Chromium desta máquina: cartão **367,6×113** a 390×844 e **337,6×113** a
+360×640; campo **312×34** e **282×34**; ícone **34×34**; "Copiar link"
+**351,6×34** e **321,6×34**, rótulo 72/72 nos dois; folha 408,6 → **396,9** (o
+cartão encolheu 11,7px com a saída da mensagem). Nada truncado
+(`scrollWidth <= clientWidth + 1` no rótulo e no campo), tudo ≥ o `--hit` de 34.
+
+**O BOTÃO-ÍCONE NÃO É MUDO.** Ele não tem texto visível (o pedido é "sem
+texto", não "sem nome"): `aria-label` e `title` dizem "Enviar no WhatsApp", e o
+corpo é o `#icoCompartilhar` do sprite — nenhum SVG novo, e não o logo de outra
+empresa (a razão que o `#icoContato` já documenta). O "Copiar link" continua com
+texto e dizendo que copia O LINK.
+
+**A MENSAGEM É SÓ O LINK — decisão do operador (17/11).** `mensagemDoPassador`
+saiu: o `?text=` do `wa.me` leva exatamente o link, uma linha, sem o endereço
+cru. **Não há plano B escrito se a página do site não abrir** (a decisão está
+registrada no `RESIDUOS.md`, "Fechado/decidido"): o que o app promete é o link,
+e o `55` automático no número continua (`numeroDoWhatsapp`).
+
+**A MÁSCARA RESPONSIVA.** `(xx) x xxxx-xxxx` no celular (11 dígitos) e
+`(xx) xxxx-xxxx` no fixo (10). A responsividade é o PRIMEIRO dígito da parte
+local (o `9` do celular), e não a contagem: por contagem, o número salta de
+desenho no 11º toque e o cursor muda de lugar. Com 11 dígitos o desenho é o do
+celular por definição, mas o dígito mostrado é o que foi DIGITADO (`(11) 1
+1111-1111`, nunca um 9 inventado). O cursor é recolocado por **contagem de
+dígitos antes dele**, não por caractere — é o que atravessa o parêntese, o
+espaço e o hífen, inclusive no meio. O backspace/Delete sobre um separador
+remove o DÍGITO anterior seguinte (`keydown` + `preventDefault`), em vez de
+apagar o `)` e reformatar igual. A máscara é só da TELA: o valor guardado em
+`av.passadorZap` e o enviado são dígitos; colar com `+55` (12/13 dígitos) perde
+o DDI na caixa e o `numeroDoWhatsapp` o repõe no envio. A tabela medida:
+`1→(1`, `2→(11`, `3→(11) 9`, `7→(11) 9 1234`, `11→(11) 9 1234-5678`; colar
+`11912345678` e `+55 11 91234-5678` dão o mesmo `(11) 9 1234-5678`; fixo
+`1132654321 → (11) 3265-4321`; editar no meio (cursor depois de "(11) 9 1234",
+digitar `0`) dá `(11) 9 1234-0567` com o cursor em 13, e o Backspace seguinte
+volta a `(11) 9 1234-567` com o cursor em 11.
+
+**O FOCO.** O amarelo era o `outline: auto` do WebView: o campo nascera sem
+`outline` declarado. A receita dos outros campos (`.lib-search`,
+`.linha-renome-campo`) zera o `outline`, e aqui ele é zerado com o anel do app
+no lugar: `box-shadow: 0 0 0 2px var(--accent)` sob `:focus-visible` — o mesmo
+vocabulário de `.btn-eco`/`.qs-modo[data-bloqueio]`. Computado com o campo
+focado (tema escuro): `outline: rgb(220,224,229) none 0px`, `box-shadow:
+rgb(149,181,244) 0px 0px 0px 2px`. Quem navega por teclado continua vendo onde
+está; nada de anel de sistema e nada de amarelo.
+
+**OS ORÁCULOS.** `passador-grupo` foi reescrito para o cartão novo: **A** as
+quatro coisas e a ausência de `#passadorMsg`/`#castZap`/`#passadorZapAbrir`,
+com o texto visível do cartão igual a "PASSADOR DE SLIDES Copiar link"; **B** o
+nome acessível do botão-ícone e o ícone `#icoCompartilhar`; **C** o valor
+copiado; **D** o `?text=` = o link e o número guardado em dígitos; **E** a
+máscara (progressão, colagens, fixo, edição no meio, separador); **F** o foco
+(`outline` nenhum, anel de 2px); **G** a geometria nos dois viewports, com a
+regra de não truncar preservada. `passador-fronteira` (Node puro) passou a
+cobrar a AUSÊNCIA dos três nós e o `aria-label` do botão-ícone; `boot-nativo`
+troca a zona pela caixa e mede as funções da máscara. **Reversão medida:** sem o
+`input` da máscara, o `passador-grupo` fica VERMELHO (as asserções de progressão
+e de colagem); com ele, verde. O `docs/ORACULOS.md` mudou na linha do
+`passador-grupo`.
+
+**O QUE NÃO DEU PARA MEDIR:** o WebView do aparelho com o teclado e a fonte do
+sistema dele — o cursor e o anel foram medidos no Chromium, e o amarelo nativo
+é o do WebView (aqui ele sai cinza-escuro, `rgb(16,16,16) auto 1px`). A linha do
+`RESIDUOS` diz isso.
 
 ---
 

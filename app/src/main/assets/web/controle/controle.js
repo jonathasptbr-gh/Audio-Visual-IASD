@@ -482,7 +482,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.65';
+const WEB_VERSION = '1.14.66';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -716,13 +716,10 @@ const castLiveEl = document.getElementById('castLive');
 const castUrlEl = document.getElementById('castUrl');
 const castUrlCopyEl = document.getElementById('castUrlCopy');
 const passadorCopyBtnEl = document.getElementById('passadorCopyBtn');
+// O BOTÃO-ÍCONE do envio: sem texto visível, com nome acessível. O campo e ele
+// são a linha do número (v1.14.66) — não há mais zona que abre e fecha.
 const passadorZapBtnEl = document.getElementById('passadorZapBtn');
-// A MENSAGEM que o cartão do passador mostra desde a v1.14.64 — a mesma que o
-// `zapDoPassador` põe no `?text=` do WhatsApp. Ver `pintarMensagemDoPassador`.
-const passadorMsgEl = document.getElementById('passadorMsg');
-const castZapEl = document.getElementById('castZap');
 const passadorZapNumEl = document.getElementById('passadorZapNum');
-const passadorZapAbrirEl = document.getElementById('passadorZapAbrir');
 const castTelasEl = document.getElementById('castTelas');
 const songMenuPopupEl = document.getElementById('songMenuPopup');
 const songMenuTitleEl = document.getElementById('songMenuTitle');
@@ -34651,11 +34648,14 @@ if (castUrlCopyEl) {
   });
 }
 
-// ===== O PASSADOR DE SLIDES: OS DOIS ATALHOS (v1.14.57) =====
+// ===== O PASSADOR DE SLIDES: O LINK E O NÚMERO (v1.14.66) =====
 //
 // O passador é uma OPÇÃO do endereço do telão, e não um segundo endereço na
-// folha: o que a folha escreve dele é a MENSAGEM que viaja (`#passadorMsg`,
-// v1.14.64), num cartão só com as duas ações. A conta do link mora aqui, e não
+// folha: o que o cartão oferece dele é o LINK (para copiar) e o ENVIO direto
+// para o número digitado. Não há mais prévia da mensagem, nem a linha "se o
+// link não abrir…", nem o botão que abria um campo e um segundo botão: o
+// operador decidiu, em 2026-11-17, que o que viaja é SÓ o link — sem plano B
+// escrito caso a página do site não abra. A conta do link mora aqui, e não
 // dentro do `renderCast`, porque é o que o oráculo mede — o endereço da rede, a
 // página pública do site e a rota que o `EspelhoServidor.kt` ainda serve são
 // três lugares, e a conta que os junta tem de ser uma só.
@@ -34704,20 +34704,6 @@ function linkDoPassadorAtual() {
   return linkDoPassador((mirrorEstado || {}).endereco);
 }
 
-// A MENSAGEM NA TELA, e ela é a MESMA que vai no `?text=` do WhatsApp (v1.14.64):
-// uma função, dois consumidores. Ela nasceu porque ícone sozinho não diz o que
-// se compartilha — o operador leu os dois atalhos da v1.14.57 como "não sei o
-// que isto manda". Vazia (bloco fora de cena) sem endereço: um cartão que
-// promete um link que não existe é pior que cartão nenhum.
-function pintarMensagemDoPassador() {
-  if (!passadorMsgEl) return;
-  const base = (mirrorEstado || {}).endereco;
-  const link = linkDoPassador(base);
-  const msg = link ? mensagemDoPassador(link, hostDoPassador(base)) : '';
-  if (passadorMsgEl.textContent !== msg) passadorMsgEl.textContent = msg;
-  passadorMsgEl.hidden = !msg;
-}
-
 // O NÚMERO DO WHATSAPP: o `wa.me` exige DDI+DDD sem sinal nenhum, e o que o
 // operador digita é o número que ele lê na agenda — com espaço, parêntese e
 // hífen. O único DDI que este app atende é o do Brasil (é o `AV_CONTATO_TEL`),
@@ -34731,41 +34717,120 @@ function numeroDoWhatsapp(bruto) {
   return '';
 }
 
-// A MENSAGEM: o link do site sozinho na PRIMEIRA linha — com prosa em volta o
-// WhatsApp deixa de reconhecer o endereço — e o endereço cru na segunda, que é
-// o que se digita se a página não abrir. O `\n` separa os dois para o
-// reconhecedor não engolir a linha de socorro como parte do endereço.
-function mensagemDoPassador(link, enderecoCru) {
-  return enderecoCru ? link + '\nSe o link não abrir, use: ' + enderecoCru : link;
-}
-
 function zapDoPassador(numero, mensagem) {
   return 'https://wa.me/' + numero + '?text=' + encodeURIComponent(mensagem);
+}
+
+// A MÁSCARA DO NÚMERO, RESPONSIVA (v1.14.66). O operador pediu "(xx) x
+// xxxx-xxxx" enquanto digita, e a responsividade é o `9` que abre a parte
+// local: ele é o que separa o CELULAR (11 dígitos) do FIXO (10). Decidir pelo
+// PRIMEIRO dígito da parte local — e não pela contagem — é o que evita o salto
+// de formato no 11º toque: por contagem, quem digita um celular vê
+// `(11) 9123-4567` até o último dígito e `(11) 9 1234-5678` depois, e a linha
+// inteira (com o cursor) muda de lugar. O valor GUARDADO e o ENVIADO são só os
+// dígitos: a máscara mora na tela, nunca no `?phone=`.
+function digitosDoNumero(bruto) {
+  let d = String(bruto || '').replace(/\D/g, '');
+  // O DDI só entra quando o número não é local: 12 ou 13 dígitos com `55` é
+  // `+55 DDD número`, e o que se mostra na caixa é o número local — o `55` do
+  // DDD (RS) continua intacto porque ele cabe em 10/11 dígitos.
+  if ((d.length === 12 || d.length === 13) && d.slice(0, 2) === '55') d = d.slice(2);
+  return d.slice(0, 11);
+}
+
+function formatarNumeroDoPassador(digitos) {
+  const d = String(digitos || '').slice(0, 11);
+  if (!d) return '';
+  if (d.length <= 2) return '(' + d;
+  const ddd = '(' + d.slice(0, 2) + ') ';
+  const local = d.slice(2);
+  // 11 dígitos é CELULAR por definição (a regra do 9 vem da Anatel, mas o
+  // comprimento não deixa dúvida); de 3 a 10, o primeiro dígito da parte local
+  // decide o desenho, e é ele que evita o salto no 11º toque.
+  if (local[0] === '9' || d.length === 11) {
+    const primeiro = local[0];
+    if (local.length === 1) return ddd + primeiro;
+    if (local.length <= 5) return ddd + primeiro + ' ' + local.slice(1);
+    return ddd + primeiro + ' ' + local.slice(1, 5) + '-' + local.slice(5);
+  }
+  if (local.length <= 4) return ddd + local;
+  return ddd + local.slice(0, 4) + '-' + local.slice(4);
+}
+
+// O CURSOR NÃO PULA: ele é recolocado pelo número de DÍGITOS que havia antes
+// dele, não pela posição em caracteres — é isso que atravessa o parêntese, o
+// espaço e o hífen que a máscara insere, inclusive no meio do número.
+function cursorDoNumero(formatado, digitosAntes) {
+  if (digitosAntes <= 0) return 0;
+  let vistos = 0;
+  for (let i = 0; i < formatado.length; i++) {
+    if (formatado[i] >= '0' && formatado[i] <= '9') {
+      vistos++;
+      if (vistos === digitosAntes) return i + 1;
+    }
+  }
+  return formatado.length;
+}
+
+function aplicarMascaraDoNumero(alvo) {
+  const bruto = String(alvo.value || '');
+  const caret = alvo.selectionStart == null ? bruto.length : alvo.selectionStart;
+  const digitosAntes = (bruto.slice(0, caret).match(/\d/g) || []).length;
+  const digitos = digitosDoNumero(bruto);
+  const formatado = formatarNumeroDoPassador(digitos);
+  if (alvo.value !== formatado) alvo.value = formatado;
+  const pos = cursorDoNumero(formatado, Math.min(digitosAntes, digitos.length));
+  try { alvo.setSelectionRange(pos, pos); } catch (_) {}
+}
+
+// APAGAR SOBRE UM SEPARADOR APAGA O DÍGITO ANTERIOR (e não trava): o navegador
+// apagaria o `)` ou o `-`, o `input` reformataria igual e o dedo ficaria
+// apertando no mesmo lugar. Aqui o `keydown` vê o separador sob o cursor e
+// remove o dígito de verdade, com o cursor recolocado por dígito.
+function apagarSeparadorDoNumero(alvo, paraTras) {
+  const ini = alvo.selectionStart;
+  const fim = alvo.selectionEnd;
+  if (ini == null || ini !== fim) return false;
+  const valor = String(alvo.value || '');
+  const separador = paraTras ? valor[ini - 1] : valor[ini];
+  if (separador === undefined || (separador >= '0' && separador <= '9')) return false;
+  const digitos = digitosDoNumero(valor);
+  const digitosAntes = (valor.slice(0, ini).match(/\d/g) || []).length;
+  const idx = paraTras ? digitosAntes - 1 : digitosAntes;
+  if (idx < 0 || idx >= digitos.length) return true;
+  const novos = digitos.slice(0, idx) + digitos.slice(idx + 1);
+  alvo.value = formatarNumeroDoPassador(novos);
+  const pos = cursorDoNumero(alvo.value, Math.min(idx, novos.length));
+  try { alvo.setSelectionRange(pos, pos); } catch (_) {}
+  return true;
 }
 
 // O ÚLTIMO NÚMERO FICA GUARDADO: o mesmo irmão passa os slides domingo após
 // domingo, e digitar onze dígitos toda vez é atrito na hora em que a igreja
 // está esperando. Chave própria, e lida com `try`: `localStorage` negado não
-// pode derrubar a folha de conexão.
+// pode derrubar a folha de conexão. Guardado em DÍGITOS: a máscara é da tela.
 const PASSADOR_ZAP_CHAVE = 'av.passadorZap';
 
 function numeroGuardadoDoZap() {
   try { return localStorage.getItem(PASSADOR_ZAP_CHAVE) || ''; } catch (_) { return ''; }
 }
 
-// A ZONA DO WHATSAPP ABRE ABAIXO DOS ÍCONES, e o MESMO botão a fecha (o
-// pedido é literal): não há popup por cima de popup, e um segundo botão de
-// fechar a dois centímetros do primeiro seria a terceira saída para o mesmo
-// erro. O foco vai para o campo com o último número já escrito.
-function alternarZonaDoZap(abrir) {
-  if (!castZapEl || !passadorZapBtnEl) return;
-  const mostrar = abrir === undefined ? castZapEl.hidden : !!abrir;
-  castZapEl.hidden = !mostrar;
-  passadorZapBtnEl.setAttribute('aria-expanded', mostrar ? 'true' : 'false');
-  passadorZapBtnEl.classList.toggle('ligado', mostrar);
-  if (!mostrar) return;
-  if (passadorZapNumEl && !passadorZapNumEl.value) passadorZapNumEl.value = numeroGuardadoDoZap();
-  setTimeout(() => { if (passadorZapNumEl) passadorZapNumEl.focus(); }, 60);
+// O CAMPO NASCE COM O ÚLTIMO NÚMERO, já formatado. Antes ele só era preenchido
+// quando a zona abria; agora ele está sempre à vista, e um campo vazio ao lado
+// do ícone pediria onze dígitos de novo a cada culto.
+if (passadorZapNumEl) {
+  const guardado = digitosDoNumero(numeroGuardadoDoZap());
+  if (guardado) passadorZapNumEl.value = formatarNumeroDoPassador(guardado);
+  passadorZapNumEl.addEventListener('input', () => aplicarMascaraDoNumero(passadorZapNumEl));
+  passadorZapNumEl.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') {
+      ev.preventDefault();
+      abrirZapDoPassador();
+      return;
+    }
+    if (ev.key === 'Backspace' && apagarSeparadorDoNumero(passadorZapNumEl, true)) ev.preventDefault();
+    else if (ev.key === 'Delete' && apagarSeparadorDoNumero(passadorZapNumEl, false)) ev.preventDefault();
+  });
 }
 
 if (passadorCopyBtnEl) {
@@ -34775,48 +34840,35 @@ if (passadorCopyBtnEl) {
   });
 }
 
-if (passadorZapBtnEl) {
-  passadorZapBtnEl.addEventListener('click', () => alternarZonaDoZap());
-}
-
-// O "Abrir" da zona — e o mesmo caminho pelo Enter do campo, que é como se
-// digita um número no celular. O que trava é o `numeroDoWhatsapp`: um número
-// curto dá o pulso vermelho do `responder` e NADA sai (abrir uma conversa que
-// não existe é pior que não abrir).
+// O ÍCONE ENVIA DIRETO — sem abrir campo e sem um segundo botão. O que trava é
+// o `numeroDoWhatsapp`: um número curto dá o pulso vermelho do `responder` e
+// NADA sai (abrir uma conversa que não existe é pior que não abrir). O `?text=`
+// leva SÓ o link (decisão do operador, 17/11): sem prosa em volta, o WhatsApp
+// reconhece o endereço como clicável.
 function abrirZapDoPassador() {
   const base = (mirrorEstado || {}).endereco;
   const link = linkDoPassador(base);
   if (!link) return;
-  const digitado = passadorZapNumEl ? passadorZapNumEl.value : '';
-  const numero = numeroDoWhatsapp(digitado);
+  const digitos = digitosDoNumero(passadorZapNumEl ? passadorZapNumEl.value : '');
+  const numero = numeroDoWhatsapp(digitos);
   if (!numero) {
-    responder(passadorZapAbrirEl || passadorZapNumEl, 'erro');
+    responder(passadorZapNumEl, 'erro');
     if (passadorZapNumEl) passadorZapNumEl.focus();
     return;
   }
-  try { localStorage.setItem(PASSADOR_ZAP_CHAVE, String(digitado).trim()); } catch (_) {}
-  const url = zapDoPassador(numero, mensagemDoPassador(link, hostDoPassador(base)));
+  try { localStorage.setItem(PASSADOR_ZAP_CHAVE, digitos); } catch (_) {}
+  const url = zapDoPassador(numero, link);
   // A MESMA PORTA DO "FALAR COM QUEM MANTÉM O APP": no app, o `openExternal`
   // (o WebView bloqueia navegar para fora do origin); no navegador, uma guia
   // nova.
   if (window.__NATIVE__) {
-    try { AVNative.openExternal(url); } catch (_) { responder(passadorZapAbrirEl, 'erro'); return; }
+    try { AVNative.openExternal(url); } catch (_) { responder(passadorZapNumEl, 'erro'); return; }
   } else {
     window.open(url, '_blank', 'noopener');
   }
-  // A zona se recolhe depois do toque: quem está no WhatsApp não tem o que
-  // fazer com um campo de número aberto na folha de conexão.
-  alternarZonaDoZap(false);
 }
 
-if (passadorZapAbrirEl) passadorZapAbrirEl.addEventListener('click', abrirZapDoPassador);
-if (passadorZapNumEl) {
-  passadorZapNumEl.addEventListener('keydown', (ev) => {
-    if (ev.key !== 'Enter') return;
-    ev.preventDefault();
-    abrirZapDoPassador();
-  });
-}
+if (passadorZapBtnEl) passadorZapBtnEl.addEventListener('click', abrirZapDoPassador);
 
 // O NOME DO ARQUIVO DO REGISTRO. A porta é UMA só — o `#testeSalvar` da folha
 // da Verificação, que o COMPARTILHA como arquivo: copiar e colar corta o texto
@@ -46368,10 +46420,6 @@ function renderCast() {
   // UM ENDEREÇO SÓ: o IP. Um nome mDNS não resolve no Chrome do Android nem na
   // maioria das Smart TVs, que são exatamente as telas deste recurso.
   texto2(castUrlEl, e.endereco || '');
-  // O CARTÃO DO PASSADOR ESCREVE A MENSAGEM que as duas ações movem (v1.14.64):
-  // sem ela o par de botões volta a ser o que o operador reprovou — duas ações
-  // que não dizem o que compartilham.
-  pintarMensagemDoPassador();
   renderCastTelas(telas);
 }
 

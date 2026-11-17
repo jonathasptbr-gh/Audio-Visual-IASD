@@ -4238,83 +4238,98 @@ try {
     'terminado, ele volta a nomear a ação (nada de recado grudado)', emCurso.voltou);
   checar(redeOn.semTrilho, 'e não sobrou interruptor nenhum na folha de conexão');
 
-  // ---- O CARTÃO DO PASSADOR: os dois rótulos, a mensagem e a linha (v1.14.64) --
+  // ---- O CARTÃO DO PASSADOR: quatro coisas (v1.14.66) ---------------------
   //
-  // A v1.14.57 tinha cortado os textos (dois ícones `.log-copy`); o operador
-  // voltou atrás porque ícone sozinho não diz o que se compartilha, e porque o
-  // cartão dos botões e a zona do WhatsApp liam como dois assuntos. Agora os
-  // dois botões têm RÓTULO, a mensagem que viaja aparece no mesmo cartão
-  // (`#passadorMsg`) e a linha do número abre e fecha pelo MESMO botão que a
-  // nomeia. Aqui se mede o desenho e as três contas que o `passador-fronteira`
-  // não alcança porque dependem do estado que o shell entrega.
+  // A v1.14.57 tinha cortado os textos (dois ícones mudos); a v1.14.64 pôs os
+  // dois rótulos e a mensagem que viaja no mesmo cartão. Em 17/11 o operador
+  // decidiu que o texto complementar sai: ficam o título, a caixa do número, o
+  // botão-ícone (sem texto, COM nome acessível) e o "Copiar link". Ou se copia,
+  // ou se manda direto para o número digitado — sem o botão que abria um campo
+  // e um segundo botão.
   //
-  // DESDE A v1.14.59 o link é o da PÁGINA PÚBLICA do site (o WhatsApp não
-  // reconhece IPv4 privado com porta), e a mensagem leva o link na primeira
-  // linha e o endereço cru na segunda — e desde a v1.14.64 ela está ESCRITA na
-  // folha, para o operador ver o que o toque manda.
+  // A MENSAGEM É SÓ O LINK: a segunda linha do endereço cru saiu por decisão do
+  // operador (sem plano B se a página do site não abrir). Aqui se mede o que o
+  // `passador-fronteira` não alcança porque depende do estado que o shell
+  // entrega, e as funções da máscara que o oráculo de Chromium digita.
   const passador = await pg2.evaluate(() => {
-    const zona = document.getElementById('castZap');
-    const botao = document.getElementById('passadorZapBtn');
     const grupo = document.getElementById('passadorGrupo');
-    const msg = document.getElementById('passadorMsg');
-    const antes = { fechada: zona.hidden, expandido: botao.getAttribute('aria-expanded') };
-    botao.click();
-    const abriu = { visivel: !zona.hidden, expandido: botao.getAttribute('aria-expanded') };
-    botao.click();
-    const fechou = { fechada: zona.hidden, expandido: botao.getAttribute('aria-expanded') };
+    const botao = document.getElementById('passadorZapBtn');
+    const campo = document.getElementById('passadorZapNum');
+    const copiar = document.getElementById('passadorCopyBtn');
     const base = 'http://192.168.0.14:8787';
     const link = linkDoPassador(base);
     const rotulo = (id) => {
       const b = document.getElementById(id);
       return b ? (b.textContent || '').replace(/\s+/g, ' ').trim() : '';
     };
+    const use = botao && botao.querySelector('use');
     return {
-      rotulos: [rotulo('passadorCopyBtn'), rotulo('passadorZapBtn')],
-      // O GRUPO É UM: os dois botões, a mensagem e a linha do número na MESMA
-      // caixa (a estrutura que o olho lê como uma ação só).
-      umCartao: [zona, msg, document.getElementById('passadorCopyBtn'), botao]
+      copiarTexto: rotulo('passadorCopyBtn'),
+      zapTexto: rotulo('passadorZapBtn'),
+      zapNome: botao ? (botao.getAttribute('aria-label') || rotulo('passadorZapBtn')) : '',
+      zapTitle: botao ? botao.getAttribute('title') : null,
+      zapIcone: use ? (use.getAttribute('href') || use.getAttribute('xlink:href')) : null,
+      // O GRUPO É UM: o título, a caixa o botão-ícone e o "Copiar link" na
+      // MESMA caixa (a estrutura que o olho lê como uma ação só).
+      umCartao: [campo, botao, copiar]
         .every((el) => !!el && !!grupo && grupo.contains(el)),
       tituloGrupo: (document.getElementById('passadorRot') || {}).textContent,
-      mensagemNaTela: msg ? msg.textContent : '',
+      textoDoCartao: grupo ? grupo.innerText.replace(/\s+/g, ' ').trim() : '',
+      semMsg: !document.getElementById('passadorMsg'),
+      semZona: !document.getElementById('castZap'),
+      semAbrir: !document.getElementById('passadorZapAbrir'),
       semLink: !document.getElementById('passadorUrl'),
-      antes, abriu, fechou,
       ddd: numeroDoWhatsapp('51 99999-9999'),
       internacional: numeroDoWhatsapp('+55 (51) 99999-9999'),
       lixo: numeroDoWhatsapp('123'),
       semBarra: linkDoPassador('http://10.0.0.2:8787/'),
-      zap: zapDoPassador('5551999999999', mensagemDoPassador(link, hostDoPassador(base))),
-      mensagem: mensagemDoPassador(link, hostDoPassador(base)),
-      zapDeveria: 'https://wa.me/5551999999999?text=' + encodeURIComponent(
-        link + '\nSe o link não abrir, use: 192.168.0.14:8787'),
+      link,
+      zap: zapDoPassador('5551999999999', link),
+      zapDeveria: 'https://wa.me/5551999999999?text=' + encodeURIComponent(link),
       linkVivo: linkDoPassadorAtual(),
+      // A MÁSCARA: o que a caixa mostra por dígito, e o que sai da colagem.
+      mascara: [1, 2, 3, 4, 7, 11].map((n) => formatarNumeroDoPassador('1'.repeat(n))),
+      mascaraCelular: formatarNumeroDoPassador('11912345678'),
+      mascaraFixo: formatarNumeroDoPassador('1132654321'),
+      colouPais: digitosDoNumero('+55 11 91234-5678'),
+      colouPaisNaTela: formatarNumeroDoPassador(digitosDoNumero('+55 11 91234-5678')),
     };
   });
-  checar(passador.rotulos[0] === 'Copiar link' && passador.rotulos[1] === 'Enviar no WhatsApp',
-    'os dois botões do passador DIZEM o que fazem (ícone ao lado do texto, nunca sozinho)',
-    passador.rotulos.join(' | '));
+  checar(passador.copiarTexto === 'Copiar link' && passador.zapTexto === ''
+    && passador.zapNome === 'Enviar no WhatsApp' && passador.zapTitle === 'Enviar no WhatsApp',
+    'o "Copiar link" tem texto, e o botão-ícone do envio é sem texto mas COM nome acessível',
+    `${passador.copiarTexto} | ${JSON.stringify(passador.zapNome)}`);
+  checar(passador.zapIcone === '#icoCompartilhar',
+    'e ele veste o ícone de compartilhar do sprite (SVG novo, não)', passador.zapIcone);
   checar(passador.umCartao && passador.tituloGrupo === 'Passador de slides',
-    'e os dois, a mensagem e a linha do número são UM cartão nomeado', passador.tituloGrupo);
-  checar(passador.mensagemNaTela === passador.mensagem
-    && passador.mensagem === decodeURIComponent(passador.zap.split('?text=')[1] || ''),
-    'a mensagem que a folha mostra é a MESMA que viaja no `?text=` do WhatsApp',
-    JSON.stringify(passador.mensagemNaTela));
+    'os quatro moram no MESMO cartão nomeado', passador.tituloGrupo);
+  checar(passador.textoDoCartao === 'PASSADOR DE SLIDES Copiar link',
+    'e o texto visível é só o título e o "Copiar link"', passador.textoDoCartao);
+  checar(passador.semMsg && passador.semZona && passador.semAbrir,
+    'sem prévia da mensagem, sem a zona que abria e sem o segundo botão "Abrir"',
+    `${passador.semMsg} · ${passador.semZona} · ${passador.semAbrir}`);
   checar(passador.semLink,
     'e não voltou o segundo ENDEREÇO copiável (`#passadorUrl`) — o que se escreve é a mensagem');
-  checar(passador.antes.fechada && passador.antes.expandido === 'false',
-    'a zona do WhatsApp nasce FECHADA e o botão diz isso (`aria-expanded`)');
-  checar(passador.abriu.visivel && passador.abriu.expandido === 'true',
-    'e o MESMO botão a abre, sem popup por cima da folha');
-  checar(passador.fechou.fechada && passador.fechou.expandido === 'false',
-    'e o mesmo botão a fecha, que é o pedido');
   checar(passador.ddd === '5551999999999' && passador.internacional === '5551999999999',
     'o número com DDD ganha o 55, e o que já vem internacional fica igual', passador.ddd);
   checar(passador.lixo === '' &&
     passador.semBarra === 'https://audiovisualiasd.com.br/passador?h=10.0.0.2:8787',
     'número curto é recusado, e a barra final do endereço não vira `//`', passador.semBarra);
-  checar(passador.zap === passador.zapDeveria,
-    'a mensagem leva o link do site e o endereço cru na segunda linha', passador.zap);
+  checar(passador.zap === passador.zapDeveria
+    && decodeURIComponent(passador.zap.split('?text=')[1] || '') === passador.link,
+    'a mensagem é SÓ o link, numa linha (sem a segunda linha do endereço cru)', passador.zap);
   checar(passador.linkVivo === 'https://audiovisualiasd.com.br/passador?h=192.168.0.14:8787',
     'o link copiado sai do endereço do estado, que é o da última leitura', passador.linkVivo);
+  checar(passador.mascara[0] === '(1' && passador.mascara[1] === '(11'
+    && passador.mascara[2] === '(11) 1' && passador.mascara[3] === '(11) 11'
+    && passador.mascara[4] === '(11) 1111-1' && passador.mascara[5] === '(11) 1 1111-1111',
+    'a máscara cresce por dígito e o 11º vira o desenho do celular', passador.mascara.join(' · '));
+  checar(passador.mascaraCelular === '(11) 9 1234-5678'
+    && passador.mascaraFixo === '(11) 3265-4321'
+    && passador.colouPais === '11912345678'
+    && passador.colouPaisNaTela === '(11) 9 1234-5678',
+    'o celular de 11 e o fixo de 10 formatam, e colar com +55 fica no número local',
+    `${passador.mascaraCelular} · ${passador.mascaraFixo} · ${passador.colouPais}`);
 
   // ---- LIGAR E DESLIGAR NÃO É UM SALTO (v5.226) --------------------------
   //

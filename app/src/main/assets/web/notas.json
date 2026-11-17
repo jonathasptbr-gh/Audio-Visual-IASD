@@ -1,5 +1,17 @@
 [
   {
+    "versao": "1.14.66",
+    "itens": [
+      "O cartão do passador ficou só com o título, a caixa do número, o botão de compartilhar e o \"Copiar link\".",
+      "Saíram a mensagem escrita, a linha \"se o link não abrir\" e o botão que abria o campo com um segundo botão.",
+      "Agora ou você copia o link, ou manda direto para o número digitado com um toque no ícone.",
+      "O texto que vai no WhatsApp é só o link, sem a segunda linha do endereço.",
+      "O número se formata sozinho como (51) 9 9999-9999: vale para celular e fixo e aceita colar com +55.",
+      "Dá para editar o número no meio sem o cursor pular, e apagar sobre o traço apaga o dígito anterior.",
+      "Acabou o amarelo nativo da caixa: o foco agora é o anel azul do app."
+    ]
+  },
+  {
     "versao": "1.14.65",
     "itens": [
       "O botão \"Enviar no WhatsApp\" cortava o texto em aparelhos com outra fonte do sistema; agora ele quebra em duas linhas.",

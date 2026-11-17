@@ -2059,7 +2059,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.14.65</span>
+          <span id="appVersion">v1.14.66</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
@@ -2878,58 +2878,45 @@
                 </button>
               </div>
             </div>
-            <!-- O PASSADOR DE SLIDES É UMA AÇÃO SÓ, NUM CARTÃO SÓ (v1.14.64).
-                 Ele já foi um segundo endereço (até a v1.14.56) e depois dois
-                 ícones mudos (v1.14.57) — e o operador reprovou os dois pelo
-                 mesmo motivo: *"nenhum deles deixa claro o que ele está
-                 compartilhando"*, e o cartão dos botões e a zona do WhatsApp
-                 liam como duas coisas independentes. Agora TUDO o que é do
-                 passador mora numa caixa só (`.cast-passador`), na ordem em
-                 que se decide: o nome do grupo, as duas ações COM TEXTO, a
-                 MENSAGEM que viaja (legível e selecionável, `#passadorMsg`) e,
-                 quando aberta, a linha do número.
+            <!-- O PASSADOR DE SLIDES É UM CARTÃO COM QUATRO COISAS (v1.14.66):
+                 o título, a caixa do número, o botão-ícone que envia e o
+                 "Copiar link". O operador decidiu em 17/11 que não há mais
+                 texto complementar — saem a prévia da mensagem, o "se o link
+                 não abrir, use…" e o botão "Enviar no WhatsApp" que abria um
+                 campo e um segundo botão. Ou copia, ou manda direto para o
+                 número digitado.
+
+                 O BOTÃO-ÍCONE É SEM TEXTO VISÍVEL, NÃO SEM NOME: `aria-label` e
+                 `title` dizem "Enviar no WhatsApp" — ícone sozinho não diz o
+                 que se compartilha (o relato de 16/11), e o pedido foi tirar o
+                 texto da TELA, não o nome acessível. O desenho é o
+                 `#icoCompartilhar` do sprite, e não o logo de outra empresa.
 
                  O MESMO CARTÃO do endereço acima (`--surface` + `--radius-card`)
                  é o que faz o grupo ler como um: não há segunda superfície, e a
                  fronteira entre a decisão e o detalhe dela é o vão, não uma
-                 borda. A conta do link e do número mora no `controle.js`
-                 (`linkDoPassador`/`mensagemDoPassador`/`numeroDoWhatsapp`),
-                 porque é o que o oráculo mede. -->
+                 borda. A conta do link, do número e da máscara mora no
+                 `controle.js` (`linkDoPassador`/`numeroDoWhatsapp`/
+                 `formatarNumeroDoPassador`), porque é o que o oráculo mede. -->
             <div class="cast-passador" id="passadorGrupo" role="group" aria-labelledby="passadorRot">
               <span class="cast-rot" id="passadorRot">Passador de slides</span>
-              <div class="cast-passador-acoes">
-                <button type="button" id="passadorCopyBtn" class="cast-passador-btn" title="Copiar o link do passador de slides">
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCopiar"/></svg>
-                  <span>Copiar link</span>
-                </button>
-                <!-- ELE ABRE E FECHA A LINHA DO NÚMERO, e é ele mesmo a única
-                     saída dela: o `aria-expanded` é o que diz o estado sem uma
-                     segunda frase. -->
-                <button type="button" id="passadorZapBtn" class="cast-passador-btn" title="Enviar o link do passador no WhatsApp" aria-expanded="false" aria-controls="castZap">
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoContato"/></svg>
-                  <span>Enviar no WhatsApp</span>
+              <!-- A LINHA DO NÚMERO: a caixa e o botão-ícone lado a lado, na
+                   largura inteira do cartão. O `55` entra sozinho no envio (o
+                   `numeroDoWhatsapp`), o último número fica guardado em
+                   `av.passadorZap` — em DÍGITOS — e o texto que viaja é SÓ o
+                   link: com prosa em volta o WhatsApp deixa de reconhecer o
+                   endereço como clicável, e o endereço cru na segunda linha
+                   saiu por decisão do operador (17/11). -->
+              <div class="cast-passador-envio">
+                <input type="tel" id="passadorZapNum" class="cast-zap-num" inputmode="tel" autocomplete="tel" placeholder="(51) 9 9999-9999" aria-label="Número de quem vai passar os slides, com DDD">
+                <button type="button" id="passadorZapBtn" class="cast-passador-icone" title="Enviar no WhatsApp" aria-label="Enviar no WhatsApp">
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCompartilhar"/></svg>
                 </button>
               </div>
-              <!-- A MENSAGEM QUE VIAJA, escrita na tela (v1.14.64). Duas linhas
-                   desde a v1.14.59: o LINK PÚBLICO do site primeiro, e o
-                   endereço cru na segunda — é o que se digita se a página não
-                   abrir. Ela é o que responde "o que eu estou compartilhando?",
-                   e por isso fica ANTES do campo do número: escolhe-se a ação,
-                   lê-se o que vai, digita-se para quem. `pre-line` mantém as
-                   duas linhas, e o `user-select: text` deixa copiar daqui. -->
-              <p class="cast-passador-msg" id="passadorMsg"></p>
-              <!-- A LINHA DO WHATSAPP, e ela é uma LINHA do cartão, não um
-                   popup nem um segundo cartão: o campo do número e o Abrir. O
-                   `55` entra sozinho (o `numeroDoWhatsapp`), o último número
-                   fica guardado em `av.passadorZap`, e o texto que viaja é o
-                   mesmo `#passadorMsg` — com prosa em volta o WhatsApp deixa de
-                   reconhecer o endereço como clicável. -->
-              <div class="cast-zap" id="castZap" hidden>
-                <div class="cast-zap-linha">
-                  <input type="tel" id="passadorZapNum" class="cast-zap-num" inputmode="tel" autocomplete="tel" placeholder="51 99999-9999" aria-label="Número de quem vai passar os slides, com DDD">
-                  <button type="button" id="passadorZapAbrir" class="cast-zap-abrir">Abrir</button>
-                </div>
-              </div>
+              <button type="button" id="passadorCopyBtn" class="cast-passador-btn" title="Copiar o link do passador de slides">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoCopiar"/></svg>
+                <span>Copiar link</span>
+              </button>
             </div>
 
             <ul class="cast-telas" id="castTelas"></ul>

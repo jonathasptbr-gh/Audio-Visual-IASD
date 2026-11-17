@@ -104,11 +104,11 @@ function recortaFuncao(fonte, nome) {
 const mSite = ctrlCru.match(/const SITE_DO_PASSADOR = '([^']+)';/);
 let lk = null;
 try {
-  const corpo = ['hostDoPassador', 'linkDoPassador', 'mensagemDoPassador', 'zapDoPassador']
+  const corpo = ['hostDoPassador', 'linkDoPassador', 'zapDoPassador']
     .map((n) => recortaFuncao(ctrlCru, n));
   if (mSite && corpo.every(Boolean)) {
     lk = new Function('"use strict";' + mSite[0] + '\n' + corpo.join('\n')
-      + '\nreturn { hostDoPassador, linkDoPassador, mensagemDoPassador, zapDoPassador };')();
+      + '\nreturn { hostDoPassador, linkDoPassador, zapDoPassador };')();
   }
 } catch (_) { lk = null; }
 
@@ -168,16 +168,22 @@ if (/\b55\b/.test(ctrlLink) && /numeroDoWhatsapp/.test(ctrlLink)) {
     'com DDD e sem 55, o `wa.me` não acha a conversa');
 }
 
-// O CARTÃO DO PASSADOR existe na folha de conexão, e ele é UM só (v1.14.64): os
-// dois botões COM RÓTULO, a mensagem que viaja e a linha do número moram na
-// mesma caixa. Até a v1.14.63 eram dois nós irmãos — dois ícones soltos e um
-// cartão de WhatsApp separado —, e o operador leu exatamente isso: *"tratados
-// como não do mesmo grupo ou ação"*.
+// O CARTÃO DO PASSADOR existe na folha de conexão, e ele tem QUATRO coisas
+// (v1.14.66): o título, a caixa do número, o botão-ícone e o "Copiar link".
+// Saíram a prévia da mensagem (`#passadorMsg`), a zona que abria e fechava
+// (`#castZap`) e o segundo botão dela (`#passadorZapAbrir`) — o operador
+// decidiu em 17/11 que ou se copia, ou se manda direto para o número digitado.
 const htmlCast = ler(join(WEB, 'controle/index.html'));
-for (const id of ['passadorGrupo', 'passadorCopyBtn', 'passadorZapBtn', 'passadorMsg', 'castZap', 'passadorZapNum', 'passadorZapAbrir']) {
+for (const id of ['passadorGrupo', 'passadorCopyBtn', 'passadorZapBtn', 'passadorZapNum']) {
   if (new RegExp('id="' + id + '"').test(htmlCast)) ok(`a folha de conexão tem o \`#${id}\``);
   else nao(`a folha de conexão tem o \`#${id}\``,
-    'sem ele o passador não tem atalho nem a linha de envio no WhatsApp');
+    'sem ele o passador não tem o cartão, o link, o envio ou o número');
+}
+for (const id of ['passadorMsg', 'castZap', 'passadorZapAbrir']) {
+  if (new RegExp('id="' + id + '"').test(htmlCast)) {
+    nao(`a folha NÃO tem mais o \`#${id}\``,
+      'o texto complementar e o segundo botão saíram por decisão do operador (17/11)');
+  } else ok(`a folha NÃO tem mais o \`#${id}\` (o texto complementar e o segundo botão saíram)`);
 }
 
 // A MENSAGEM É O QUE SE ESCREVE NA TELA, e o que NÃO se escreve é um SEGUNDO
@@ -190,48 +196,47 @@ if (/id="passadorUrl"/.test(htmlCast)) {
     'o desenho que saiu na v1.14.57 é o do endereço escrito com botão de copiar próprio');
 } else ok('a folha NÃO tem um segundo endereço copiável (`#passadorUrl`)');
 
-// OS DOIS RÓTULOS, no HTML: o texto visível é o que o oráculo de Chromium lê, e
-// aqui ele é cobrado no passo que BARRA o build — uma remoção futura não chega
-// ao canal nem para ser medida.
-for (const [id, rotulo] of [
-  ['passadorCopyBtn', 'Copiar link'],
-  ['passadorZapBtn', 'Enviar no WhatsApp'],
-]) {
-  const m = htmlCast.match(new RegExp('id="' + id + '"[\\s\\S]*?</button>'));
-  if (m && m[0].includes('>' + rotulo + '<')) ok(`o \`#${id}\` diz "${rotulo}" no próprio botão`);
-  else nao(`o \`#${id}\` diz "${rotulo}" no próprio botão`,
+// OS RÓTULOS, no HTML: o "Copiar link" tem o TEXTO visível, e o botão-ícone do
+// envio não tem texto nenhum — mas tem `aria-label` e `title` "Enviar no
+// WhatsApp", porque o pedido era "sem texto na TELA", não "sem nome". Uma
+// remoção futura não chega ao canal nem para ser medida.
+{
+  const m = htmlCast.match(new RegExp('id="passadorCopyBtn"[\\s\\S]*?</button>'));
+  if (m && m[0].includes('>Copiar link<')) ok('o `#passadorCopyBtn` diz "Copiar link" no próprio botão');
+  else nao('o `#passadorCopyBtn` diz "Copiar link" no próprio botão',
     'ícone sozinho não diz o que se compartilha — foi o relato do operador em 16/11');
+  const z = htmlCast.match(new RegExp('id="passadorZapBtn"[\\s\\S]*?</button>'));
+  const corpo = z ? z[0] : '';
+  const semTexto = !/>[^<>]*[A-Za-zÀ-ÿ][^<>]*</.test(corpo.replace(/<svg[\s\S]*?<\/svg>/, ''));
+  if (corpo.includes('aria-label="Enviar no WhatsApp"') && corpo.includes('title="Enviar no WhatsApp"')
+    && corpo.includes('href="#icoCompartilhar"') && semTexto) {
+    ok('o `#passadorZapBtn` é só o ícone de compartilhar, com nome acessível "Enviar no WhatsApp"');
+  } else {
+    nao('o `#passadorZapBtn` é só o ícone de compartilhar, com nome acessível "Enviar no WhatsApp"',
+      'sem `aria-label`/`title` o botão de ícone fica MUDO para o leitor de tela');
+  }
 }
 
-// A MENSAGEM: o link do site na PRIMEIRA linha (sozinho, porque com prosa em
-// volta o WhatsApp deixa de reconhecer o endereço) e o endereço CRU na
-// segunda, que é o que se digita se a página não abrir. O `zapDoPassador`
-// codifica a mensagem INTEIRA — as duas linhas viajam no mesmo `?text=`.
-// AQUI se lê o TEXTO CRU: o `semComentario` corta tudo depois de `//`, e a
-// linha da URL tem `https://` — o `encodeURIComponent` sumiria da leitura.
+// A MENSAGEM QUE VIAJA, e ela agora é SÓ O LINK (decisão do operador,
+// 2026-11-17): sem a segunda linha do endereço cru e sem plano B escrito caso a
+// página do site não abra. O `zapDoPassador` codifica o link — e a ausência da
+// frase de socorro é medida no CÓDIGO sem comentários (a prosa pode citá-la,
+// as linhas executáveis não).
 if (!lk) {
-  nao('a mensagem do WhatsApp tem o link e o endereço cru', 'as funções do link não rodaram');
+  nao('a mensagem do WhatsApp é só o link', 'as funções do link não rodaram');
 } else {
   const link = lk.linkDoPassador('http://192.168.0.12:8787');
-  const msg = lk.mensagemDoPassador(link, lk.hostDoPassador('http://192.168.0.12:8787'));
-  const linhas = msg.split('\n');
-  const corpo = msg.replace(/\n/g, '\\n');
-  if (linhas[0] === link && linhas[1] === 'Se o link não abrir, use: 192.168.0.12:8787') {
-    ok(`a mensagem é o link na 1ª linha e o endereço cru na 2ª (\`${corpo}\`)`);
+  if (!/Se o link n[ãa]o abrir/.test(ctrlLink) && !/enderecoCru|endereço cru/.test(ctrlLink)) {
+    ok('o CÓDIGO não tem mais a linha "se o link não abrir" nem o endereço cru');
   } else {
-    nao('a mensagem é o link na 1ª linha e o endereço cru na 2ª', `saiu ${JSON.stringify(msg)}`);
+    nao('o CÓDIGO não tem mais a linha "se o link não abrir" nem o endereço cru',
+      'a decisão de 17/11 é que o que viaja é só o link');
   }
-  // O TLS não tem endereço cru (o link antigo JÁ é o endereço do aparelho):
-  // a mensagem fica só o link, sem uma segunda linha repetindo o mesmo.
-  const semCru = lk.mensagemDoPassador('https://igreja.local:8787/passador-de-slides', '');
-  if (semCru === 'https://igreja.local:8787/passador-de-slides') ok('sem endereço cru, a mensagem fica só o link');
-  else nao('sem endereço cru, a mensagem fica só o link', `saiu ${JSON.stringify(semCru)}`);
-
-  const zap = lk.zapDoPassador('5511999999999', msg);
-  if (zap === 'https://wa.me/5511999999999?text=' + encodeURIComponent(msg)) {
-    ok('o `wa.me` leva a mensagem inteira codificada');
+  const zap = lk.zapDoPassador('5511999999999', link);
+  if (zap === 'https://wa.me/5511999999999?text=' + encodeURIComponent(link)) {
+    ok('e o `wa.me` leva EXATAMENTE o link, codificado, numa linha só');
   } else {
-    nao('o `wa.me` leva a mensagem inteira codificada', `saiu ${JSON.stringify(zap)}`);
+    nao('o `wa.me` leva EXATAMENTE o link, codificado, numa linha só', `saiu ${JSON.stringify(zap)}`);
   }
 }
 
