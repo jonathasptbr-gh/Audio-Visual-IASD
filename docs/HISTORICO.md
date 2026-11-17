@@ -30,7 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
-- **v1.14.68** — Pacote 45: o aviso de volume da abertura vira um cartão na BASE com véu, fonte maior e os botões do app — não sobe o som nem fecha sozinho —, entra na fila `POPUPS` (o tour espera o OK) e o tour ganha a janela "Fazer o tour / Agora não" antes de abrir; na carona, a caixa do número do passador encolhe (só web).
+- **v1.14.69** — Pacote 45: o aviso de volume da abertura vira um cartão na BASE com véu, fonte maior e os botões do app — não sobe o som nem fecha sozinho —, entra na fila `POPUPS` (o tour espera o OK) e o tour ganha a janela "Fazer o tour / Agora não" antes de abrir; na carona, a caixa do número do passador encolhe (só web).
 - **v1.14.67** — o "Copiar link" do cartão do passador vai para a ESQUERDA da caixa do número, na MESMA linha (`[Copiar link] [caixa] [ícone]`), com o rótulo inteiro e as três peças sem truncar a 390×844 e 360×640 (só web).
 - **v1.14.66** — o cartão do passador enxuga para quatro coisas (título, caixa do número, botão-ícone e "Copiar link"), a mensagem que viaja passa a ser SÓ o link por decisão do operador, a caixa ganha a máscara `(xx) x xxxx-xxxx` (11) / `(xx) xxxx-xxxx` (10) que não pula o cursor, e o foco nativo amarelo dá lugar ao anel de `--accent` do app (só web).
 - **v1.14.65** — o conserto do vermelho da v1.14.64: o rótulo do passador mede 135px na DejaVu Sans do runner e 103px na fonte desta máquina, então ele passa a QUEBRAR em duas linhas em vez de truncar, e o oráculo mede a ausência de truncamento nos dois viewports em vez de "cabe em 158px" (só web; o mesmo lote da v1.14.64, que nunca chegou ao OTA).
@@ -804,7 +804,7 @@ apagada da que a criou.
 
 ---
 
-## v1.14.68 — o pop-up de volume da abertura pergunta em vez de agir, e a porta do tour
+## v1.14.69 — o pop-up de volume da abertura pergunta em vez de agir, e a porta do tour
 
 **O PEDIDO DO OPERADOR** (Pacote 45 da fila, 2026-11-16/17), só web:
 `SHELL_VERSION` 89 (o shell NÃO foi tocado), `minShell` 83, **sem `shellTag`** —
@@ -813,6 +813,22 @@ a última Release é a v1.14.56 e os métodos que este lote usa
 `naoPerturbeDefinir`, `abrirAcessoNaoPerturbe`) já estão nela, com
 `ACCESS_NOTIFICATION_POLICY` no manifesto. Degrau CORREÇÃO. O lote tem as nove
 partes do pacote e a carona autorizada da caixa do número do passador.
+
+**A v1.14.68 NUNCA CHEGOU AOS APARELHOS.** O run #2636 (`44098551531`) ficou
+VERMELHO no `verificar` e o `web-ota` foi PULADO — o canal seguiu em 1.14.67. A
+causa NÃO era o cartão: o `smoke` conta camada fixa por `position` e **não por
+visibilidade** (é o desenho dele, e está escrito lá), e o véu `#volAvisoVeu`
+nascia com `position: fixed` mesmo `display: none` — ele nunca cobriu nada, mas
+a varredura o via. O conserto é na ORIGEM: o véu só vira camada fixa com a
+classe `aberto`, que é escrita junto com o `hidden`, então fechado ele é um nó
+`display: none` sem `position` que disputa com coisa nenhuma. O segundo
+vermelho, `importar-na-biblioteca`, era o novo portão do tour: a janela "Fazer o
+tour" intercepta o toque como o balão, e o `semTour` daquele oráculo desarmava
+`armar`/`abrir` mas não o relógio já armado — ele passou a `AVTour.desativar()`,
+o "Pular tour" do operador. Os dois reprovaram no run #2636 e passaram verdes
+depois do conserto, junto com o `smoke` (o único dos 190 que roda a abertura
+inteira). **Como o bundle não saiu, este é o MESMO lote no número seguinte** (a
+regra do rito), e é esta nota que vale para o que ele entregou.
 
 **O QUE O CARTÃO DEIXOU DE FAZER.** Saiu o piso da v1.13.65: o app não chama
 mais `systemVolumeDefinir(0.6)` na abertura — em 30 s de medição o volume do

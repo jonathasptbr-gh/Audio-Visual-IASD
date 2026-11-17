@@ -896,7 +896,7 @@ window.AVNative = {
   systemVolumeDefinir(fracao), // (shell 86) DEFINE o volume de mídia na fração pedida:
                        //   `setStreamVolume` com flags 0 (sem painel e sem som de ajuste). Quem
                        //   chama é o cartão da abertura, pelo TOQUE do operador — "Subir até 60%"
-                       //   e o −/+ —, e o passo é do volume do APARELHO (v1.14.68)
+                       //   e o −/+ —, e o passo é do volume do APARELHO (v1.14.69)
   naoPerturbe(),       // (shell 89) {acesso, ligado, filtro}: a autorização de "Acesso a Não perturbe"
                        //   e o filtro de interrupção em vigor. O aviso da abertura PERGUNTA antes de
                        //   oferecer o botão: sem `acesso`, setInterruptionFilter é um no-op silencioso

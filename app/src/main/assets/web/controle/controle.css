@@ -1144,7 +1144,7 @@ body {
 .vol-pill-aviso[hidden] { display: none; }
 .vol-pill-aviso svg { width: 18px; height: 18px; color: var(--warn-text); }
 
-/* ===== O AVISO DA ABERTURA (v1.14.68) =====
+/* ===== O AVISO DA ABERTURA (v1.14.69) =====
    O cartão da base: a condição de disparo é a de sempre (o volume de mídia do
    aparelho abaixo de 60%), e o que ele faz é PERGUNTAR — o app não sobe mais o
    som sozinho, o cartão não fecha sozinho e o resto da tela escurece atrás do
@@ -1161,7 +1161,15 @@ body {
    `--fs-lg`, corpo e botões em `--fs-md`. Os ícones são os do sprite
    (`#icoSom`), e os botões são o vocabulário do app (`--radius-btn` no passo de
    volume, `--radius-pill` nas ações), não o desenho de um popup de sistema. */
-.vol-veu {
+.vol-veu { display: none; }
+/* ELE VIRA CAMADA SÓ QUANDO ACENDE (`aberto`, escrito pelo `mostrarAvisoDoVolume`).
+   Fechado ele não é `position: fixed` — é um nó `display: none` que não disputa
+   com nada. O `smoke` conta camada fixa por `position` e NÃO por visibilidade
+   (um `display: none` continua com o computado de `fixed`), e essa varredura é a
+   garantia de que a abertura não deixa coisa por cima: o véu entra nela pelo
+   mesmo critério do cartão. */
+.vol-veu.aberto {
+  display: block;
   position: fixed; inset: 0; z-index: 286;
   background: var(--scrim);
 }
@@ -13330,7 +13338,7 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
    "Copiar link" fica com a largura do conteúdo (`flex: 0 0 auto`) e o campo
    com todo o resto; o `min-width: var(--hit)` dele é o piso de toque (o
    `0` de antes deixava o `placeholder` decidir o encolhimento).
-   O TETO DA LINHA ENCOLHEU NA v1.14.68 (carona do Pacote 45): o operador viu
+   O TETO DA LINHA ENCOLHEU NA v1.14.69 (carona do Pacote 45): o operador viu
    espaço sobrando na caixa do número — "há bastante espaço sobrado na caixa de
    texto do número... pode encolher um pouco mais" —, e a linha inteira desce de
    22rem para 19rem (304px) em vez de o campo perder só ele: assim o

@@ -37,7 +37,7 @@ const volValueEl = document.getElementById('volValue');
 const volPillEl = document.getElementById('volPill');
 const volPillMuteEl = document.getElementById('volPillMute');
 const volPillAvisoEl = document.getElementById('volPillAviso');
-// O AVISO DA ABERTURA (v1.14.68): o cartão da base que PERGUNTA o que fazer com
+// O AVISO DA ABERTURA (v1.14.69): o cartão da base que PERGUNTA o que fazer com
 // o volume do aparelho abaixo de 60% — não mexe mais nele sozinho. Nasce
 // `hidden` no HTML; quem o acende é `mostrarAvisoDoVolume`, e o véu anda junto
 // (`volAvisoVeuEl`) para a tela não ficar meio bloqueada.
@@ -487,7 +487,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.68';
+const WEB_VERSION = '1.14.69';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -43687,7 +43687,7 @@ function conferirVolumeDoSistema() {
   }).catch(() => null);
 }
 
-// ===== O AVISO DA ABERTURA (v1.14.68) =====
+// ===== O AVISO DA ABERTURA (v1.14.69) =====
 // O cartão da base pergunta o que fazer com o volume do aparelho abaixo de 60%:
 // "Subir até 60%", o volume do aparelho no −/+, o Não perturbe e o OK. Ele NÃO
 // fecha sozinho e NÃO guarda "não mostrar mais": o OK descarta a mensagem desta
@@ -43699,7 +43699,10 @@ function conferirVolumeDoSistema() {
 // resposta da ponte.
 function esconderAvisoDoVolume() {
   if (volAvisoPopEl) { volAvisoPopEl.hidden = true; volAvisoPopEl.classList.remove('open'); }
-  if (volAvisoVeuEl) volAvisoVeuEl.hidden = true;
+  // O VÉU SAI DE CENA INTEIRO: `hidden` E a classe que o torna camada fixa. Um
+  // `display: none` esquecido no DOM é o que o `smoke` cobra — e ele conta
+  // `position: fixed` sem perguntar visibilidade.
+  if (volAvisoVeuEl) { volAvisoVeuEl.hidden = true; volAvisoVeuEl.classList.remove('aberto'); }
 }
 
 // O NÚMERO É O DO APARELHO, lido na hora: a fração pedida ao shell pode não
@@ -43737,7 +43740,7 @@ function mostrarAvisoDoVolume(r) {
   if (!window.__NATIVE__ || !volAvisoPopEl) return;
   volAvisoPopEl.hidden = false;
   volAvisoPopEl.classList.add('open');
-  if (volAvisoVeuEl) volAvisoVeuEl.hidden = false;
+  if (volAvisoVeuEl) { volAvisoVeuEl.hidden = false; volAvisoVeuEl.classList.add('aberto'); }
   pintarVolumeDoAviso(r);
   diagC('volume do sistema abaixo do piso: cartão da abertura na tela');
   // O RÓTULO VEM DO ESTADO REAL, não de um palpite: com o Não perturbe já ligado
@@ -46664,7 +46667,7 @@ const POPUPS = [
   // duas coisas dizem a mesma ordem, e mudar uma sem a outra é o acaso que já
   // cobriu um popup por inteiro aqui.
   [sorteioPopupEl, sorteioCloseEl, fecharSorteio],
-  // O CARTÃO DO VOLUME DA ABERTURA (v1.14.68) entra como popup de verdade: é a
+  // O CARTÃO DO VOLUME DA ABERTURA (v1.14.69) entra como popup de verdade: é a
   // camada mais ALTA deste inventário (z 288, acima das folhas e abaixo do
   // diálogo do app) e a que está por cima na abertura. Entrar aqui é o que lhe
   // dá o botão VOLTAR do Android, e é o que faz `secaoDoTour()` — e portanto
@@ -46794,7 +46797,7 @@ function qualTour() {
   return simpleModeEl.classList.contains('corpo-biblioteca') ? 'simples' : 'tocando';
 }
 // O que nenhum tour cobre: a cortina de abertura, o diálogo, a tela cheia e o
-// cartão do volume da abertura (v1.14.68) — o tour ESPERA o OK dele, e é o
+// cartão do volume da abertura (v1.14.69) — o tour ESPERA o OK dele, e é o
 // `bloqueio` que segura o automático mesmo quando o cartão é a única coisa na
 // tela (a `secaoDoTour` também o vê, pela fila `POPUPS`; as duas dizem o mesmo).
 function bloqueioDoTour() {

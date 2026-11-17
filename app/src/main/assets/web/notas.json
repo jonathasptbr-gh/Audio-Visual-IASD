@@ -1,7 +1,8 @@
 [
   {
-    "versao": "1.14.68",
+    "versao": "1.14.69",
     "itens": [
+      "A versão 1.14.68 não chegou ao seu aparelho; é esta 1.14.69 que traz o aviso de volume novo e a janela do tour.",
       "O aviso de volume da abertura não sobe mais o som sozinho e não fecha mais sozinho: ele PERGUNTA.",
       "O cartão nasce na base da tela, escurece o resto e tem letra maior, com os botões do app.",
       "Dá para subir até 60%, ajustar o volume do aparelho no −/+ e ligar o Não perturbe.",

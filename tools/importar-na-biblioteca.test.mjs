@@ -69,7 +69,12 @@ async function abrir(modo) {
 
 // O TOUR DA BIBLIOTECA abre sozinho e o balão dele intercepta o toque no botão (medido: `#tour`
 // `data-tour="s.biblioteca"`). Desarmar pelo próprio `AVTour` é o que o operador faria com "Pular".
+// E DESDE O PACOTE 45 o automático PERGUNTA antes ("Fazer o tour / Agora não"), com a janela do
+// app interceptando o toque como o balão — `desativar()` é o "Pular tour" do operador: grava
+// `av.tour.off`, fecha o que estiver aberto e PARA o relógio do automático, então a pergunta não
+// chega a nascer. Só dar `armar = () => {}` não bastava: o relógio já estava armado desde a carga.
 const semTour = (pg) => pg.evaluate(() => {
+  window.AVTour.desativar();
   window.AVTour.armar = () => {};
   window.AVTour.abrir = () => false;
   if (window.AVTour.aberto && AVTour.aberto()) AVTour.fechar();
