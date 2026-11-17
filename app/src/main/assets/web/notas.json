@@ -1,5 +1,17 @@
 [
   {
+    "versao": "1.14.61",
+    "itens": [
+      "Toda informação de conexão e estado agora vive num lugar só: o quadro do meio.",
+      "Saiu a pílula do topo e saiu o status do cabeçalho: nada de recado repetido.",
+      "Os quadros de cima e de baixo ficam limpos: sem prévia, só o ícone, sem legenda.",
+      "Sem conexão, o aviso aparece dentro do quadro do meio, abaixo do slide.",
+      "Conectado, o quadro do meio mostra o slide e o contador, e nada mais.",
+      "O contador e os botões ◀ ▶ e a cortina continuam funcionando antes de conectar.",
+      "Tocar antes de começar responde no quadro do meio que a apresentação não começou."
+    ]
+  },
+  {
     "versao": "1.14.60",
     "itens": [
       "Conserto urgente: o link do WhatsApp do passador abria a página do telão; agora abre a do passador.",

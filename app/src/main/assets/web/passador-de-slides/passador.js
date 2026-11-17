@@ -19,9 +19,24 @@
 
    Nada além de slides. Sem apresentação no ar, ela não mostra prévia nenhuma:
    com uma letra, uma mensagem ou o cronômetro em cena, as imagens não existem
-   na tela — os três quadros ficam no DESENHO DE ESPERA (o monitor do app com
-   "Aguardando", v1.14.60) — e as ações, se chegassem, seriam recusadas do
-   outro lado (`slideTarget() !== 'deck'` no `controle.js`).
+   na tela — os três quadros ficam no DESENHO DE ESPERA (o monitor do app,
+   v1.14.60) — e as ações, se chegassem, seriam recusadas do outro lado
+   (`slideTarget() !== 'deck'` no `controle.js`).
+
+   ## O QUADRO CENTRAL É O DONO DO ESTADO (v1.14.61, Pacote 46)
+
+   O operador viu o mesmo recado em quatro lugares — a pílula `#vazio` do topo,
+   o status vermelho do cabeçalho e o "Aguardando" repetido nos três quadros —
+   e pediu uma casa só: *"pode centralizar todas as informações de conexão e
+   estado no slide central, não precisamos de pílulas e legendas fora do foco e
+   diversas vezes"*.
+
+   A regra que este arquivo implementa: **toda condição de conexão é escrita
+   DENTRO do cartão central** (`#estadoCentral`, abaixo da moldura — nunca
+   sobre o slide) e **nada fora dele fala de estado**. Conectado e saudável é
+   SILÊNCIO: `condicao('')` apaga a linha, e o quadro do meio mostra o slide e
+   mais nada. O rótulo do desenho de espera existe SÓ no quadro do meio; os
+   laterais desenham só o ícone.
 
    ## O `<img>` SEM `src` É O DEFEITO (v1.14.60)
 
@@ -44,11 +59,13 @@
 
 'use strict';
 
-// O NOME DA CLASSE `#estado` de erro — ver `passador.css` (`.ruim`).
+// AS FRASES DE CONEXÃO — e o destino delas é UM só: a linha do quadro central.
+// A frase "Conectado" não existe mais: conectado é silêncio (v1.14.61).
 const MSG_CONECTANDO = 'Conectando…';
-const MSG_OK = 'Conectado';
 const MSG_CAIU = 'Sem conexão — tentando de novo';
 const MSG_LOTADO = 'O limite de telas foi atingido — feche uma das outras';
+const MSG_RECUSOU = 'O celular recusou esta página';
+const MSG_TOQUE_VAZIO = 'A apresentação ainda não começou';
 
 /**
  * O TEMPO DO `alive`, e ele é MENOR que o teto do servidor de propósito: com
@@ -65,8 +82,6 @@ const PRAZO_POST_MS = 15000;
 const $ = (id) => document.getElementById(id);
 const ui = {
   app: $('app'),
-  estado: $('estado'),
-  vazio: $('vazio'),
   cartoes: $('cartoes'),
   acoes: $('acoes'),
   cartaoAnt: $('cartaoAnt'),
@@ -75,6 +90,10 @@ const ui = {
   imgAnt: $('imgAnt'),
   imgAtual: $('imgAtual'),
   imgProx: $('imgProx'),
+  // O ESTADO: a linha do quadro central e o rótulo do desenho, que só existe
+  // no quadro do meio (v1.14.61).
+  estadoCentral: $('estadoCentral'),
+  esperaAtual: $('esperaAtual'),
   numPagina: $('numPagina'),
   numTotal: $('numTotal'),
   btnAnt: $('btnAnt'),
@@ -93,29 +112,38 @@ let conectado = false;
 let temApresentacao = false;
 
 /** O rótulo do desenho, por motivo — o mesmo quadro serve a dois casos. */
-const ESPERA = 'Aguardando';
+const ESPERA = 'Aguardando a apresentação';
 const SEM_PREVIA = 'Sem prévia';
 
 // ---------------------------------------------------------------------------
 // O desenho
 // ---------------------------------------------------------------------------
 
-function frase(texto, ruim) {
-  ui.estado.textContent = texto;
-  ui.estado.classList.toggle('ruim', !!ruim);
+/**
+ * A CONDIÇÃO DE CONEXÃO, E ELA MORA DENTRO DO QUADRO CENTRAL (v1.14.61).
+ *
+ * Não há mais status no cabeçalho: `''` é SILÊNCIO, e silêncio é o estado
+ * saudável — com a apresentação no ar, o quadro do meio mostra o slide e nada
+ * mais. `ruim` acende o `--stage-alert` da linha (ver `passador.css`).
+ */
+function condicao(texto, ruim) {
+  const t = texto || '';
+  ui.estadoCentral.textContent = t;
+  ui.estadoCentral.classList.toggle('ruim', !!ruim && !!t);
+  ui.estadoCentral.hidden = !t;
 }
 
 /**
  * O INATIVO É UM ESTADO, e não um erro: a página continua conectada e os três
- * quadros DESENHAM a espera — nunca o ícone de imagem quebrada. O aviso do topo
- * é uma faixa discreta; os quadros e os controles continuam no lugar, que é a
- * tela que o irmão vê antes de o operador projetar. Quem reconecta é o laço,
+ * quadros DESENHAM a espera — nunca o ícone de imagem quebrada. O estado mora
+ * no quadro CENTRAL (o rótulo do desenho e, se houver, a linha da condição); o
+ * topo não repete nada, e os quadros e os controles continuam no lugar, que é
+ * a tela que o irmão vê antes de o operador projetar. Quem reconecta é o laço,
  * e ele não depende disto.
  */
 function mostrarInativo() {
   temApresentacao = false;
   ui.app.classList.add('esperando');
-  ui.vazio.hidden = false;
   ui.cartoes.hidden = false;
   ui.acoes.hidden = false;
 
@@ -134,7 +162,6 @@ function mostrarInativo() {
 function mostrarAtivo(est) {
   temApresentacao = true;
   ui.app.classList.remove('esperando');
-  ui.vazio.hidden = true;
   ui.cartoes.hidden = false;
   ui.acoes.hidden = false;
 
@@ -184,6 +211,11 @@ function trocarImagem(img, url, rotulo) {
   }
   if (img.getAttribute('src') === novo) return;
   moldura.classList.remove('sem-previa');
+  // O RÓTULO VOLTA AO PADRÃO: o desenho pode reaparecer por outro motivo (uma
+  // queda do fio, o inativo), e o "Sem prévia" de uma carga antiga não é dono
+  // do estado de agora. O texto só existe no quadro do meio.
+  const txt = moldura.querySelector('.espera-txt');
+  if (txt) txt.textContent = rotulo || ESPERA;
   img.setAttribute('src', novo);
 }
 
@@ -229,7 +261,7 @@ async function pedirEntrada() {
     return { erro: '' };
   }
   if (corpo && corpo.estado === 'lotado') return { erro: MSG_LOTADO };
-  return { erro: 'O celular recusou esta página' };
+  return { erro: MSG_RECUSOU };
 }
 
 async function postar(corpo) {
@@ -283,9 +315,11 @@ async function conectar() {
   if (resp.status === 404 || resp.status === 403) { token = null; return; }
   if (!resp.ok || !resp.body) return;
 
+  // O FIO ABRIU: SILÊNCIO. A ausência de status É o estado saudável (v1.14.61)
+  // — não existe mais "Conectado" escrito na tela.
   conectado = true;
   esperaMs = REENTRADA_MS;
-  frase(MSG_OK, false);
+  condicao('', false);
 
   const leitor = resp.body.getReader();
   const dec = new TextDecoder();
@@ -332,6 +366,9 @@ function tratarEvento(bruto) {
   // `oi` é a abertura do fio (a mesma das telas) — não diz nada sobre slide.
   if (msg.type !== 'passador-estado') return;
 
+  // O ESTADO CHEGOU, LOGO O FIO ESTÁ DE PÉ: a condição anterior (uma queda, o
+  // recado de um toque no vazio) está obsoleta e sai — silêncio de novo.
+  condicao('', false);
   if (!msg.ativo) { mostrarInativo(); return; }
   mostrarAtivo(msg);
 }
@@ -349,7 +386,7 @@ async function laco() {
     if (!token) {
       const r = await pedirEntrada();
       if (r.erro) {
-        frase(r.erro, true);
+        condicao(r.erro, true);
         await esperar(esperaMs);
         esperaMs = Math.min(esperaMs * 2, REENTRADA_MAX_MS);
         continue;
@@ -362,8 +399,9 @@ async function laco() {
     }
     if (!vivo) break;
     // O FIO CAIU COM TOKEN VÁLIDO: espera curta e volta. Com token morto,
-    // `conectar` o zerou, e a volta passa pelo `POST /par` acima.
-    frase(token ? MSG_CAIU : MSG_CONECTANDO, true);
+    // `conectar` o zerou, e a volta passa pelo `POST /par` acima. A frase é a
+    // condição DENTRO do quadro central — e só ela: o topo não fala de estado.
+    condicao(token ? MSG_CAIU : MSG_CONECTANDO, !!token);
     await esperar(token ? 800 : esperaMs);
   }
 }
@@ -379,12 +417,13 @@ function esperar(ms) {
 function acao(a) {
   // SEM APRESENTAÇÃO, O TOQUE RESPONDE E NÃO POSTA: o controle do outro lado
   // desiste fora do deck (`slideTarget() !== 'deck'`), então o POST morreria em
-  // silêncio e o botão pareceria quebrado. A frase do topo diz por que nada
-  // mudou no telão.
-  if (!temApresentacao) { frase('A apresentação ainda não começou', false); return; }
-  // Sem sessão, o toque não some calado: a frase do topo é o retorno, e o laço
-  // continua de pé.
-  if (!token) { frase(MSG_CAIU, true); return; }
+  // silêncio e o botão pareceria quebrado. A resposta é a linha do quadro
+  // central — ela diz por que nada mudou no telão e não acende o alerta (não é
+  // defeito: a apresentação ainda não começou).
+  if (!temApresentacao) { condicao(MSG_TOQUE_VAZIO, false); return; }
+  // Sem sessão, o toque não some calado: a linha do quadro central é o
+  // retorno, e o laço continua de pé.
+  if (!token) { condicao(MSG_CAIU, true); return; }
   postar({ do: 'passador', acao: a });
 }
 
@@ -423,7 +462,10 @@ setInterval(() => {
   enviarAlive();
 }, ALIVE_MS);
 
-frase(MSG_CONECTANDO, false);
+// O PRIMEIRO DESENHO NÃO FALA DE CONEXÃO: "Conectando…" só aparece quando o
+// laço já tem motivo para dizer (a linha do quadro central). Antes disso, o
+// estado é o do quadro: "Aguardando a apresentação".
+condicao('', false);
 mostrarInativo();
 vigiar();
 laco();

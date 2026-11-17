@@ -33,8 +33,23 @@
    Um `<img>` sem `src` (ou com um `src` que não carrega) é o ícone de imagem
    quebrada do navegador — dentro do quadro preto ele lê como defeito. Por isso
    o `img` só aparece com endereço E carga confirmada; o resto do tempo quem
-   ocupa a moldura é o monitor de traço do app com "Aguardando", e o aviso do
-   topo é uma faixa de uma linha, não um bloco.
+   ocupa a moldura é o monitor de traço do app.
+
+   ## O QUADRO CENTRAL É O DONO DO ESTADO (v1.14.61, Pacote 46)
+
+   O operador viu o mesmo recado em QUATRO lugares — a pílula `#vazio` do topo,
+   o status vermelho `#estado` do cabeçalho e o "Aguardando" repetido nos três
+   quadros — e pediu uma casa só: *"pode centralizar todas as informações de
+   conexão e estado no slide central, não precisamos de pílulas e legendas fora
+   do foco e diversas vezes"*.
+
+   Então: o topo tem SÓ o título; o rótulo do desenho mora apenas no quadro do
+   MEIO (`.espera-txt` só existe lá); e a condição de conexão — a queda, o
+   limite de telas, a recusa, o toque no vazio — é uma linha DENTRO do cartão
+   central (`.estado-central`), abaixo da moldura, nunca sobre o slide e nunca
+   no cabeçalho. Conectado e saudável é SILÊNCIO: o quadro do meio mostra o
+   slide e nada mais. O desenho de espera continua nos três quadros; nos
+   laterais, só o ícone, sem legenda repetida.
    ========================================================================== */
 
 * { box-sizing: border-box; }
@@ -73,13 +88,13 @@ body {
   gap: 6px;
 }
 
-/* ---------- o topo: UMA linha (título e estado) ---------- */
+/* ---------- o topo: UMA linha, e ela é só o título ----------
+   O estado saiu daqui na v1.14.61: ele mora no quadro central, e o topo não
+   repete o recado. O título é RÓTULO da página, não estado — por isso fica. */
 #topo {
   flex: 0 0 auto;
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
   min-height: 0;
 }
 
@@ -89,39 +104,6 @@ body {
   font-weight: 600;
   letter-spacing: .12em;
   text-transform: uppercase;
-  color: var(--stage-text-dim, rgba(255, 255, 255, .72));
-}
-
-#estado {
-  margin: 0;
-  min-width: 0;
-  font-size: 12px;
-  text-align: right;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--stage-accent, #8fb1f3);
-}
-
-#estado.ruim { color: var(--stage-alert, #f97a7e); }
-
-/* ---------- o inativo: UMA faixa, e ela não é dona de área nenhuma ----------
-   A altura é a do texto mais a folga (26 px), e não a sobra da coluna: o que a
-   faixa devolve é dos três quadros, que continuam medindo a tela inteira. */
-#vazio {
-  flex: 0 0 auto;
-  align-self: center;
-  max-width: 100%;
-  margin: 0;
-  padding: 5px 12px;
-  border-radius: 999px;
-  background: var(--panel, #212f3d);
-  font-size: 12px;
-  line-height: 1.3;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   color: var(--stage-text-dim, rgba(255, 255, 255, .72));
 }
 
@@ -179,10 +161,10 @@ body {
    um `src` antigo é removido por JS. */
 .cartao img:not([src]) { display: none; }
 
-/* ---------- o desenho da espera: símbolo + uma palavra ----------
+/* ---------- o desenho da espera: símbolo, e a palavra SÓ NO MEIO ----------
    O MONITOR DO `#icoTela` do app (o traço 2 do sprite do Controle e a ponta
-   redonda) e "Aguardando" embaixo. O conjunto é o que o quadro mostra
-   sem apresentação — ou quando a prévia daquela página não existe. */
+   redonda). Nos quadros laterais é só ele: a legenda repetida três vezes saiu
+   na v1.14.61. No quadro do meio, o ícone e a palavra — é ele que fala. */
 .espera {
   display: flex;
   flex-direction: column;
@@ -197,8 +179,8 @@ body {
 }
 
 .espera svg {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
@@ -214,8 +196,27 @@ body {
 .moldura:not(.sem-previa) .espera { display: none; }
 .moldura.sem-previa img { display: none; }
 
+/* ---------- a condição de conexão: uma linha DENTRO do quadro central ------
+   Abaixo da moldura e NUNCA por cima do slide (é o pedido do Pacote 46: sem
+   status sobre o conteúdo). Mesma tipografia do contador — é o quadro que
+   fala, não uma faixa da página. Vazia, a linha está `hidden` e não ocupa
+   altura: conectado e saudável é silêncio. */
+.estado-central {
+  flex: 0 0 auto;
+  margin: 3px 0 0;
+  font-size: 11px;
+  line-height: 1.3;
+  text-align: center;
+  color: var(--stage-text-dim, rgba(255, 255, 255, .72));
+}
+
+/* A QUEDA DE CONEXÃO ACENDE A COR DO ALERTA — o mesmo `--stage-alert` que o
+   `.ruim` do topo usava. O estado continua DENTRO do quadro. */
+.estado-central.ruim { color: var(--stage-alert, #f97a7e); }
+
 /* SEM APRESENTAÇÃO, O CONTADOR NÃO EXISTE: "1/1" com o telão parado é número
-   inventado, e o estado de espera é o desenho, não a contagem. */
+   inventado, e o estado de espera é o desenho, não a contagem. Os controles é
+   que não somem — ◀ ▶ e a cortina ficam no lugar antes de conectar. */
 #app.esperando .contador { display: none; }
 
 /* O DE CIMA E O DE BAIXO: menores, apagados e CLICÁVEIS — passar e voltar são

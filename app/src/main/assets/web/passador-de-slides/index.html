@@ -13,13 +13,19 @@
   `servirDoBundle`, no `EspelhoServidor.kt`) — a marca faria o `tela.js` tomar
   esta página por uma tela da rede.
 
-  SEM TEXTO QUE NÃO SEJA CONTROLE OU ESTADO (v1.14.58; o estado vazio na
-  v1.14.60). O pedido do operador é que slides e controles caibam na altura que
-  o navegador mostra, sem rolar, e que, sem apresentação, os três quadros
-  DESENHEM a espera em vez de mostrarem imagem quebrada. Por isso o aviso é uma
-  faixa de uma linha e os três quadros têm `sem-previa` no próprio HTML: quem
-  chega antes do `passador.js` já vê o desenho de espera, nunca um `<img>` sem
-  `src` (é o `[hidden]` do topo da folha que faz valer o `hidden` das seções).
+  O ESTADO MORA NO QUADRO CENTRAL, E SÓ NELE (v1.14.61, Pacote 46). O operador
+  viu o mesmo recado em quatro lugares — a pílula do topo, o status vermelho do
+  cabeçalho e o "Aguardando" repetido nos três quadros — e pediu uma casa só:
+  *"pode centralizar todas as informações de conexão e estado no slide central,
+  não precisamos de pílulas e legendas fora do foco e diversas vezes"*.
+
+  Por isso o HTML tem SÓ o título no topo (`#topo h1`), o rótulo do desenho
+  apenas na moldura do MEIO (`#esperaAtual`) e a condição de conexão numa linha
+  DENTRO do cartão central (`#estadoCentral`), abaixo da moldura — nunca sobre
+  o slide. Os três quadros continuam SEMPRE montados e com `sem-previa` no
+  próprio HTML: quem chega antes do `passador.js` já vê o desenho de espera,
+  nunca um `<img>` sem `src` (é o `[hidden]` do topo da folha que faz valer o
+  `hidden` das seções).
 
   A CSP das páginas servidas é `default-src 'self'` SEM `'unsafe-inline'`:
   folha e script são ARQUIVOS, e não existe estilo embutido em lugar nenhum
@@ -33,37 +39,34 @@
 <main id="app">
   <header id="topo">
     <h1>Passador</h1>
-    <p id="estado" role="status" aria-live="polite">Conectando…</p>
   </header>
 
-  <!-- O AVISO DO VAZIO É UMA FAIXA, NÃO UM BLOCO (v1.14.60): uma linha de 12 px
-       entre o topo e os quadros. Ele não toma a área dos slides nem a dos
-       controles — quem diz "aguardando" com desenho são os três quadros. -->
-  <p id="vazio" hidden>Nenhuma apresentação no ar — aguardando o início</p>
-
   <!-- OS TRÊS QUADROS FICAM SEMPRE MONTADOS: com apresentação eles mostram a
-       prévia (`src` = a mesma URL `/m/` do telão); sem ela, o desenho de espera
-       abaixo. O `sem-previa` do HTML é o estado inicial — ninguém vê o ícone de
-       imagem quebrada nem por um quadro. -->
+       prévia (`src` = a mesma URL `/m/` do telão); sem ela, o desenho de espera.
+       O rótulo do desenho existe SÓ no quadro do meio: nos laterais o ícone
+       basta (v1.14.61) — a legenda repetida três vezes saiu. -->
   <section id="cartoes" hidden>
     <button class="cartao anterior" id="cartaoAnt" type="button" aria-label="Slide anterior">
       <span class="moldura sem-previa">
         <img id="imgAnt" alt="Slide anterior">
         <span class="espera" aria-hidden="true">
           <svg viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="12.5" rx="2"/><path d="M8 20.5h8M12 16.5v4"/></svg>
-          <span class="espera-txt">Aguardando</span>
         </span>
       </span>
     </button>
 
+    <!-- O DONO DO ESTADO. A linha `#estadoCentral` fica dentro do cartão,
+         DEPOIS da moldura: o estado do app não se sobrepõe ao slide, e o
+         conectado e saudável não escreve nada (silêncio). -->
     <div class="cartao atual" id="cartaoAtual">
       <span class="moldura sem-previa">
         <img id="imgAtual" alt="Slide no telão">
         <span class="espera" aria-hidden="true">
           <svg viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="12.5" rx="2"/><path d="M8 20.5h8M12 16.5v4"/></svg>
-          <span class="espera-txt">Aguardando</span>
+          <span class="espera-txt" id="esperaAtual">Aguardando a apresentação</span>
         </span>
       </span>
+      <p class="estado-central" id="estadoCentral" role="status" aria-live="polite" hidden></p>
       <span class="contador"><span id="numPagina">1</span>/<span id="numTotal">1</span></span>
     </div>
 
@@ -72,7 +75,6 @@
         <img id="imgProx" alt="Próximo slide">
         <span class="espera" aria-hidden="true">
           <svg viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="12.5" rx="2"/><path d="M8 20.5h8M12 16.5v4"/></svg>
-          <span class="espera-txt">Aguardando</span>
         </span>
       </span>
     </button>

@@ -13,9 +13,18 @@
 // ele mede a ÁRVORE (as três seções abertas, o pé dos botões dentro da janela),
 // e não um retângulo qualquer.
 //
+// DESDE A v1.14.61 (Pacote 46) O ESTADO MORA NO QUADRO CENTRAL: a pílula
+// `#vazio` e o status `#estado` do topo não existem mais. O que este oráculo
+// mede no estado vazio é a LINHA DO ESTADO dentro do cartão do meio — e a régua
+// nova: ela não é dona da tela (≤ 12% da altura da janela), o título é o único
+// texto fora do central, e a moldura do meio continua com a maior parte do
+// cartão (o slide não é espremido pelo recado). Os três quadros e os três
+// controles continuam montados.
+//
 // A página é servida de `file://`: o CSS é relativo e o que se mede é layout.
 // O `passador.js` roda e falha ao parear (não há servidor aqui) — isso é
-// esperado e não entra no veredito.
+// esperado e não entra no veredito; é o que faz a linha da condição aparecer,
+// que é justamente o pior caso de altura do estado vazio.
 import { chromium } from 'playwright';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -35,6 +44,13 @@ for (const [w, h] of TELAS) {
   // ruído é do teste, não da página.
   pg.on('pageerror', () => {});
   await pg.goto(PAGINA, { waitUntil: 'domcontentloaded' });
+  // A LINHA DO ESTADO DO CENTRAL APARECE MESMO (a falha do pareamento em
+  // `file://` a liga): é o pior caso de altura, e é ele que tem de caber.
+  await pg.waitForFunction(() => {
+    const e = document.getElementById('estadoCentral');
+    return !!e && !e.hidden;
+  }, null, { timeout: 5000 }).catch(() => {});
+
   const m = await pg.evaluate(() => {
     // O estado "NO AR", que é o que tem os três cartões e os botões. O caminho
     // normal de quem chega sem apresentação é o inativo — que também tem de
@@ -45,9 +61,9 @@ for (const [w, h] of TELAS) {
     // abaixo são as do estado que o irmão vê antes de o operador projetar.
     const janela = window.innerHeight;
     const r = (id) => document.getElementById(id).getBoundingClientRect();
-    const inativo = r('vazio');
     const cabeInativo = document.body.scrollHeight <= janela + 1;
     const visivel = (el) => !!el && getComputedStyle(el).display !== 'none';
+    const estado = document.getElementById('estadoCentral');
     const esperas = [...document.querySelectorAll('.moldura .espera')]
       .filter((e) => visivel(e) && e.getBoundingClientRect().height > 0).length;
     // NENHUM `<img>` SEM CARGA À VISTA: é o ícone de imagem quebrada que o
@@ -56,13 +72,29 @@ for (const [w, h] of TELAS) {
       .filter((i) => visivel(i) && !(i.complete && i.naturalWidth > 0)).length;
     const semSrcVisivel = [...document.querySelectorAll('.cartao img')]
       .filter((i) => visivel(i) && !i.getAttribute('src')).length;
+    // O TEXTO FORA DO QUADRO CENTRAL: só o título. A varredura é a mesma do
+    // `passador-espera`, reduzida ao que este oráculo precisa (estar no lugar).
+    const central = document.getElementById('cartaoAtual');
+    const fora = [];
+    const caminhante = document.createTreeWalker(document.getElementById('app'), NodeFilter.SHOW_TEXT);
+    let n;
+    while ((n = caminhante.nextNode())) {
+      const t = n.nodeValue.replace(/\s+/g, ' ').trim();
+      if (!t || !visivel(n.parentElement)) continue;
+      if (central.contains(n.parentElement)) continue;
+      fora.push(t);
+    }
+    const molduraCentral = central.querySelector('.moldura').getBoundingClientRect();
     const leitura = {
       janela,
       doc: document.documentElement.scrollHeight,
       corpo: document.body.scrollHeight,
-      inativoCabe: cabeInativo && inativo.bottom <= janela + 1,
-      vazioAltura: Math.round(inativo.height),
-      vazioFracao: +(inativo.height / janela).toFixed(3),
+      inativoCabe: cabeInativo && r('acoes').bottom <= janela + 1,
+      topoTexto: fora,
+      estadoTexto: estado.textContent.replace(/\s+/g, ' ').trim(),
+      estadoDentroDoCentral: central.contains(estado),
+      estadoAltura: Math.round(estado.getBoundingClientRect().height),
+      estadoFracao: +(estado.getBoundingClientRect().height / janela).toFixed(3),
       cartoesAbertos: !document.getElementById('cartoes').hidden,
       acoesAbertas: !document.getElementById('acoes').hidden,
       acoesFim: Math.round(r('acoes').bottom),
@@ -70,8 +102,8 @@ for (const [w, h] of TELAS) {
       esperas,
       quebradas,
       semSrcVisivel,
+      molduraDoMeio: Math.round(molduraCentral.height),
     };
-    document.getElementById('vazio').hidden = true;
     document.getElementById('cartoes').hidden = false;
     document.getElementById('acoes').hidden = false;
     return Object.assign(leitura, {
@@ -84,12 +116,28 @@ for (const [w, h] of TELAS) {
   const tela = `${w}×${h}`;
   checar(m.inativoCabe, `${tela}: o estado inativo (sem apresentação) cabe sem rolar`,
     `corpo ${m.corpo} > janela ${m.janela}`);
-  // O AVISO É UMA FAIXA, NÃO UM BLOCO (v1.14.60): o texto enorme tomava a área
-  // dos slides e a dos controles. O teto de 12% da tela é o que separa a faixa
-  // discreta de um parágrafo centralizado.
-  checar(m.vazioFracao <= 0.12,
-    `${tela}: o aviso do vazio é uma faixa discreta (≤ 12% da tela)`,
-    `${m.vazioAltura} px de ${m.janela} = ${(m.vazioFracao * 100).toFixed(1)}%`);
+  // O ESTADO É UMA LINHA, DENTRO DO QUADRO CENTRAL (v1.14.61): nem pílula no
+  // topo, nem status no cabeçalho. A régua de 12% da tela continua: o recado
+  // não é dono da tela.
+  checar(m.estadoDentroDoCentral && m.estadoTexto.length > 0,
+    `${tela}: a condição de conexão está DENTRO do quadro central`,
+    { dentro: m.estadoDentroDoCentral, texto: m.estadoTexto });
+  checar(m.estadoFracao <= 0.12,
+    `${tela}: a linha do estado é uma linha, não um bloco (≤ 12% da tela)`,
+    `${m.estadoAltura} px de ${m.janela} = ${(m.estadoFracao * 100).toFixed(1)}%`);
+  // FORA DO CENTRAL SÓ O TÍTULO E OS RÓTULOS DOS CONTROLES (v1.14.61): o
+  // estado não mora mais aqui. O título é RÓTULO da página, e ◀ ▶ Cortina são
+  // AÇÃO — nenhum dos dois é estado, e os três controles são obrigatórios.
+  const doControle = ['◀', '▶', 'Cortina', 'Cortina ligada'];
+  // EM TELA CURTA O TÍTULO SAI (a `@media (max-height: 620px)` da folha); o que
+  // NUNCA sai são os rótulos dos controles.
+  checar(m.topoTexto.length > 0
+    && m.topoTexto.every((t) => t === 'Passador' || doControle.includes(t)),
+    `${tela}: fora do quadro central só o título e os rótulos dos controles`,
+    m.topoTexto);
+  checar(m.molduraDoMeio >= m.meio * 0.55,
+    `${tela}: o recado não espreme o slide — a moldura do meio fica com a maior parte do cartão`,
+    `moldura ${m.molduraDoMeio} de ${m.meio}`);
   checar(m.cartoesAbertos && m.acoesAbertas,
     `${tela}: no vazio, os três quadros E os controles continuam montados`,
     { cartoes: m.cartoesAbertos, acoes: m.acoesAbertas });

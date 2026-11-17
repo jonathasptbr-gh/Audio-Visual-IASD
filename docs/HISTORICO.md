@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.61** — Pacote 46: o estado e a conexão do passador de slides centralizados no quadro do meio (saem a pílula do topo, o status do cabeçalho e a legenda repetida nos três quadros; conectado é silêncio, e a queda aparece dentro do quadro) (só web).
 - **v1.14.60** — Pacote 43 (o passador de slides sem apresentação: aviso numa faixa, três quadros desenhando a espera e controles no lugar) e o conserto do link público da v1.14.59, que perdia a rota `/passador-de-slides` e caía na página do telão (só web e site).
 - **v1.14.59** — Pacote 41: o link do passador vira uma página pública do site (`audiovisualiasd.com.br/passador?h=ip:porta`) que só redireciona para IPv4 de rede privada, com o endereço cru na segunda linha do WhatsApp e o link antigo no caso TLS (só web e site).
 - **v1.14.58** — o passador de slides vira atalho de dois ícones na folha de conectar (copiar e enviar no WhatsApp numa zona que o mesmo botão abre e fecha, mensagem só com o link), e a página dele passa a caber na tela sem rolar (só web).
@@ -793,6 +794,67 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.14.61 — o estado do passador mora no quadro central, e só nele
+
+**Pacote 46** (pedido do operador, 2026-11-16 21:05), só web e no mesmo dia:
+`SHELL_VERSION` 89 (o shell não foi tocado), `minShell` 83, **sem `shellTag`** —
+a Release da v1.14.56 já publicou todo o Kotlin. Degrau CORREÇÃO.
+
+**O PEDIDO, literal:** *"De fato, pode centralizar todas as informações de
+conexão e estado no slide central, não precisamos de pilulas e legendas fora do
+foco e diversas vezes."* O mesmo recado aparecia em QUATRO lugares: a pílula
+`#vazio` do topo (26 px, 3,1% da tela na v1.14.60), o status vermelho `#estado`
+do cabeçalho ("Sem conexão — tentando de novo", em `--stage-alert`), e o mesmo
+"Aguardando" com o mesmo ícone nos três quadros.
+
+**O DESENHO NOVO — uma casa só.** O `index.html` ficou sem `#vazio` e sem
+`#estado`: o `#topo` tem só o `<h1>` (o título é RÓTULO, não estado); o rótulo do
+desenho de espera passou a existir SÓ no quadro do meio (`#esperaAtual`), e os
+laterais desenham só o ícone (26 px, sem legenda); e a condição de conexão é uma
+linha DENTRO do cartão central (`#estadoCentral`, `<p role="status">` depois da
+moldura). Na folha saíram os blocos `#vazio`/`#estado` e entrou o
+`.estado-central` (11 px, `--stage-text-dim`, e `.ruim` vestindo o mesmo
+`--stage-alert` de antes); **nenhuma cor nova** — o vocabulário é o do app, com o
+mesmo monitor de traço do `#icoTela`. No JS, `frase()` virou `condicao(texto,
+ruim)`, que escreve nessa linha: `MSG_OK` **deixou de existir** porque conectado
+e saudável é SILÊNCIO (`condicao('')` apaga a linha), cada `passador-estado` que
+chega limpa a condição anterior (fio de pé), e o laço escreve ali a queda
+(`Sem conexão — tentando de novo`, em alerta), o `Conectando…` da reentrada e os
+motivos da porta (`MSG_LOTADO`, `MSG_RECUSOU`). O toque no vazio responde NESSA
+linha ("A apresentação ainda não começou", sem alerta) e continua sem postar. O
+`error` de cada `<img>` cai no mesmo desenho de antes, e o rótulo do meio volta
+ao padrão quando uma prévia volta a carregar. O contador some no estado vazio
+(não há contagem a inventar) e os controles ◀ ▶ e a cortina continuam no lugar e
+alcançáveis antes de conectar.
+
+**O QUE SE MEDIU** (Chromium, 390×844 e 360×640): a linha da queda fica em
+y 517–531 com o slide terminando em 514 — **3 px abaixo, nunca por cima** — e
+ocupa 1,7% da tela; fora do quadro central sobram só `Passador`, `◀`, `▶` e
+`Cortina`; nenhuma rolagem (doc 844 = janela 844, e 640 = 640).
+
+**ORÁCULOS.** O `passador-espera` foi REESCRITO para travar a regra nova: a
+varredura do DOM que lista TODO texto visível fora do quadro central e reprova
+qualquer vocabulário de estado/conexão ali; a pílula e o status do cabeçalho
+tendo de NÃO existir; o estado dentro do central no vazio ("Aguardando a
+apresentação"), os laterais sem legenda, o "Sem prévia" do meio dentro do
+quadro, o conectado em SILÊNCIO (só a contagem) e a queda aparecendo na linha do
+central sem cobrir o slide — e sumindo quando o fio volta. O `passador-cabe`
+deixou de medir a fração da pílula e passou a medir a linha do estado DENTRO do
+cartão do meio (≤ 12% da tela), o "fora do central só título e rótulos" e a
+moldura do meio com ≥ 55% do cartão. **Reversão medida:** com a página da
+v1.14.60 de volta (a pílula, o status e a legenda nos três quadros), o
+`passador-espera` reprova **21 asserções** e a varredura imprime exatamente os
+quatro repetidos — `Conectado` (`#estado`), `Nenhuma apresentação no ar —
+aguardando o início` (`#vazio`) e `Aguardando` nos dois laterais.
+`passador-fronteira` e `passador-publico` continuam verdes sem mudança.
+
+**O QUE FICA DE FORA:** a conferência no aparelho do operador (o sol, o
+navegador real dele) — a linha de 11 px e o ícone de 26/30 px foram medidos só
+no Chromium desta máquina; vai para o `RESIDUOS.md`. A fila (`Pacotes 42, 44 e
+45`) não foi tocada.
 
 ---
 

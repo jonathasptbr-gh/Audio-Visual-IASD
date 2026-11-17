@@ -472,7 +472,7 @@ O que ela é, e o que ela se recusa a ser:
 | **entra** | `POST /par`, sem segredo — a porta é o endereço, como para a tela |
 | **recebe** | `passador-estado`, um comando de DESCIDA: `{ativo, pagina, total, ant, atual, prox, cortina}` |
 | **manda** | `{do:'passador', acao:'ant'\|'prox'\|'cortina'}`, e nada mais |
-| **desenha** | três cartões (anterior, atual, próximo) com a imagem `/m/` de cada página quando ela existe; sem apresentação, o **desenho de espera** nos três (o monitor de traço do app e "Aguardando", v1.14.60); os dois botões e a cortina ficam montados nos dois estados |
+| **desenha** | três cartões (anterior, atual, próximo) com a imagem `/m/` de cada página quando ela existe; sem apresentação, o **desenho de espera** nos três (o monitor de traço do app, v1.14.60); os dois botões e a cortina ficam montados nos dois estados. **O ESTADO MORA NO QUADRO DO MEIO** (v1.14.61, Pacote 46): o rótulo do desenho ("Aguardando a apresentação") só existe ali, os laterais desenham só o ícone, e a condição de conexão ("Sem conexão — tentando de novo") é uma linha DENTRO do cartão central, abaixo da moldura — nunca sobre o slide; conectado e saudável é silêncio (o topo tem só o título) |
 | **não desenha** | nenhuma PRÉVIA fora de uma apresentação — e nunca um `<img>` sem `src`: um quadro sem imagem desenha, não mostra o ícone de imagem quebrada do navegador (v1.14.60) |
 | **não é** | um telão — o servidor não injeta a marca `av-tela` em `web/passador-de-slides/`, e o `tela.js` não roda ali |
 
