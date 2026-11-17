@@ -896,7 +896,7 @@ window.AVNative = {
   systemVolumeDefinir(fracao), // (shell 86) DEFINE o volume de mídia na fração pedida:
                        //   `setStreamVolume` com flags 0 (sem painel e sem som de ajuste). Quem
                        //   chama é a ABERTURA (`aplicarInicializacao`), com o número que a seção
-                       //   "Inicialização" de Configurações guardou (v1.14.70)
+                       //   "Inicialização" de Configurações guardou (v1.14.71)
   naoPerturbe(),       // (shell 89) {acesso, ligado, filtro}: a autorização de "Acesso a Não perturbe"
                        //   e o filtro de interrupção em vigor. A abertura e a seção "Inicialização"
                        //   perguntam antes de definir: sem `acesso`, setInterruptionFilter é um

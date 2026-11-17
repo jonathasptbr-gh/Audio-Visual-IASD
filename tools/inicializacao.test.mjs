@@ -2,7 +2,7 @@
 // ============================================================================
 // A SEÇÃO "INICIALIZAÇÃO": AS TRÊS DECISÕES DA ABERTURA PERSISTEM E APLICAM
 //
-// É o oráculo que substituiu o `aviso-do-volume` (v1.14.70, Pacote 47). O cartão
+// É o oráculo que substituiu o `aviso-do-volume` (v1.14.71, Pacote 47). O cartão
 // que PERGUNTAVA o que fazer com o volume na abertura SAIU; quem decide agora é a
 // seção nova de Configurações, e o app cumpre a decisão sem perguntar nada:
 //

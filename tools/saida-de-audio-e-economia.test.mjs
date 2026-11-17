@@ -336,7 +336,7 @@ try {
   checar(JSON.stringify(saiu.grade) === JSON.stringify(['bootTile', 'temaTile', 'telaTile',
     'dadosMoveisTile', 'histOpenRow', 'testeTile', 'shareAppTile', 'pacoteTile', 'tourBtn']),
   'A2 · a grade de Configurações é a de NOVE tiles (a Inicialização abre a fileira das '
-  + 'preferências desde a v1.14.70), com o "Tour do app" fechando a fileira do aparelho',
+  + 'preferências desde a v1.14.71), com o "Tour do app" fechando a fileira do aparelho',
   JSON.stringify(saiu.grade));
   checar(JSON.stringify(saiu.ferramentas) === JSON.stringify(['clock', 'stopwatch', 'timer', 'msg', 'draw', 'edicao']),
     'A3 · e o "Editar mídia" é a ÚLTIMA ferramenta (a sexta desde que o Itinerário virou opção do Cronograma, v1.14.32)',

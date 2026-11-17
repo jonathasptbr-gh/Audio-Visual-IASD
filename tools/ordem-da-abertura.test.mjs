@@ -2,7 +2,7 @@
 // ============================================================================
 // A ORDEM DA ABERTURA: CORTINA → JANELA DO TOUR → TOUR
 //
-// O Pacote 47 (v1.14.70) apagou o cartão de volume da abertura. Com ele saiu a
+// O Pacote 47 (v1.14.71) apagou o cartão de volume da abertura. Com ele saiu a
 // pergunta que segurava o tour por cima do cartão — e a ordem ficou a que o
 // operador pediu: a cortina sai, a janela do app pergunta "Quer fazer o tour?",
 // e só depois de a resposta existir o tour abre. O que este arquivo trava é

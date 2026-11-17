@@ -30,7 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
-- **v1.14.70** — Pacote 47: o pop-up de volume da abertura SAI, e nasce a seção "Inicialização" em Configurações — modo, Não perturbe e volume na abertura, as duas últimas desligadas por padrão e a barra guardando o número quando a chave desliga (só web); na carona, o número do passador fica centralizado na caixa.
+- **v1.14.71** — Pacote 47: o pop-up de volume da abertura SAI, e nasce a seção "Inicialização" em Configurações — modo, Não perturbe e volume na abertura, as duas últimas desligadas por padrão e a barra guardando o número quando a chave desliga (só web); na carona, o número do passador fica centralizado na caixa.
 - **v1.14.69** — Pacote 45: o aviso de volume da abertura vira um cartão na BASE com véu, fonte maior e os botões do app — não sobe o som nem fecha sozinho —, entra na fila `POPUPS` (o tour espera o OK) e o tour ganha a janela "Fazer o tour / Agora não" antes de abrir; na carona, a caixa do número do passador encolhe (só web).
 - **v1.14.67** — o "Copiar link" do cartão do passador vai para a ESQUERDA da caixa do número, na MESMA linha (`[Copiar link] [caixa] [ícone]`), com o rótulo inteiro e as três peças sem truncar a 390×844 e 360×640 (só web).
 - **v1.14.66** — o cartão do passador enxuga para quatro coisas (título, caixa do número, botão-ícone e "Copiar link"), a mensagem que viaja passa a ser SÓ o link por decisão do operador, a caixa ganha a máscara `(xx) x xxxx-xxxx` (11) / `(xx) xxxx-xxxx` (10) que não pula o cursor, e o foco nativo amarelo dá lugar ao anel de `--accent` do app (só web).
@@ -805,14 +805,25 @@ apagada da que a criou.
 
 ---
 
-## v1.14.70 — Pacote 47: a seção "Inicialização" toma o lugar do pop-up de volume da abertura
+## v1.14.71 — Pacote 47: a seção "Inicialização" toma o lugar do pop-up de volume da abertura
 
 **O PEDIDO DO OPERADOR** (2026-11-17 12:01), só web: `SHELL_VERSION` 89 (o shell
 NÃO foi tocado), `minShell` 83, **sem `shellTag`** — a última Release é a
 v1.14.56, e as pontes que o lote usa (`systemVolumeDefinir`, `naoPerturbe`,
 `naoPerturbeDefinir` e `abrirAcessoNaoPerturbe`) já estão nela, com
-`ACCESS_NOTIFICATION_POLICY` no manifesto. O número é o **1.14.70**, fixado pelo
-operador para este lote.
+`ACCESS_NOTIFICATION_POLICY` no manifesto. O número é o **1.14.71**.
+
+**A v1.14.70 NÃO CHEGOU AOS APARELHOS.** O run #2638 (`44115795371`, commit
+`a99e8467`) ficou VERMELHO no `verificar` e o `web-ota` foi PULADO — o canal
+seguiu em 1.14.69. A causa era um oráculo fazendo o trabalho dele:
+o `configuracoes-sem-subtitulo` congela o número de tiles da grade + as duas
+janelas em CATORZE, e o tile "Inicialização" fez QUINZE. O conserto é o da
+regra que o próprio arquivo escreve ("mexeu na grade, este número anda junto,
+no MESMO lote"): a expectativa passou a 15 **nomeando** o tile novo
+(`#bootTile`, título "Inicialização"), e o resto do arquivo — a regra do
+subtítulo nas duas janelas — ficou intocado. **Como o bundle não saiu, este é o
+MESMO lote no número seguinte**, como a v1.14.65 e a v1.14.69; o número
+1.14.70 não fica citado como entrega em lugar nenhum do código.
 
 **O QUE O OPERADOR PEDIU, em uma frase:** *"teremos mais uma aba/botão nas
 configurações que vai abrir as opções de inicialização … assim não teremos mais

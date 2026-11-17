@@ -11163,7 +11163,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    importação, na tinta de apoio, entre a lista e os botões. */
 .pacote-nota { margin: var(--sp-3) 0 0; color: var(--muted); font-size: var(--fs-sm); line-height: 1.4; }
 
-/* ===== A INICIALIZAÇÃO (v1.14.70, Pacote 47) =====
+/* ===== A INICIALIZAÇÃO (v1.14.71, Pacote 47) =====
    A seção das três decisões da ABERTURA. Ela é do molde das outras seções (o
    cabeçalho gruda, a grade some) e o corpo é uma pilha de linhas do app
    (`.fade-row--fit`): o rótulo em cima e o controle embaixo, na largura toda —
@@ -13308,7 +13308,7 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
   padding: 0 var(--sp-4); border: 0; border-radius: var(--radius-btn);
   background: var(--surface-2); color: var(--text);
   font: inherit; font-size: var(--fs-md);
-  /* O TEXTO É CENTRADO NA CAIXA (v1.14.70, carona do Pacote 47): pedido do
+  /* O TEXTO É CENTRADO NA CAIXA (v1.14.71, carona do Pacote 47): pedido do
      operador — *"a caixa de texto do passador de slides deve centralizar o texto
      na caixa, atualmente ele está alinhado a esquerda"*. Vale para o valor e
      para o `placeholder`; a máscara, o foco e a régua de truncamento

@@ -386,7 +386,7 @@ try {
   // sai da tela, não da árvore.
   const ordem = await pg.$eval('.qs-grade',
     (g) => [...g.children].map((e) => e.id));
-  // A INICIALIZAÇÃO abre a fileira das PREFERÊNCIAS (v1.14.70): ela decide como o
+  // A INICIALIZAÇÃO abre a fileira das PREFERÊNCIAS (v1.14.71): ela decide como o
   // app NASCE, e as outras decisões valem depois disso.
   const projecao = ['bootTile', 'temaTile', 'telaTile', 'dadosMoveisTile', 'histOpenRow'];
   // ===== O TERCEIRO GRUPO É DE UM TILE SÓ, E ELE TEM NOME (v1.10.0) =====
@@ -711,7 +711,7 @@ try {
     // passa por cima da interface — é um aviso de 1,5 s que a tecla física acende, mora no
     // `body` fora de qualquer barra e nasce `visibility: hidden`. A camada 350 é necessária
     // para ela aparecer sobre a tela do Modo Fácil e sobre a janela da Biblioteca.
-    // (O CARTÃO DE VOLUME DA ABERTURA saiu na v1.14.70 com a seção "Inicialização", e a
+    // (O CARTÃO DE VOLUME DA ABERTURA saiu na v1.14.71 com a seção "Inicialização", e a
     // classe dele saiu desta lista no mesmo lote: a varredura existe para a PRÓXIMA camada
     // fixa não passar sem alguém escrevê-la aqui.)
     const OK = ['popup-backdrop', 'popup-sheet', 'simple', 'simple-veil', 'bottombar',

@@ -227,7 +227,7 @@ try {
   // abandonado) e o "Editar mídia" (virou ferramenta); entra o "Tour do app",
   // último da grade, no molde do "Dados móveis" (v1.14.7).
   // =========================================================================
-  // A INICIALIZAÇÃO é a PRIMEIRA desde a v1.14.70: ela decide como o app NASCE,
+  // A INICIALIZAÇÃO é a PRIMEIRA desde a v1.14.71: ela decide como o app NASCE,
   // e as outras decisões desta folha valem depois disso.
   const ORDEM = ['bootTile', 'temaTile', 'telaTile', 'dadosMoveisTile',
     'histOpenRow', 'testeTile', 'shareAppTile', 'pacoteTile', 'tourBtn'];

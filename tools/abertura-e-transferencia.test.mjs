@@ -379,7 +379,7 @@ try {
     });
     checar(bloco.escondidos.length === 0,
       'C · no APP os dois tiles deste aparelho estão à vista', bloco);
-    // A ORDEM É A DA GRADE INTEIRA (nove tiles desde a v1.14.70): a
+    // A ORDEM É A DA GRADE INTEIRA (nove tiles desde a v1.14.71): a
     // Inicialização, o tema, a janela da Tela, os dados móveis, o Histórico, a
     // verificação, Compartilhar, Transferir e, por último, o Tour do app. Não há
     // coluna forçada nenhuma — a grade é uma `.qs-grade` de três colunas, e a

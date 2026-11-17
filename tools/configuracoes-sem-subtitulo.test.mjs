@@ -95,8 +95,16 @@ try {
   // Samsung foi abandonado) e o "Tour do app" entrou na grade — oito da grade (era
   // nove), quatro da Tela e dois do Transferir. A conta continua sendo a do portão:
   // mexeu na grade, este número anda junto, no MESMO lote.
-  checar(tiles.length === 14,
-    'A · a grade e as duas janelas têm os CATORZE tiles', tiles.length);
+  // QUINZE na v1.14.71: o tile "Inicialização" entrou na grade (nove da grade),
+  // quatro da Tela e dois do Transferir.
+  checar(tiles.length === 15,
+    'A · a grade e as duas janelas têm os QUINZE tiles', tiles.length);
+  // O TILE NOVO É NOMEADO: a contagem sozinha aceitaria um tile QUALQUER a mais
+  // e um a menos, e o que este lote acrescentou tem id e rótulo próprios.
+  const boot = tiles.find((t) => t.id === 'bootTile');
+  checar(!!boot && boot.titulo.trim() === 'Inicialização',
+    'A · e o 15º é o "Inicialização" (`#bootTile`), o primeiro da grade',
+    JSON.stringify(boot && { id: boot.id, titulo: boot.titulo }));
   const comSobra = tiles.filter((t) => t.texto !== t.titulo.trim());
   checar(comSobra.length === 0,
     'A · e nenhum tem texto além do TÍTULO — a palavra do estado saiu de todos '

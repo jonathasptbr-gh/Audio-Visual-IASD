@@ -1,7 +1,8 @@
 [
   {
-    "versao": "1.14.70",
+    "versao": "1.14.71",
     "itens": [
+      "A versão 1.14.70 não chegou ao seu aparelho; é esta 1.14.71 que traz a Inicialização e tira o aviso de volume.",
       "O aviso de volume que aparecia ao abrir o app saiu de vez: a abertura não pergunta mais nada.",
       "No lugar dele, Configurações ganhou o botão Inicialização, com as decisões que valem ao abrir.",
       "Lá você escolhe se o app abre no modo simples ou no modo avançado, e a escolha fica guardada.",

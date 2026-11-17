@@ -37,7 +37,7 @@ const volValueEl = document.getElementById('volValue');
 const volPillEl = document.getElementById('volPill');
 const volPillMuteEl = document.getElementById('volPillMute');
 const volPillAvisoEl = document.getElementById('volPillAviso');
-// A INICIALIZAÇÃO (v1.14.70, Pacote 47): a seção de Configurações que decide o
+// A INICIALIZAÇÃO (v1.14.71, Pacote 47): a seção de Configurações que decide o
 // que o app faz ao ABRIR — o modo, o Não perturbe e o volume do sistema. Ela
 // substituiu o cartão de volume da abertura, que não existe mais.
 const bootTileEl = document.getElementById('bootTile');
@@ -164,7 +164,7 @@ function renderModoFixo() {
     btn.title = dica;
     btn.setAttribute('aria-label', 'Modo avançado. ' + dica);
   }
-  // O TRILHO DA SEÇÃO DE INICIALIZAÇÃO É O MESMO ESTADO (v1.14.70): o gesto de
+  // O TRILHO DA SEÇÃO DE INICIALIZAÇÃO É O MESMO ESTADO (v1.14.71): o gesto de
   // 5 s e a seção escrevem `av.appModeFixo`, e um segundo lugar para o valor
   // ficar defasado seria a primeira divergência entre as duas portas.
   renderBootModo();
@@ -419,7 +419,7 @@ const testeRefazerEl = document.getElementById('testeRefazer');
 // ao fechar Configurações — duas listas divergiriam no primeiro esquecimento.
 const SECOES = {
   // A INICIALIZAÇÃO é a PRIMEIRA do inventário porque é a primeira do assunto:
-  // as três decisões valem ANTES de todas as outras desta folha (v1.14.70).
+  // as três decisões valem ANTES de todas as outras desta folha (v1.14.71).
   boot: { tile: bootTileEl, el: bootSecaoEl, abrir: aoAbrirBoot },
   tela: { tile: telaTileEl, el: telaSecaoEl, abrir: aoAbrirTela },
   pacote: { tile: pacoteTileEl, el: pacoteSecaoEl, abrir: aoAbrirPacote },
@@ -493,7 +493,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.70';
+const WEB_VERSION = '1.14.71';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -42290,7 +42290,7 @@ function aoAbrirPacote() {
   pacoteAbrirLista();
 }
 
-// ===== A INICIALIZAÇÃO (v1.14.70, Pacote 47) =====
+// ===== A INICIALIZAÇÃO (v1.14.71, Pacote 47) =====
 // As três decisões que valem na ABERTURA — o modo, o Não perturbe e o volume —
 // e o fim do cartão de volume da abertura. A seção só GUARDA: quem age é
 // `aplicarInicializacao`, uma vez por carga, no fim deste arquivo — o mesmo
@@ -43831,7 +43831,7 @@ function casaDaPilula() {
 // A barra do app pode ir a 100% e o som de mídia do celular pode estar no zero — aí não sai nada, e
 // até aqui o único jeito de descobrir era subir a barra até o teto e ver que o número não subia.
 //
-// O QUE RESTA DELE (v1.14.70): a ETIQUETA acima da pílula, que aparece com o volume do celular em
+// O QUE RESTA DELE (v1.14.71): a ETIQUETA acima da pílula, que aparece com o volume do celular em
 // ZERO. O cartão da abertura que ela acendia desde a v1.14.46 SAIU — quem decide o volume da
 // abertura é a seção "Inicialização" de Configurações (`aplicarInicializacao`), e a abertura não
 // pergunta mais nada de volume.
