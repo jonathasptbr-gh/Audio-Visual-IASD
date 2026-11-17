@@ -37,20 +37,19 @@ const volValueEl = document.getElementById('volValue');
 const volPillEl = document.getElementById('volPill');
 const volPillMuteEl = document.getElementById('volPillMute');
 const volPillAvisoEl = document.getElementById('volPillAviso');
-// O AVISO DA ABERTURA (v1.14.69): o cartão da base que PERGUNTA o que fazer com
-// o volume do aparelho abaixo de 60% — não mexe mais nele sozinho. Nasce
-// `hidden` no HTML; quem o acende é `mostrarAvisoDoVolume`, e o véu anda junto
-// (`volAvisoVeuEl`) para a tela não ficar meio bloqueada.
-const volAvisoPopEl = document.getElementById('volAvisoPop');
-const volAvisoVeuEl = document.getElementById('volAvisoVeu');
-const volAvisoPopTituloEl = document.getElementById('volAvisoPopTitulo');
-const volAvisoPopTextoEl = document.getElementById('volAvisoPopTexto');
-const volAvisoPopNivelEl = document.getElementById('volAvisoPopNivel');
-const volAvisoPopMenosEl = document.getElementById('volAvisoPopMenos');
-const volAvisoPopMaisEl = document.getElementById('volAvisoPopMais');
-const volAvisoPopSubirEl = document.getElementById('volAvisoPopSubir');
-const volAvisoPopDndEl = document.getElementById('volAvisoPopDnd');
-const volAvisoPopFecharEl = document.getElementById('volAvisoPopFechar');
+// A INICIALIZAÇÃO (v1.14.70, Pacote 47): a seção de Configurações que decide o
+// que o app faz ao ABRIR — o modo, o Não perturbe e o volume do sistema. Ela
+// substituiu o cartão de volume da abertura, que não existe mais.
+const bootTileEl = document.getElementById('bootTile');
+const bootSecaoEl = document.getElementById('bootSecao');
+const bootModoSegEl = document.getElementById('bootModoSeg');
+const bootDndSegEl = document.getElementById('bootDndSeg');
+const bootDndNotaEl = document.getElementById('bootDndNota');
+const bootDndAcessoEl = document.getElementById('bootDndAcesso');
+const bootVolSegEl = document.getElementById('bootVolSeg');
+const bootVolBarEl = document.getElementById('bootVolBar');
+const bootVolLinhaEl = document.getElementById('bootVolLinha');
+const bootVolNumEl = document.getElementById('bootVolNum');
 const pvMuteNumEl = document.getElementById('pvMuteNum');
 const pvCastBtnEl = document.getElementById('pvCastBtn');
 const fsCtlEl = document.getElementById('pvFsCtl');
@@ -165,6 +164,10 @@ function renderModoFixo() {
     btn.title = dica;
     btn.setAttribute('aria-label', 'Modo avançado. ' + dica);
   }
+  // O TRILHO DA SEÇÃO DE INICIALIZAÇÃO É O MESMO ESTADO (v1.14.70): o gesto de
+  // 5 s e a seção escrevem `av.appModeFixo`, e um segundo lugar para o valor
+  // ficar defasado seria a primeira divergência entre as duas portas.
+  renderBootModo();
 }
 
 // ===== O TEMA (claro × escuro) — mesma gaveta, mesma razão =====
@@ -415,6 +418,9 @@ const testeRefazerEl = document.getElementById('testeRefazer');
 // dentro de `#cfgSecoes`) e já ganha a troca, a animação, o voltar e o recolher
 // ao fechar Configurações — duas listas divergiriam no primeiro esquecimento.
 const SECOES = {
+  // A INICIALIZAÇÃO é a PRIMEIRA do inventário porque é a primeira do assunto:
+  // as três decisões valem ANTES de todas as outras desta folha (v1.14.70).
+  boot: { tile: bootTileEl, el: bootSecaoEl, abrir: aoAbrirBoot },
   tela: { tile: telaTileEl, el: telaSecaoEl, abrir: aoAbrirTela },
   pacote: { tile: pacoteTileEl, el: pacoteSecaoEl, abrir: aoAbrirPacote },
   hist: { tile: histOpenRowEl, el: histSecaoEl, abrir: renderHistorico, recolher: aoRecolherHist },
@@ -487,7 +493,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.69';
+const WEB_VERSION = '1.14.70';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -42284,6 +42290,174 @@ function aoAbrirPacote() {
   pacoteAbrirLista();
 }
 
+// ===== A INICIALIZAÇÃO (v1.14.70, Pacote 47) =====
+// As três decisões que valem na ABERTURA — o modo, o Não perturbe e o volume —
+// e o fim do cartão de volume da abertura. A seção só GUARDA: quem age é
+// `aplicarInicializacao`, uma vez por carga, no fim deste arquivo — o mesmo
+// ponto da abertura onde a conferência de volume roda desde a v1.13.65. O MODO é
+// a exceção e não tem código de abertura: ele já é lido pelo script do `<head>`
+// (`av.appModeFixo`, `data-modo-inicial`), e esta seção escreve a MESMA chave do
+// gesto de 5 s — um mecanismo só, duas portas.
+//
+// AS DUAS CHAVES NOVAS NASCEM DESLIGADAS (`=== '1'`), como o operador pediu: quem
+// nunca abrir esta seção não vê o app mexer no som nem no filtro do sistema. O
+// volume guarda o número mesmo desligado — a barra é ignorada, não zerada.
+const BOOT_DND_KEY = 'av.boot.dnd';
+// A OFERTA DO CAMINHO DO SISTEMA é UMA, e não por abertura: sem a autorização,
+// um app que abrisse a tela de acesso do Android a cada lançamento seria um
+// pedido que o operador não consegue recusar em paz. A marca volta a cair quando
+// ele DESLIGA a chave (religar oferece de novo).
+const BOOT_DND_OFERTA_KEY = 'av.boot.dnd.oferta';
+const BOOT_VOL_ON_KEY = 'av.boot.volume.on';
+const BOOT_VOL_KEY = 'av.boot.volume';
+const BOOT_VOL_PADRAO = 60;
+
+function lerBootChave(chave) {
+  try { return localStorage.getItem(chave); } catch (_) { return null; }
+}
+function gravarBootChave(chave, valor) {
+  try {
+    if (valor == null) localStorage.removeItem(chave);
+    else localStorage.setItem(chave, valor);
+  } catch (_) { /* armazenamento bloqueado: a decisão não persiste */ }
+}
+function bootDndLigado() { return lerBootChave(BOOT_DND_KEY) === '1'; }
+function bootVolLigado() { return lerBootChave(BOOT_VOL_ON_KEY) === '1'; }
+function bootVolValor() {
+  const n = parseInt(lerBootChave(BOOT_VOL_KEY), 10);
+  return Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : BOOT_VOL_PADRAO;
+}
+
+// A PINTURA das duas chaves é a mesma: o `data-estado` é o valor em vigor (a
+// disciplina do `data-modo`/`data-estado` do resto do app) e a classe `.active`
+// é a cor do rótulo escolhido. `aria-pressed` acompanha para quem navega por
+// leitor de tela — um botão que só muda de cor não anuncia estado.
+function pintarBootChave(el, attr, ligado) {
+  if (!el) return;
+  el.dataset.estado = ligado ? 'on' : 'off';
+  el.querySelectorAll('.fit-opt').forEach((b) => {
+    const on = (b.dataset[attr] === 'on') === ligado;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+function renderBootModo() {
+  if (!bootModoSegEl) return;
+  const fixo = modoFixoAtivo();
+  bootModoSegEl.dataset.modo = fixo ? 'full' : 'simple';
+  bootModoSegEl.querySelectorAll('.fit-opt').forEach((b) => {
+    const on = (b.dataset.mode === 'full') === fixo;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+function renderBootDnd() { pintarBootChave(bootDndSegEl, 'dnd', bootDndLigado()); }
+function renderBootVol() {
+  const ligado = bootVolLigado();
+  pintarBootChave(bootVolSegEl, 'vol', ligado);
+  const v = bootVolValor();
+  if (bootVolBarEl) {
+    bootVolBarEl.value = String(v);
+    // INERTE E APAGADA, mas com o número guardado: `disabled` também tira o
+    // dedo do caminho, o que é o que "ignorando a barra" quer dizer.
+    bootVolBarEl.disabled = !ligado;
+  }
+  if (bootVolLinhaEl) bootVolLinhaEl.classList.toggle('apagado', !ligado);
+  if (bootVolNumEl) bootVolNumEl.textContent = v + '%';
+}
+
+// O CAMINHO DO SISTEMA, ao lado da chave. Sem `naoPerturbe` na ponte (casco < 89
+// ou navegador) não há o que autorizar e ele não aparece; com autorização dada,
+// também não. Quem pergunta é a PONTE, nunca uma memória nossa.
+function conferirAcessoBootDnd() {
+  if (!bootDndNotaEl || !bootDndAcessoEl) return;
+  if (!window.__NATIVE__ || typeof AVNative.naoPerturbe !== 'function') {
+    bootDndNotaEl.hidden = true; bootDndAcessoEl.hidden = true; return;
+  }
+  AVNative.naoPerturbe().then((st) => {
+    const falta = !!st && st.acesso !== true;
+    bootDndNotaEl.hidden = !falta;
+    bootDndAcessoEl.hidden = !falta;
+  }).catch(() => { bootDndNotaEl.hidden = true; bootDndAcessoEl.hidden = true; });
+}
+
+function aoAbrirBoot() {
+  renderBootModo();
+  renderBootDnd();
+  renderBootVol();
+  conferirAcessoBootDnd();
+}
+
+if (bootModoSegEl) {
+  bootModoSegEl.addEventListener('click', (e) => {
+    const b = e.target.closest('.fit-opt');
+    if (!b) return;
+    // A MESMA chave do gesto de 5 s (`gravarModoFixo`): o gesto vira um atalho
+    // desta decisão, e o `renderModoFixo` que ele chama repinta os DOIS trilhos.
+    gravarModoFixo(b.dataset.mode === 'full');
+  });
+}
+if (bootDndSegEl) {
+  bootDndSegEl.addEventListener('click', (e) => {
+    const b = e.target.closest('.fit-opt');
+    if (!b) return;
+    const on = b.dataset.dnd === 'on';
+    gravarBootChave(BOOT_DND_KEY, on ? '1' : null);
+    // Desligar devolve a OFERTA: quem religar depois de autorizar (ou de
+    // desistir) tem o caminho do sistema de novo.
+    if (!on) gravarBootChave(BOOT_DND_OFERTA_KEY, null);
+    renderBootDnd();
+    conferirAcessoBootDnd();
+  });
+}
+if (bootDndAcessoEl) {
+  bootDndAcessoEl.addEventListener('click', () => {
+    if (!window.__NATIVE__ || typeof AVNative.abrirAcessoNaoPerturbe !== 'function') return;
+    AVNative.abrirAcessoNaoPerturbe();
+  });
+}
+if (bootVolSegEl) {
+  bootVolSegEl.addEventListener('click', (e) => {
+    const b = e.target.closest('.fit-opt');
+    if (!b) return;
+    gravarBootChave(BOOT_VOL_ON_KEY, b.dataset.vol === 'on' ? '1' : null);
+    renderBootVol();
+  });
+}
+if (bootVolBarEl) {
+  // O NÚMERO É GRAVADO A CADA PASSO, com a chave desligada inclusive: é o valor
+  // que a barra "guarda" para quando o operador religar. Quem aplica é a abertura.
+  bootVolBarEl.addEventListener('input', () => {
+    const v = Math.min(100, Math.max(0, parseInt(bootVolBarEl.value, 10) || 0));
+    gravarBootChave(BOOT_VOL_KEY, String(v));
+    if (bootVolNumEl) bootVolNumEl.textContent = v + '%';
+  });
+}
+
+// O QUE A ABERTURA FAZ, uma vez por carga. Ordem: o volume primeiro (o que o
+// operador escolheu pôr no sistema) e depois o Não perturbe — a leitura do
+// filtro é assíncrona e não pode atrasar o som.
+function aplicarInicializacao() {
+  if (!window.__NATIVE__) return;
+  if (bootVolLigado()) {
+    try { AVNative.systemVolumeDefinir(bootVolValor() / 100); } catch (_) { /* ponte indisponível */ }
+  }
+  if (!bootDndLigado()) return;
+  AVNative.naoPerturbe().then((st) => {
+    if (!st) return;
+    // SEM AUTORIZAÇÃO o definir é um no-op SILENCIOSO: em vez de fingir, o app
+    // oferece o caminho do sistema (uma vez) e a abertura segue normal.
+    if (st.acesso !== true) { oferecerAcessoDoNaoPerturbe(); return; }
+    if (st.ligado) return;   // já está ligado: não há o que fazer
+    AVNative.naoPerturbeDefinir(true).catch(() => { /* o Android recusou; a abertura segue */ });
+  }).catch(() => { /* a ponte caiu: a abertura segue normal */ });
+}
+function oferecerAcessoDoNaoPerturbe() {
+  if (lerBootChave(BOOT_DND_OFERTA_KEY) === '1') return;
+  gravarBootChave(BOOT_DND_OFERTA_KEY, '1');
+  try { AVNative.abrirAcessoNaoPerturbe(); } catch (_) { /* ponte indisponível */ }
+}
+
 // ===== EDITAR MÍDIA =====
 //
 // O item editado é VIRTUAL: guarda só `edicao` (origem, início, fim, fades, "só o áudio") e
@@ -43518,6 +43692,7 @@ settingsBtnEl.addEventListener('click', openFadePopup);
 // AS SEÇÕES: o tile abre a dele, troca a aberta ou a recolhe (ver
 // `trocarSecao`); o chevron do cabeçalho de cada uma a recolhe. Na Verificação,
 // recolher só OCULTA a rodada; quem a interrompe é o Cancelar.
+if (bootTileEl) bootTileEl.addEventListener('click', () => trocarSecao('boot'));
 histOpenRowEl.addEventListener('click', () => trocarSecao('hist'));
 if (testeTileEl) testeTileEl.addEventListener('click', () => trocarSecao('teste'));
 if (telaTileEl) telaTileEl.addEventListener('click', () => trocarSecao('tela'));
@@ -43656,12 +43831,10 @@ function casaDaPilula() {
 // A barra do app pode ir a 100% e o som de mídia do celular pode estar no zero — aí não sai nada, e
 // até aqui o único jeito de descobrir era subir a barra até o teto e ver que o número não subia.
 //
-// DUAS COISAS, e as duas vêm da MESMA leitura (`systemVolumeAtual`, shell 86):
-//   · o AVISO da abertura (Pacote 45): se o celular está abaixo de 60% do máximo, o app PERGUNTA o
-//     que fazer — não sobe mais o som sozinho (era o piso da v1.13.65, que agia em silêncio e nunca
-//     mais volta a agir). Quem decide é o operador, e o cartão fica na tela até o OK;
-//   · a ETIQUETA acima da pílula: com o volume do celular em ZERO, ela aparece junto da barra.
-const VOL_SISTEMA_PISO = 0.6;
+// O QUE RESTA DELE (v1.14.70): a ETIQUETA acima da pílula, que aparece com o volume do celular em
+// ZERO. O cartão da abertura que ela acendia desde a v1.14.46 SAIU — quem decide o volume da
+// abertura é a seção "Inicialização" de Configurações (`aplicarInicializacao`), e a abertura não
+// pergunta mais nada de volume.
 let volSistemaZero = false;
 
 function lerVolumeDoSistema() {
@@ -43674,126 +43847,10 @@ function lerVolumeDoSistema() {
   }).catch(() => null);
 }
 
-// A CONDIÇÃO DA ABERTURA, uma vez por carga. Roda depois da ponte de pé e NÃO
-// mexe no volume: lê, e se estiver abaixo do piso acende o cartão.
-function conferirVolumeDoSistema() {
-  return lerVolumeDoSistema().then((r) => {
-    if (!r || !r.max) return null;
-    if (r.atual / r.max >= VOL_SISTEMA_PISO) return r;
-    // A montagem inteira é protegida: se ela falhar, o cartão e o véu FICAM
-    // FORA e o app abre normal — um véu sem o OK é uma abertura sem saída.
-    try { mostrarAvisoDoVolume(r); } catch (_) { esconderAvisoDoVolume(); }
-    return r;
-  }).catch(() => null);
-}
-
-// ===== O AVISO DA ABERTURA (v1.14.69) =====
-// O cartão da base pergunta o que fazer com o volume do aparelho abaixo de 60%:
-// "Subir até 60%", o volume do aparelho no −/+, o Não perturbe e o OK. Ele NÃO
-// fecha sozinho e NÃO guarda "não mostrar mais": o OK descarta a mensagem desta
-// abertura, e a próxima abertura com o volume ainda baixo a traz de novo.
-//
-// A DEGRADAÇÃO É DECLARADA, não improvisada: sem `naoPerturbe` na ponte (casco
-// 88) o botão do sistema não aparece; sem a leitura do volume (casco < 86) o
-// cartão nem nasce. O `hidden` no HTML é a primeira metade disso; a segunda é a
-// resposta da ponte.
-function esconderAvisoDoVolume() {
-  if (volAvisoPopEl) { volAvisoPopEl.hidden = true; volAvisoPopEl.classList.remove('open'); }
-  // O VÉU SAI DE CENA INTEIRO: `hidden` E a classe que o torna camada fixa. Um
-  // `display: none` esquecido no DOM é o que o `smoke` cobra — e ele conta
-  // `position: fixed` sem perguntar visibilidade.
-  if (volAvisoVeuEl) { volAvisoVeuEl.hidden = true; volAvisoVeuEl.classList.remove('aberto'); }
-}
-
-// O NÚMERO É O DO APARELHO, lido na hora: a fração pedida ao shell pode não
-// reproduzir o degrau exato, e um cartão que promete um volume que o telefone
-// não tem é o defeito que a v1.14.46 já tinha consertado.
-function pintarVolumeDoAviso(r) {
-  if (!r || !r.max || !volAvisoPopEl || volAvisoPopEl.hidden) return;
-  const pct = Math.round((r.atual / r.max) * 100);
-  volAvisoPopTituloEl.textContent = 'Som do celular em ' + pct + '%';
-  volAvisoPopNivelEl.textContent = pct + '%';
-  volAvisoPopTextoEl.textContent = pct >= Math.round(VOL_SISTEMA_PISO * 100)
-    ? 'O som do aparelho está em ' + pct + '%. Toque em OK para fechar.'
-    : 'O som do aparelho está abaixo de 60%. Suba agora ou ajuste no −/+ — o app não mexe mais sozinho.';
-}
-
-function relerVolumeDoAviso() {
-  return lerVolumeDoSistema().then((r) => { pintarVolumeDoAviso(r); return r; }).catch(() => null);
-}
-
-// O PASSO NO VOLUME DO APARELHO: lê, anda um degrau e lê de novo para o número
-// do cartão dizer o que ficou. `systemVolumeDefinir` é o caminho SEM painel do
-// Android (flags 0) — o painel do sistema sobre a projeção é justamente o que a
-// pílula existiu para evitar.
-function passoDoVolumeDoAparelho(dir) {
-  if (!window.__NATIVE__ || !AVNative.systemVolumeDefinir) return;
-  lerVolumeDoSistema().then((r) => {
-    if (!r || !r.max) return;
-    const alvo = Math.max(0, Math.min(r.max, r.atual + (dir > 0 ? 1 : -1)));
-    AVNative.systemVolumeDefinir(alvo / r.max);
-    relerVolumeDoAviso();
-  }).catch(() => { /* a ponte caiu: o cartão fica como está */ });
-}
-
-function mostrarAvisoDoVolume(r) {
-  if (!window.__NATIVE__ || !volAvisoPopEl) return;
-  volAvisoPopEl.hidden = false;
-  volAvisoPopEl.classList.add('open');
-  if (volAvisoVeuEl) { volAvisoVeuEl.hidden = false; volAvisoVeuEl.classList.add('aberto'); }
-  pintarVolumeDoAviso(r);
-  diagC('volume do sistema abaixo do piso: cartão da abertura na tela');
-  // O RÓTULO VEM DO ESTADO REAL, não de um palpite: com o Não perturbe já ligado
-  // (por qualquer caminho), o toque DESLIGA — e um botão que só sabe ligar
-  // mentiria no segundo toque.
-  if (volAvisoPopDndEl && AVNative.naoPerturbe) {
-    AVNative.naoPerturbe().then((st) => {
-      if (!st) return;
-      volAvisoPopDndEl.hidden = false;
-      volAvisoPopDndEl.textContent = st.ligado ? 'Desligar' : 'Não perturbe';
-    }).catch(() => { /* ponte indisponível: o botão fica fora */ });
-  }
-}
-
-if (volAvisoPopFecharEl) volAvisoPopFecharEl.addEventListener('click', esconderAvisoDoVolume);
-if (volAvisoPopSubirEl) {
-  volAvisoPopSubirEl.addEventListener('click', () => {
-    if (!AVNative.systemVolumeDefinir) return;
-    AVNative.systemVolumeDefinir(VOL_SISTEMA_PISO);
-    relerVolumeDoAviso();
-  });
-}
-if (volAvisoPopMenosEl) volAvisoPopMenosEl.addEventListener('click', () => passoDoVolumeDoAparelho(-1));
-if (volAvisoPopMaisEl) volAvisoPopMaisEl.addEventListener('click', () => passoDoVolumeDoAparelho(1));
-if (volAvisoPopDndEl) {
-  volAvisoPopDndEl.addEventListener('click', () => {
-    AVNative.naoPerturbe().then((st) => {
-      if (!st) { volAvisoPopDndEl.hidden = true; return null; }
-      // SEM AUTORIZAÇÃO o filtro é um no-op SILENCIOSO: em vez de um botão que
-      // finge, abrir a tela onde o operador autoriza e DIZER o que fazer.
-      if (!st.acesso) {
-        AVNative.abrirAcessoNaoPerturbe();
-        volAvisoPopTextoEl.textContent = 'Autorize o Não perturbe no Android e toque de novo.';
-        return null;
-      }
-      return AVNative.naoPerturbeDefinir(!st.ligado).then((r) => {
-        if (!r || !r.ok) {
-          volAvisoPopTextoEl.textContent = 'O Android não deixou mudar o Não perturbe.';
-          return;
-        }
-        volAvisoPopDndEl.textContent = st.ligado ? 'Não perturbe' : 'Desligar';
-        volAvisoPopTextoEl.textContent = st.ligado
-          ? 'Não perturbe desligado.'
-          : 'Não perturbe ligado: chamadas e notificações em silêncio, o louvor continua com som.';
-      });
-    }).catch(() => { /* a ponte caiu no meio: o botão fica fora */ });
-  });
-}
-
 function mostrarPilula() {
   if (!volPillEl) return;
   casaDaPilula();
-  lerVolumeDoSistema();   // o aviso do sistema acompanha cada aparição da barra
+  lerVolumeDoSistema();   // a etiqueta do volume zero acompanha cada aparição da barra
   lugarDaPilula();
   volPillEl.classList.toggle('mudo', !!muted);
   volPillEl.classList.add('visivel');
@@ -45316,10 +45373,6 @@ setAppMode(appMode);
 // O TAMANHO do passo é de `volumeProximo` — fino abaixo de 10, ver lá.
 if (window.__NATIVE__) {
   window.__avVolumeKey = (step) => {
-    // COM O CARTÃO DO VOLUME ABERTO, A TECLA É DO APARELHO (Pacote 45): é o
-    // volume que o cartão está perguntando, e o fader do app não é o que ele
-    // mostra. O cartão relê e o número acompanha; a pílula não aparece.
-    if (volAvisoPopEl && !volAvisoPopEl.hidden) { passoDoVolumeDoAparelho(step); return; }
     // Mostra o fader por alguns segundos — inclusive quando o passo vai para o
     // sistema: o fader no máximo/zero é justamente a resposta para "por que o
     // volume do app não muda?".
@@ -45353,10 +45406,10 @@ if (window.__NATIVE__) {
   // Só agora — com o handler de pé — a Activity pode consumir as teclas.
   AVNative.captureVolumeKeys(true);
   volumeTeclasPedidas = true;
-  // O AVISO DO VOLUME DO SISTEMA (Pacote 45): uma vez por abertura, aqui —
-  // depois da ponte de pé e antes de qualquer mídia. NÃO mexe no volume: lê e,
-  // se o aparelho está abaixo de 60%, acende o cartão da base.
-  conferirVolumeDoSistema();
+  // A INICIALIZAÇÃO (Pacote 47): uma vez por abertura, aqui — depois da ponte
+  // de pé e antes de qualquer mídia. Aplica o que a seção de Configurações
+  // decidiu: o volume do sistema e o Não perturbe. Nada é perguntado ao operador.
+  aplicarInicializacao();
 
   // ===== Controles da notificação / tela de bloqueio / botões de mídia =====
   // Tudo cai nos MESMOS botões da tela, via `.click()`: os handlers já tratam
@@ -46667,15 +46720,6 @@ const POPUPS = [
   // duas coisas dizem a mesma ordem, e mudar uma sem a outra é o acaso que já
   // cobriu um popup por inteiro aqui.
   [sorteioPopupEl, sorteioCloseEl, fecharSorteio],
-  // O CARTÃO DO VOLUME DA ABERTURA (v1.14.69) entra como popup de verdade: é a
-  // camada mais ALTA deste inventário (z 288, acima das folhas e abaixo do
-  // diálogo do app) e a que está por cima na abertura. Entrar aqui é o que lhe
-  // dá o botão VOLTAR do Android, e é o que faz `secaoDoTour()` — e portanto
-  // `telaOcupadaParaTour()` — ler a tela como ocupada enquanto ele está de pé:
-  // o tour ESPERA o OK. O `null` no botão é o mesmo recurso da Biblioteca: o
-  // fecho é o OK, e ele tem ouvinte próprio (uma segunda ligação no mesmo clique
-  // piscaria o cartão e não faria nada).
-  [volAvisoPopEl, null, esconderAvisoDoVolume],
 ];
 // A FOLHA DE FERRAMENTAS fica FORA da tabela, e não por esquecimento: ela não é
 // um `.popup-backdrop` (não há camada sobre a tela toda, não há fundo escurecido
@@ -46688,10 +46732,8 @@ if (toolsVoltarEl) toolsVoltarEl.addEventListener('click', () => voltarAGradeDeF
 if (toolsFecharEl) toolsFecharEl.addEventListener('click', fecharFerramentas);
 POPUPS.forEach(([backdrop, closeBtn, close]) => {
   if (closeBtn) closeBtn.addEventListener('click', close);
-  // Só o próprio backdrop: um clique dentro da folha não fecha. O CARTÃO DO
-  // VOLUME é a exceção declarada — o único controle que o fecha é o OK, e um
-  // toque no corpo do cartão (ou no véu) não é resposta a nada.
-  if (backdrop !== volAvisoPopEl) backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+  // Só o próprio backdrop: um clique dentro da folha não fecha.
+  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
 });
 
 // ===== Botão VOLTAR do aparelho (`__avBack`) =====
@@ -46796,13 +46838,11 @@ function qualTour() {
   if (simpleModeEl.classList.contains('sem-tela')) return 'conexao';
   return simpleModeEl.classList.contains('corpo-biblioteca') ? 'simples' : 'tocando';
 }
-// O que nenhum tour cobre: a cortina de abertura, o diálogo, a tela cheia e o
-// cartão do volume da abertura (v1.14.69) — o tour ESPERA o OK dele, e é o
-// `bloqueio` que segura o automático mesmo quando o cartão é a única coisa na
-// tela (a `secaoDoTour` também o vê, pela fila `POPUPS`; as duas dizem o mesmo).
+// O que nenhum tour cobre: a cortina de abertura, o diálogo e a tela cheia. É o
+// `bloqueio` que segura o automático mesmo quando a cortina é a única coisa na
+// tela (a `secaoDoTour` também a vê, pela fila `POPUPS`; as duas dizem o mesmo).
 function bloqueioDoTour() {
   if (document.getElementById('splash')) return true;   // a cortina de abertura sai por remoção do nó
-  if (volAvisoPopEl && !volAvisoPopEl.hidden) return true;
   if (appDialogEl.classList.contains('open')) return true;
   return !!(document.fullscreenElement || pvInteira);
 }

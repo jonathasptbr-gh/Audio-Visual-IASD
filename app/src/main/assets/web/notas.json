@@ -1,5 +1,18 @@
 [
   {
+    "versao": "1.14.70",
+    "itens": [
+      "O aviso de volume que aparecia ao abrir o app saiu de vez: a abertura não pergunta mais nada.",
+      "No lugar dele, Configurações ganhou o botão Inicialização, com as decisões que valem ao abrir.",
+      "Lá você escolhe se o app abre no modo simples ou no modo avançado, e a escolha fica guardada.",
+      "E decide se, ao abrir, o app liga o Não perturbe do celular — vem desligado.",
+      "E se ajusta o volume do sistema na abertura, numa barra de 0 a 100%.",
+      "A chave do volume também vem desligada; desligada, a barra fica apagada mas guarda o número.",
+      "Sem a autorização de Não perturbe, o app mostra o botão para autorizar no Android e não insiste.",
+      "O número do passador de slides agora fica centralizado na caixa."
+    ]
+  },
+  {
     "versao": "1.14.69",
     "itens": [
       "A versão 1.14.68 não chegou ao seu aparelho; é esta 1.14.69 que traz o aviso de volume novo e a janela do tour.",

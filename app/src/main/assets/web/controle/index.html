@@ -831,6 +831,15 @@
       <path d="M15.5 12h.01" stroke-width="4.6"/>
       <path d="M7.5 17h.01" stroke-width="4.6"/>
     </symbol>
+    <!-- A INICIALIZAÇÃO (v1.14.70): o desenho de LIGAR — o arco que não fecha em
+         cima e o traço que sai do centro. É o único do sprite que fala de
+         "quando o app abre", e o tile que ele veste é a porta das três decisões
+         que valem na ABERTURA. SVG e não glifo pelo motivo de sempre: o subset
+         da fonte tem 31 codepoints, e um de fora não desenha nada. -->
+    <symbol id="icoInicio" viewBox="0 0 24 24">
+      <path d="M12 3.5v8"/>
+      <path d="M7.2 6.1a8 8 0 1 0 9.6 0"/>
+    </symbol>
   </svg>
   <!-- MODO SIMPLIFICADO: conectar a tela, buscar a música, tocar. Os controles
        são os mesmos botões do modo completo acionados por `.click()` (ver
@@ -2059,7 +2068,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.14.69</span>
+          <span id="appVersion">v1.14.70</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
@@ -2223,6 +2232,20 @@
              está dito: o `title` continua sendo a única frase longa, e num celular
              ele não aparece. -->
         <div class="qs-grade">
+          <!-- ===== A INICIALIZAÇÃO (v1.14.70, Pacote 47) =====
+               Pedido do operador (17/11): *"teremos mais uma aba/botão nas
+               configurações que vai abrir as opções de inicialização, nelas vamos
+               por todas as decisões do usuário que envolvam a abertura do app"* —
+               e com ela o popup de volume da abertura MORREU.
+               ELE ABRE UMA SEÇÃO (`#bootSecao`) e não alterna nada, como a Tela e
+               o Histórico: as três decisões não cabem num desenho de tile (a
+               regra 2 da grade, v1.7.2), e a barra de volume precisa de largura.
+               É o PRIMEIRO da grade porque é a decisão que vale ANTES de todas as
+               outras: como o app nasce. -->
+          <button type="button" class="qs-tile qs-on" id="bootTile" title="O que o app faz ao abrir: modo, Não perturbe e volume">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoInicio"/></svg>
+            <span class="qs-titulo">Inicialização</span>
+          </button>
           <!-- TEMA (v5.192, tile na v1.4.38). Primeiro da grade porque é a
                mesma classe de decisão do modo do app logo acima — "como este
                app se apresenta" —, e é o que ele LEMBRA entre aberturas (o modo
@@ -2412,6 +2435,74 @@
              o corpo à vista, com o título e o desenho do tile no cabeçalho; o
              tile, escondido com a grade, guarda o `aria-expanded`. -->
         <div id="cfgSecoes" class="cfg-secoes">
+          <!-- ===== A INICIALIZAÇÃO (v1.14.70, Pacote 47) =====
+               As TRÊS decisões que valem na ABERTURA do app, no molde de seção
+               desta folha (a Tela, o Histórico, a Verificação): a grade some e a
+               seção ocupa o lugar. Ela nasceu junto com a REMOÇÃO do cartão de
+               volume da abertura — o app não pergunta mais nada ao abrir; ele
+               cumpre o que foi decidido AQUI.
+               AS TRÊS, na ordem em que o operador as nomeou: o MODO (`av.appModeFixo`,
+               a mesma chave do gesto de 5 s), o NÃO PERTURBE e o VOLUME. As duas
+               últimas são as chaves novas, e as duas nascem DESLIGADAS: quem não
+               abrir esta seção não vê o app mexer no som nem no filtro do sistema.
+               O QUE NÃO ESTÁ AQUI: o tour. Ele continua com a marca `av.tour` e a
+               janela "Quer fazer o tour?" da abertura. -->
+          <section id="bootSecao" class="cfg-sec" data-secao="boot" hidden>
+            <div class="cfg-sec-cab">
+              <svg class="cfg-sec-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoInicio"/></svg>
+              <span class="cfg-sec-titulo">Inicialização</span>
+              <button type="button" class="cfg-sec-recolher" data-secao="boot" title="Recolher" aria-label="Recolher Inicialização">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoExpandir"/></svg>
+              </button>
+            </div>
+            <div class="boot-corpo">
+              <!-- 1 · O MODO NA ABERTURA. É a MESMA chave do gesto de 5 s sobre a
+                   metade "Modo avançado" do trilho acima (`av.appModeFixo`): o
+                   gesto vira um atalho desta decisão, e não há um segundo
+                   mecanismo. O `data-modo` é o estado (a disciplina do resto do
+                   app); os rótulos são os DOIS do trilho de cima, e não "Fácil",
+                   para as duas portas da mesma escolha dizerem a mesma palavra. -->
+              <div class="fade-row fade-row--fit">
+                <span class="boot-rot">Modo na abertura</span>
+                <div class="fit-seg qs-modo" id="bootModoSeg" data-modo="simple">
+                  <button type="button" class="fit-opt" data-mode="simple">Modo simples</button>
+                  <button type="button" class="fit-opt" data-mode="full">Modo avançado</button>
+                </div>
+              </div>
+              <!-- 2 · O NÃO PERTURBE NA ABERTURA. Padrão DESLIGADO. A ponte existe
+                   desde a v1.14.56 (`naoPerturbe`/`naoPerturbeDefinir`), e SEM a
+                   autorização do Android o `setInterruptionFilter` é um no-op
+                   SILENCIOSO: por isso o caminho do sistema mora aqui, ao lado da
+                   chave, e a abertura o oferece no máximo uma vez em vez de
+                   fingir que ligou. -->
+              <div class="fade-row fade-row--fit">
+                <span class="boot-rot">Não perturbe na abertura</span>
+                <div class="fit-seg" id="bootDndSeg" data-estado="off">
+                  <button type="button" class="fit-opt" data-dnd="off">Desligado</button>
+                  <button type="button" class="fit-opt" data-dnd="on">Ligado</button>
+                </div>
+                <p class="boot-nota" id="bootDndNota" hidden>Para valer, o app precisa da autorização de Não perturbe do Android.</p>
+                <button type="button" id="bootDndAcesso" class="dialog-btn" title="Abrir a tela do Android onde o Não perturbe é autorizado" hidden>Autorizar no Android</button>
+              </div>
+              <!-- 3 · O VOLUME NA ABERTURA. A chave é MESTRA e nasce DESLIGADA:
+                   desligada, a barra fica inerte e apagada, mas GUARDA o número —
+                   religar devolve o valor de antes (decisão do operador: *"a
+                   interferência no volume pode ser ativada ou desativada,
+                   ignorando a barra de predefinição"*). O número é o do app, de 0
+                   a 100%, e é o que ele põe no SISTEMA ao abrir. -->
+              <div class="fade-row fade-row--fit">
+                <span class="boot-rot">Ajustar o volume do sistema</span>
+                <div class="fit-seg" id="bootVolSeg" data-estado="off">
+                  <button type="button" class="fit-opt" data-vol="off">Desligado</button>
+                  <button type="button" class="fit-opt" data-vol="on">Ligado</button>
+                </div>
+                <label class="boot-vol" id="bootVolLinha">
+                  <input type="range" id="bootVolBar" min="0" max="100" step="1" value="60" aria-label="Volume do sistema quando o app abrir">
+                  <span class="boot-vol-num" id="bootVolNum">60%</span>
+                </label>
+              </div>
+            </div>
+          </section>
           <section id="telaSecao" class="cfg-sec" data-secao="tela" hidden>
             <div class="cfg-sec-cab">
               <svg class="cfg-sec-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoTela"/></svg>
@@ -3287,47 +3378,6 @@
     </span>
     <span id="volValue" class="fader-value" aria-hidden="true">100</span>
   </div>
-
-  <!-- ===== O AVISO DA ABERTURA (v1.14.69) =====
-       A CONDIÇÃO é a de sempre: o volume de MÍDIA do aparelho abaixo de 60% na
-       abertura. O que mudou (Pacote 45) é o que ele FAZ — não sobe mais o som
-       sozinho, não fecha sozinho e não é um aviso de canto: é um cartão na BASE,
-       sobre um véu que escurece o resto, com os botões do app. Quem decide é o
-       operador: "Subir até 60%", o volume do aparelho no −/+, o Não perturbe e
-       o OK — o ÚNICO controle que fecha (não há ✕ de canto).
-
-       ELE NÃO GUARDA "NÃO MOSTRAR MAIS": o OK descarta a mensagem DESTA
-       abertura, e a próxima abertura com o volume ainda baixo a traz de novo.
-       Quem cala o cartão é a condição, não uma marca.
-
-       O VÉU (`#volAvisoVeu`) é o que bloqueia a tela até o OK, e é por isso que
-       a montagem inteira é protegida: se o volume não puder ser lido (casco
-       antigo, ponte negada), o cartão NÃO nasce e o app abre normal. Nasce
-       `hidden`; quem o acende é o `mostrarAvisoDoVolume`.
-
-       O botão do Não perturbe também nasce `hidden`: ele só aparece depois que
-       a ponte responde o estado (shell 89). Num casco antigo ele não existe, e
-       um botão que não faz nada é pior que um botão ausente. -->
-  <div class="vol-veu" id="volAvisoVeu" aria-hidden="true" hidden></div>
-  <section class="vol-aviso" id="volAvisoPop" role="dialog" aria-modal="true" aria-labelledby="volAvisoPopTitulo" hidden>
-    <div class="vol-aviso-topo">
-      <span class="vol-aviso-ico" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#icoSom"/></svg>
-      </span>
-      <strong id="volAvisoPopTitulo">Som do celular em 60%</strong>
-    </div>
-    <p class="vol-aviso-texto" id="volAvisoPopTexto">O som do aparelho está abaixo de 60%.</p>
-    <div class="vol-aviso-volume">
-      <button type="button" class="vol-aviso-passo" id="volAvisoPopMenos" aria-label="Baixar o volume do aparelho" title="Baixar o volume do aparelho">−</button>
-      <span class="vol-aviso-nivel" id="volAvisoPopNivel">60%</span>
-      <button type="button" class="vol-aviso-passo" id="volAvisoPopMais" aria-label="Subir o volume do aparelho" title="Subir o volume do aparelho">+</button>
-    </div>
-    <div class="vol-aviso-acoes">
-      <button type="button" class="vol-aviso-acao" id="volAvisoPopSubir">Subir até 60%</button>
-      <button type="button" class="vol-aviso-acao vol-aviso-acao--calma" id="volAvisoPopDnd" hidden>Não perturbe</button>
-    </div>
-    <button type="button" class="vol-aviso-ok" id="volAvisoPopFechar">OK</button>
-  </section>
 
   <script src="../shared/native.js"></script>
   <script src="../shared/db.js"></script>

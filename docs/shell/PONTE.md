@@ -895,11 +895,12 @@ window.AVNative = {
                        //   nele. O `systemVolumeStep` com passo zero BAIXA um degrau e abre o painel
   systemVolumeDefinir(fracao), // (shell 86) DEFINE o volume de mídia na fração pedida:
                        //   `setStreamVolume` com flags 0 (sem painel e sem som de ajuste). Quem
-                       //   chama é o cartão da abertura, pelo TOQUE do operador — "Subir até 60%"
-                       //   e o −/+ —, e o passo é do volume do APARELHO (v1.14.69)
+                       //   chama é a ABERTURA (`aplicarInicializacao`), com o número que a seção
+                       //   "Inicialização" de Configurações guardou (v1.14.70)
   naoPerturbe(),       // (shell 89) {acesso, ligado, filtro}: a autorização de "Acesso a Não perturbe"
-                       //   e o filtro de interrupção em vigor. O aviso da abertura PERGUNTA antes de
-                       //   oferecer o botão: sem `acesso`, setInterruptionFilter é um no-op silencioso
+                       //   e o filtro de interrupção em vigor. A abertura e a seção "Inicialização"
+                       //   perguntam antes de definir: sem `acesso`, setInterruptionFilter é um
+                       //   no-op silencioso e o caminho do sistema é o que se oferece
   naoPerturbeDefinir(bool), // (shell 89) Promise<{ok, motivo}>: liga `ALARMS` e volta `ALL`. `ALARMS` e não
                        //   `NONE`: o silêncio total amarra mídia e alarme ao toque mudo (calaria o louvor)
   abrirAcessoNaoPerturbe(), // (shell 89) a tela de acesso especial do sistema, onde o operador autoriza

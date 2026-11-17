@@ -1144,95 +1144,6 @@ body {
 .vol-pill-aviso[hidden] { display: none; }
 .vol-pill-aviso svg { width: 18px; height: 18px; color: var(--warn-text); }
 
-/* ===== O AVISO DA ABERTURA (v1.14.69) =====
-   O cartão da base: a condição de disparo é a de sempre (o volume de mídia do
-   aparelho abaixo de 60%), e o que ele faz é PERGUNTAR — o app não sobe mais o
-   som sozinho, o cartão não fecha sozinho e o resto da tela escurece atrás do
-   véu para o operador ver o que está decidindo.
-
-   AS CAMADAS são 288 (o cartão) e 286 (o véu): acima de TODA a tela do app (as
-   folhas vão até 220) e abaixo do diálogo do app (300) — o aviso de atualização,
-   que também nasce na abertura, abre por cima e continua alcançável. Muito
-   abaixo da cortina (500) e do tour (600). O véu recebe o dedo (`pointer-events`
-   padrão): é ele que segura a tela até o OK, e o cartão é o único caminho de
-   volta — por isso o `hidden` dos dois anda junto (ver `esconderAvisoDoVolume`).
-
-   A FONTE é a do app, um degrau acima da que o cartão usava: título em
-   `--fs-lg`, corpo e botões em `--fs-md`. Os ícones são os do sprite
-   (`#icoSom`), e os botões são o vocabulário do app (`--radius-btn` no passo de
-   volume, `--radius-pill` nas ações), não o desenho de um popup de sistema. */
-.vol-veu { display: none; }
-/* ELE VIRA CAMADA SÓ QUANDO ACENDE (`aberto`, escrito pelo `mostrarAvisoDoVolume`).
-   Fechado ele não é `position: fixed` — é um nó `display: none` que não disputa
-   com nada. O `smoke` conta camada fixa por `position` e NÃO por visibilidade
-   (um `display: none` continua com o computado de `fixed`), e essa varredura é a
-   garantia de que a abertura não deixa coisa por cima: o véu entra nela pelo
-   mesmo critério do cartão. */
-.vol-veu.aberto {
-  display: block;
-  position: fixed; inset: 0; z-index: 286;
-  background: var(--scrim);
-}
-.vol-veu[hidden] { display: none; }
-.vol-aviso {
-  position: fixed; left: 50%; transform: translateX(-50%);
-  bottom: calc(.75rem + env(safe-area-inset-bottom, 0px));
-  z-index: 288;
-  width: min(92vw, 24rem);
-  display: flex; flex-direction: column; gap: var(--sp-4);
-  padding: var(--sp-5);
-  background: var(--bar); color: var(--text);
-  border-radius: var(--radius-card);
-  box-shadow: 0 8px 22px var(--shadow-card);
-  font-size: var(--fs-md);
-}
-.vol-aviso[hidden] { display: none; }
-.vol-aviso-topo { display: flex; align-items: center; gap: var(--sp-4); }
-.vol-aviso-ico { display: flex; flex: none; color: var(--accent); }
-.vol-aviso-ico svg { width: 22px; height: 22px; }
-.vol-aviso-topo strong {
-  flex: 1; min-width: 0;
-  font-size: var(--fs-lg); font-weight: var(--fw-max); line-height: 1.25;
-}
-.vol-aviso-texto { margin: 0; color: var(--muted); font-size: var(--fs-md); line-height: 1.4; }
-/* O CONTROLE DO VOLUME DO APARELHO: −, o número e +. O fundo é o recesso do
-   cartão (`--surface-sunk`), o mesmo sinal dos controles dentro da folha. */
-.vol-aviso-volume {
-  display: flex; align-items: center; gap: var(--sp-4);
-  padding: var(--sp-2);
-  background: var(--surface-sunk);
-  border-radius: var(--radius-btn);
-}
-.vol-aviso-passo {
-  flex: none; width: var(--hit); height: var(--hit); padding: 0;
-  border: 0; cursor: pointer;
-  background: var(--surface-2-sunk); color: var(--text);
-  border-radius: var(--radius-btn);
-  font: inherit; font-size: var(--fs-xl); font-weight: var(--fw-max); line-height: 1;
-}
-.vol-aviso-nivel {
-  flex: 1; text-align: center;
-  font-size: var(--fs-lg); font-weight: var(--fw-max);
-}
-.vol-aviso-acoes { display: flex; gap: var(--sp-4); }
-.vol-aviso-acao {
-  flex: 1; min-height: var(--hit); padding: var(--sp-2) var(--sp-4);
-  border: 0; cursor: pointer;
-  background: var(--btn-accent); color: var(--text);
-  border-radius: var(--radius-pill);
-  font: inherit; font-size: var(--fs-md); font-weight: var(--fw-max);
-}
-.vol-aviso-acao--calma { background: var(--surface-sunk); }
-.vol-aviso-acao[hidden] { display: none; }
-/* O ÚNICO CONTROLE QUE FECHA (o OK): largura inteira, na calma do cartão — o
-   azul cheio é do "Subir até 60%", que é a ação. */
-.vol-aviso-ok {
-  width: 100%; height: var(--hit); padding: 0;
-  border: 0; cursor: pointer;
-  background: var(--surface-sunk); color: var(--text);
-  border-radius: var(--radius-pill);
-  font: inherit; font-size: var(--fs-md); font-weight: var(--fw-max);
-}
 /* ===== NO MUDO, O NÚMERO MANDA E O ALTO-FALANTE É O SECUNDÁRIO (v1.14.9) =====
    Pedido do operador: *"inverta a prioridade dos dois símbolos, pois hoje o botão de som é maior
    que o número do volume atual … o número principal e o ícone de som secundário, abaixo na
@@ -11252,6 +11163,48 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    importação, na tinta de apoio, entre a lista e os botões. */
 .pacote-nota { margin: var(--sp-3) 0 0; color: var(--muted); font-size: var(--fs-sm); line-height: 1.4; }
 
+/* ===== A INICIALIZAÇÃO (v1.14.70, Pacote 47) =====
+   A seção das três decisões da ABERTURA. Ela é do molde das outras seções (o
+   cabeçalho gruda, a grade some) e o corpo é uma pilha de linhas do app
+   (`.fade-row--fit`): o rótulo em cima e o controle embaixo, na largura toda —
+   um segmentado de duas metades cabe ao lado do rótulo, uma BARRA não.
+
+   O MODO reusa o trilho `.qs-modo` (o polegar que desliza) e as duas metades
+   perdem o ícone: aqui o rótulo é a palavra inteira, como no trilho do topo.
+   As duas CHAVES são um `.fit-seg` comum — a gramática de "escolha entre duas
+   alternativas" da paleta, com a acesa em `--btn-accent`/`--accent`.
+
+   O VOLUME tem a barra do `#seek` (o `accent-color` nativo, que o WebView pinta
+   com o `--accent`) e o número ao lado. DESLIGADA ela não some: fica `disabled`
+   e apagada, guardando o valor — a decisão do operador é que a barra seja
+   "ignorada" e o número espere a chave religar. */
+.boot-corpo { display: flex; flex-direction: column; gap: var(--sp-3); }
+.boot-rot { color: var(--text); font-size: var(--fs-md); font-weight: var(--fw-forte); }
+.boot-nota { margin: 0; color: var(--muted); font-size: var(--fs-sm); line-height: 1.4; }
+.boot-nota[hidden] { display: none; }
+/* O botão do caminho do sistema é o `.dialog-btn` do app; ele é `hidden` até a
+   ponte dizer que a autorização falta, e o `title` diz o que ele abre. */
+#bootDndAcesso { align-self: flex-start; }
+#bootDndAcesso[hidden] { display: none; }
+/* A BARRA E O NÚMERO. O número tem largura fixa em `ch` para o rótulo não
+   dançar enquanto o dedo arrasta a barra; `tabular-nums` mantém os dígitos no
+   lugar. O `height` da barra é o alvo de toque do app — a trilha pintada
+   continua fina, quem cresce é a caixa que recebe o dedo. */
+.boot-vol { display: flex; align-items: center; gap: var(--sp-4); }
+.boot-vol input[type="range"] {
+  flex: 1; min-width: 0;
+  height: var(--hit);
+  accent-color: var(--accent);
+  background: transparent; cursor: pointer;
+}
+.boot-vol.apagado input[type="range"] { opacity: var(--op-inativo); cursor: default; }
+.boot-vol-num {
+  flex: none; min-width: 4ch; text-align: right;
+  color: var(--text); font-size: var(--fs-md); font-weight: var(--fw-forte);
+  font-variant-numeric: tabular-nums;
+}
+.boot-vol.apagado .boot-vol-num { color: var(--muted); }
+
 /* ===== EDITAR MÍDIA (v1.12.1) =====
    Duas vistas na mesma seção: o FORMULÁRIO e o SELETOR (grupos como a exportação).
    Desde a v1.12.48 a seção tem a altura do que mostra, e a troca de vista ANIMA a
@@ -13355,6 +13308,12 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
   padding: 0 var(--sp-4); border: 0; border-radius: var(--radius-btn);
   background: var(--surface-2); color: var(--text);
   font: inherit; font-size: var(--fs-md);
+  /* O TEXTO É CENTRADO NA CAIXA (v1.14.70, carona do Pacote 47): pedido do
+     operador — *"a caixa de texto do passador de slides deve centralizar o texto
+     na caixa, atualmente ele está alinhado a esquerda"*. Vale para o valor e
+     para o `placeholder`; a máscara, o foco e a régua de truncamento
+     (`scrollWidth <= clientWidth + 1`) não dependem do alinhamento. */
+  text-align: center;
   appearance: none; -webkit-appearance: none;
 }
 .cast-zap-num::placeholder { color: var(--muted); }

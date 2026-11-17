@@ -386,7 +386,9 @@ try {
   // sai da tela, não da árvore.
   const ordem = await pg.$eval('.qs-grade',
     (g) => [...g.children].map((e) => e.id));
-  const projecao = ['temaTile', 'telaTile', 'dadosMoveisTile', 'histOpenRow'];
+  // A INICIALIZAÇÃO abre a fileira das PREFERÊNCIAS (v1.14.70): ela decide como o
+  // app NASCE, e as outras decisões valem depois disso.
+  const projecao = ['bootTile', 'temaTile', 'telaTile', 'dadosMoveisTile', 'histOpenRow'];
   // ===== O TERCEIRO GRUPO É DE UM TILE SÓ, E ELE TEM NOME (v1.10.0) =====
   //
   // A VERIFICAÇÃO não é preferência da PROJEÇÃO nem ação sobre o APP: ela é
@@ -409,8 +411,8 @@ try {
   // diagnóstico, e por isso vem DEPOIS do grupo do aparelho em vez de misturar.
   const tour = ['tourBtn'];
   checar(JSON.stringify(ordem) === JSON.stringify(projecao.concat(diagnostico, aparelho, tour)),
-    'as ações do APARELHO são as ÚLTIMAS da grade, as da PROJEÇÃO as primeiras, e o DIAGNÓSTICO '
-    + 'entre as duas — ele não muda nada, só pergunta',
+    'as ações do APARELHO são as ÚLTIMAS da grade, as PREFERÊNCIAS as primeiras, e o '
+    + 'DIAGNÓSTICO entre as duas — ele não muda nada, só pergunta',
     JSON.stringify(ordem));
   // ===== A METADE ARITMÉTICA DESTA ASSERÇÃO SAIU (v1.9.9) =====
   //
@@ -709,12 +711,11 @@ try {
     // passa por cima da interface — é um aviso de 1,5 s que a tecla física acende, mora no
     // `body` fora de qualquer barra e nasce `visibility: hidden`. A camada 350 é necessária
     // para ela aparecer sobre a tela do Modo Fácil e sobre a janela da Biblioteca.
-    // O AVISO DA ABERTURA (v1.14.46) entra pela mesma razão, e com uma diferença: ele nasce
-    // `hidden` (display: none) e só acende quando o piso de 60% AGE — o computado de um nó
-    // `display: none` continua dizendo `position: fixed`, e a varredura abaixo não pergunta
-    // visibilidade. Ele é um cartão de 12 s com dois botões, não uma camada que fica.
+    // (O CARTÃO DE VOLUME DA ABERTURA saiu na v1.14.70 com a seção "Inicialização", e a
+    // classe dele saiu desta lista no mesmo lote: a varredura existe para a PRÓXIMA camada
+    // fixa não passar sem alguém escrevê-la aqui.)
     const OK = ['popup-backdrop', 'popup-sheet', 'simple', 'simple-veil', 'bottombar',
-      'appDialog', 'dialog-card', 'tab-ghost', 'crono-veu', 'vol-pill', 'vol-aviso'];
+      'appDialog', 'dialog-card', 'tab-ghost', 'crono-veu', 'vol-pill'];
     const achados = [];
     document.querySelectorAll('body *').forEach((el) => {
       const cs = getComputedStyle(el);

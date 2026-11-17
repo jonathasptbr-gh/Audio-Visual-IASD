@@ -134,7 +134,7 @@ const tiles = [...gradeIdx.matchAll(/<button[^>]*class="([^"]*)"[^>]*id="([^"]+)
   .map((m) => ({ classes: m[1], id: m[2] }))
   .filter((t) => t.classes.split(/\s+/).includes('qs-tile'));
 const ultimo = tiles.length ? tiles[tiles.length - 1].id : null;
-checar(tiles.length >= 8, 'C · a grade de Configurações do app tem os oito quadrados', tiles.length + ' quadrado(s): ' + tiles.map((t) => t.id).join(' · '));
+checar(tiles.length >= 9, 'C · a grade de Configurações do app tem os nove quadrados', tiles.length + ' quadrado(s): ' + tiles.map((t) => t.id).join(' · '));
 checar(ultimo === 'tourBtn', 'C · o "Tour do app" é o ÚLTIMO quadrado da grade, no app', 'último: ' + ultimo);
 checar(!/<input[^>]*id="tourBtn"|song-menu-check[^>]*id="tourBtn"/.test(INDEX),
   'C · o "Tour do app" não é uma caixa de marcação no HTML', 'achado o padrão de caixa');

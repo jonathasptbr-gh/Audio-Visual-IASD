@@ -114,6 +114,9 @@ export const SUPERFICIES = [
   // que é o placar limpo que não vale. Por isso o `abrir` os desoculta, como o
   // `selo` do oráculo do deck: no app eles são os dois moradores. Sem animação:
   // a sonda mede o estado final, não uma altura no meio do caminho.
+  // A INICIALIZAÇÃO (v1.14.70): a seção das três decisões da abertura — os dois
+  // segmentados (modo, Não perturbe, volume) e a barra de 0 a 100%.
+  { nome: 'inicialização (abertura)', abrir: () => { setAppMode('full'); openFadePopup(); trocarSecao('boot', { animar: false }); }, alvo: '#bootSecao.open' },
   { nome: 'tela (opções do telão)', abrir: () => { setAppMode('full'); openFadePopup(); trocarSecao('tela', { animar: false }); }, alvo: '#telaSecao.open' },
   {
     nome: 'transferir (exportar e importar)',

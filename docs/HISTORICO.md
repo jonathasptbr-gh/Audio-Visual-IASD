@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.70** — Pacote 47: o pop-up de volume da abertura SAI, e nasce a seção "Inicialização" em Configurações — modo, Não perturbe e volume na abertura, as duas últimas desligadas por padrão e a barra guardando o número quando a chave desliga (só web); na carona, o número do passador fica centralizado na caixa.
 - **v1.14.69** — Pacote 45: o aviso de volume da abertura vira um cartão na BASE com véu, fonte maior e os botões do app — não sobe o som nem fecha sozinho —, entra na fila `POPUPS` (o tour espera o OK) e o tour ganha a janela "Fazer o tour / Agora não" antes de abrir; na carona, a caixa do número do passador encolhe (só web).
 - **v1.14.67** — o "Copiar link" do cartão do passador vai para a ESQUERDA da caixa do número, na MESMA linha (`[Copiar link] [caixa] [ícone]`), com o rótulo inteiro e as três peças sem truncar a 390×844 e 360×640 (só web).
 - **v1.14.66** — o cartão do passador enxuga para quatro coisas (título, caixa do número, botão-ícone e "Copiar link"), a mensagem que viaja passa a ser SÓ o link por decisão do operador, a caixa ganha a máscara `(xx) x xxxx-xxxx` (11) / `(xx) xxxx-xxxx` (10) que não pula o cursor, e o foco nativo amarelo dá lugar ao anel de `--accent` do app (só web).
@@ -803,6 +804,81 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.70 — Pacote 47: a seção "Inicialização" toma o lugar do pop-up de volume da abertura
+
+**O PEDIDO DO OPERADOR** (2026-11-17 12:01), só web: `SHELL_VERSION` 89 (o shell
+NÃO foi tocado), `minShell` 83, **sem `shellTag`** — a última Release é a
+v1.14.56, e as pontes que o lote usa (`systemVolumeDefinir`, `naoPerturbe`,
+`naoPerturbeDefinir` e `abrirAcessoNaoPerturbe`) já estão nela, com
+`ACCESS_NOTIFICATION_POLICY` no manifesto. O número é o **1.14.70**, fixado pelo
+operador para este lote.
+
+**O QUE O OPERADOR PEDIU, em uma frase:** *"teremos mais uma aba/botão nas
+configurações que vai abrir as opções de inicialização … assim não teremos mais
+o popup na abertura."* O lote tem duas metades, e a ordem importa: primeiro a
+SEÇÃO (o que o app faz ao abrir), depois a REMOÇÃO do cartão — um lote de duas
+coisas com a segunda provando a primeira é o que evita o meio-termo em que o
+cartão fica e a seção nasce ao lado dele.
+
+**A SEÇÃO.** Uma `<section class="cfg-sec">` no molde da Tela e do Histórico
+(grade some, cabeçalho gruda), aberta pelo tile **"Inicialização"**, o PRIMEIRO
+da grade: é a decisão que vale antes de todas as outras. As três linhas, na
+ordem do pedido:
+
+1. **Modo na abertura** — o trilho `.qs-modo` com as duas metades "Modo simples"
+   / "Modo avançado". Ele escreve `av.appModeFixo`, a MESMA chave do gesto de
+   5 s sobre a metade "Modo avançado" do trilho do topo, e `renderModoFixo`
+   repinta os dois. Não há um segundo mecanismo: o gesto virou um atalho da
+   mesma decisão, e o `data-modo-inicial` do `<head>` continua sendo a única
+   leitura da abertura.
+2. **Não perturbe na abertura** — chave `av.boot.dnd`, DESLIGADA por padrão.
+   Ligada, a abertura pergunta o estado à ponte (shell 89) e, COM autorização,
+   chama `naoPerturbeDefinir(true)` uma vez. SEM ela, o `setInterruptionFilter`
+   é um no-op SILENCIOSO: a seção mostra a nota e o botão "Autorizar no
+   Android" (`abrirAcessoNaoPerturbe`), e a abertura oferece esse caminho UMA
+   vez — a marca `av.boot.dnd.oferta` impede o pedido a cada lançamento, e
+   desligar a chave a apaga para religar oferecer de novo.
+3. **Ajustar o volume do sistema** — chave `av.boot.volume.on`, DESLIGADA por
+   padrão, e a barra de 0 a 100% (`av.boot.volume`, padrão 60). Ligada, a
+   abertura chama `systemVolumeDefinir(valor/100)` uma vez. Desligada, a barra
+   fica `disabled` e apagada **guardando o número**: a decisão do operador é que
+   a barra seja "ignorada", não zerada.
+
+**O QUE SAIU INTEIRO:** `#volAvisoPop`, `#volAvisoVeu`, `VOL_SISTEMA_PISO`,
+`conferirVolumeDoSistema`, `mostrarAvisoDoVolume`, `esconderAvisoDoVolume`,
+`pintarVolumeDoAviso`, `relerVolumeDoAviso`, `passoDoVolumeDoAparelho`, a entrada
+do cartão na fila `POPUPS`, o caso especial do clique no backdrop, o galho do
+`bloqueioDoTour`, o das teclas físicas com o cartão aberto, o CSS inteiro (o véu,
+o cartão, os botões) e a menção `vol-aviso` da lista de camadas fixas do `smoke`.
+Ficou o que era da PÍLULA: a leitura de volume (`lerVolumeDoSistema`) e a
+etiqueta do volume zero. Ficou também a **janela do tour** (`av.tour`), que não
+era do cartão: a ordem da abertura passou a ser **cortina → janela → tour**.
+
+**A CARONA** (autorizada no mesmo pedido): `.cast-zap-num` ganhou
+`text-align: center`. A máscara, o foco `--accent` e a régua de truncamento
+seguem intactos — o alinhamento não muda `scrollWidth`.
+
+**OS ORÁCULOS.** `aviso-do-volume` SAIU do disco e do workflow (o cartão não
+existe mais), e no lugar dele entrou **`inicializacao.test.mjs`**, que mede as
+três decisões com a ponte falsa, a abertura que as aplica e a geometria da seção
+em 390×844 e 360×640. **`ordem-da-abertura` foi REESCRITO** para a ordem nova —
+cortina → janela → tour — e para a ausência do cartão com o volume do sistema em
+0% e em 100%. Os dois de grade (`configuracoes-janelas`, `abertura-e-transferencia`)
+e o `smoke` ganharam o tile novo; a superfície da seção entrou no `geometria.mjs`.
+
+**AS REVERSÕES PROVADAS.** (1) O volume da abertura aplicado SEM ler a chave
+reprova `inicializacao` A/B/D (a lista de `systemVolumeDefinir` deixa de ser
+vazia num aparelho novo e no 0%). (2) O "Modo avançado" da seção sem
+`gravarModoFixo` reprova B (o `data-modo-inicial` não muda e a escolha não
+persiste). (3) Tirar a janela do caminho do automático reprova `ordem-da-abertura`
+B e C; (4) tirar a marca do "Agora não" reprova E. As quatro foram medidas
+aqui com cópia de ida e volta em `~/tmp`, e voltaram verdes com o lote.
+
+**O QUE NÃO DEU PARA PROVAR AQUI:** o Android de verdade — o
+`setStreamVolume` com flags 0, a tela de acesso especial e o filtro `ALARMS`
+(com o louvor continuando com som) só se conferem no aparelho, e a linha está no
+`docs/RESIDUOS.md`.
 
 ## v1.14.69 — o pop-up de volume da abertura pergunta em vez de agir, e a porta do tour
 

@@ -379,13 +379,13 @@ try {
     });
     checar(bloco.escondidos.length === 0,
       'C · no APP os dois tiles deste aparelho estão à vista', bloco);
-    // A ORDEM É A DA GRADE INTEIRA (oito tiles): o tema, a janela da Tela, os
-    // dados móveis, o Histórico, a verificação, Compartilhar, Transferir e, por
-    // último, o Tour do app. Não há coluna forçada nenhuma — a grade é uma
-    // `.qs-grade` de três colunas, e a fileira é o que a contagem dá. O que mora
-    // DENTRO das janelas (a Tela e o Transferir) está no
-    // `configuracoes-janelas.test.mjs`.
-    checar(bloco.grade.join(',') === 'temaTile,telaTile,dadosMoveisTile,'
+    // A ORDEM É A DA GRADE INTEIRA (nove tiles desde a v1.14.70): a
+    // Inicialização, o tema, a janela da Tela, os dados móveis, o Histórico, a
+    // verificação, Compartilhar, Transferir e, por último, o Tour do app. Não há
+    // coluna forçada nenhuma — a grade é uma `.qs-grade` de três colunas, e a
+    // fileira é o que a contagem dá. O que mora DENTRO das janelas (a Tela e o
+    // Transferir) está no `configuracoes-janelas.test.mjs`.
+    checar(bloco.grade.join(',') === 'bootTile,temaTile,telaTile,dadosMoveisTile,'
       + 'histOpenRow,testeTile,shareAppTile,pacoteTile,tourBtn',
       'C · na MESMA grade dos outros, e na metade de BAIXO — a fileira das '
       + 'duas coisas que se fazem com o APP fora da projeção',

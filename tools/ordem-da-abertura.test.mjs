@@ -1,41 +1,45 @@
 #!/usr/bin/env node
 // ============================================================================
-// A ORDEM DA ABERTURA: VOLUME → OK → A JANELA DO TOUR → O TOUR
+// A ORDEM DA ABERTURA: CORTINA → JANELA DO TOUR → TOUR
 //
-// O Pacote 45 juntou duas peças que nunca tinham conversado: o cartão do volume
-// da abertura (que agora nasce na BASE, sobre um véu, e só sai pelo OK) e o tour
-// automático (que nascia sozinho 1,2 s depois da tela livre). Sem uma ordem
-// declarada, o tour abria POR CIMA do cartão — e o operador via o passeio do app
-// antes de responder o que fazer com o som do aparelho.
+// O Pacote 47 (v1.14.70) apagou o cartão de volume da abertura. Com ele saiu a
+// pergunta que segurava o tour por cima do cartão — e a ordem ficou a que o
+// operador pediu: a cortina sai, a janela do app pergunta "Quer fazer o tour?",
+// e só depois de a resposta existir o tour abre. O que este arquivo trava é
+// justamente a AUSÊNCIA dessa peça: **a abertura não mostra mais nada de volume**,
+// com qualquer volume do sistema, e o tour não abre nem pergunta antes de a
+// cortina sair.
 //
-// A REGRA QUE ESTE ARQUIVO TRAVA, medida no Chromium com um sistema falso de dez
-// degraus e o aparelho NOVO (`comTour: true`, `av.tour` vazio):
+// A REGRA, medida no Chromium com um sistema falso de dez degraus e o aparelho
+// NOVO (`comTour: true`, `av.tour` vazio):
 //
-//   A. com o volume em 20% o cartão abre, e o tour NÃO abre nem pergunta —
-//      nem 2,5 s depois (o `LIVRE_MS` já teria vencido);
-//   B. o véu é o que segura: no centro da peça que o tour usaria
-//      (`#simpleConn`), o `elementFromPoint` devolve o VÉU, não a peça;
-//   C. o OK fecha o cartão e o véu, e aí — e só aí — a JANELA DO TOUR aparece
-//      ("Quer fazer o tour?" com "Fazer o tour" e "Agora não");
-//   D. "Fazer o tour" abre o tour do estado, e ele é o da CONEXÃO;
-//   E. "Agora não" grava a MESMA marca `av.tour` (a chave do estado), não abre
-//      nada, e uma SEGUNDA abertura com o volume ainda baixo não pergunta de
-//      novo — mas o cartão do volume volta, porque a marca dele não existe;
-//   F. o voltar do Android fecha o cartão (ele está na fila `POPUPS`).
+//   A. com a cortina (`#splash`) na tela a janela do tour ainda NÃO abriu;
+//   B. a cortina sai e SÓ ENTÃO a janela "Quer fazer o tour?" aparece, com
+//      "Fazer o tour" e "Agora não", e o tour segue fechado;
+//   C. a janela segura o automático: nem 2,5 s depois (o `LIVRE_MS` é 1,2 s) o
+//      tour abre, e o `elementFromPoint` no centro do `#simpleConn` devolve o
+//      diálogo, não a peça que o tour usaria;
+//   D. "Fazer o tour" abre o tour do estado (a conexão), no primeiro passo;
+//   E. "Agora não" grava a MESMA marca `av.tour` do estado, não abre nada, não
+//      insiste, e uma SEGUNDA abertura não pergunta de novo;
+//   F. nenhum cartão de volume no DOM em nenhuma abertura, com o volume do
+//      sistema em 0% E em 100%, e nenhuma escrita no volume (as chaves da seção
+//      "Inicialização" nascem desligadas).
 //
-// As três reversões provadas no lote (o tour que não espera, o timer que volta e
-// o "Agora não" que não marca) estão nomeadas no `docs/HISTORICO.md`.
+// As reversões provadas no lote estão nomeadas no `docs/HISTORICO.md`: tirar a
+// janela do caminho do automático reprova B e C, e tirar a marca do "Agora não"
+// reprova E.
 //
 //   node tools/ordem-da-abertura.test.mjs
 // ============================================================================
 import { semRedeExterna } from './sem-rede.mjs';
 import { servirEstatico, abrirNavegador, esperarCortina, esperar, checar, falhas } from './arnes.mjs';
 
-// O SISTEMA FALSO: dez degraus, e o app encontra 2 (20%) na abertura — abaixo
-// do piso de 60%, que é a condição do cartão. A ponte responde o Não perturbe
-// com autorização, para o cartão nascer completo.
-const PONTE = `(() => {
-  window.__sis = { cur: 2, max: 10 };
+// O SISTEMA FALSO: dez degraus, e a abertura encontra o volume que `cur` disser.
+// O `naoPerturbe` responde com autorização para a abertura não ter o que
+// oferecer; as chaves da seção nascem ausentes, então nenhuma das duas é aplicada.
+const PONTE = (cur) => `(() => {
+  window.__sis = { cur: ${cur}, max: 10 };
   window.__chamadas = { definir: [], dnd: [], acesso: 0 };
   const B = {
     shellVersion: () => 89,
@@ -82,22 +86,19 @@ const PONTE = `(() => {
 const servidor = servirEstatico(new URL('../app/src/main/assets/web', import.meta.url).pathname);
 await new Promise((r) => servidor.listen(0, r));
 const navegador = await abrirNavegador({ comTour: true });
+const BASE = 'http://localhost:' + servidor.address().port + '/controle/';
 const erros = [];
 
-async function abrir() {
+async function abrir(cur) {
   const ctx = await navegador.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
   await semRedeExterna(ctx);
+  await ctx.addInitScript(PONTE(cur));
   const pg = await ctx.newPage();
   pg.on('pageerror', (e) => erros.push('pageerror: ' + e.message));
-  await pg.addInitScript(PONTE);
-  await pg.goto('http://localhost:' + servidor.address().port + '/controle/', { waitUntil: 'domcontentloaded' });
-  await esperarCortina(pg);
-  await pg.waitForFunction(() => window.__NATIVE__ === true && window.AVTour && typeof window.__avBack === 'function',
-    null, { timeout: 30000 });
+  await pg.goto(BASE, { waitUntil: 'domcontentloaded' });
   return { ctx, pg };
 }
 const estado = (pg) => pg.evaluate(() => (window.AVTour ? AVTour.estado() : null));
-const cartaoNaTela = (pg) => pg.evaluate(() => !document.getElementById('volAvisoPop').hidden);
 const dialogo = (pg) => pg.evaluate(() => {
   const d = document.getElementById('appDialog');
   return {
@@ -110,45 +111,52 @@ const dialogo = (pg) => pg.evaluate(() => {
 const marcas = (pg) => pg.evaluate(() => {
   try { return JSON.parse(localStorage.getItem('av.tour') || '{}'); } catch (_) { return null; }
 });
+const cartaoNoDom = (pg) => pg.evaluate(() => ({
+  pop: !!document.getElementById('volAvisoPop'),
+  veu: !!document.getElementById('volAvisoVeu'),
+  classe: document.querySelectorAll('.vol-aviso, .vol-veu').length,
+}));
 
 try {
-  // ── A/B/C/D · A SEQUÊNCIA COMPLETA: CARTÃO → OK → JANELA → TOUR ───────────
+  // ── A/B/C/D · A ORDEM COMPLETA: CORTINA → JANELA → TOUR ──────────────────
   {
-    const { ctx, pg } = await abrir();
-    await pg.waitForSelector('#volAvisoPop:not([hidden])', { timeout: 10000 });
-    checar(await estado(pg) === null, 'A · com o cartão do volume na tela, o tour não abriu', JSON.stringify(await estado(pg)));
+    const { ctx, pg } = await abrir(0);   // 0%: era a condição do cartão antigo
+    // A · a cortina está na tela e a janela ainda não abriu.
+    const naCortina = await pg.evaluate(() => ({
+      splash: !!document.getElementById('splash'),
+      dialogo: document.getElementById('appDialog').classList.contains('open'),
+    }));
+    checar(naCortina.splash && !naCortina.dialogo,
+      'A · com a CORTINA na tela, a janela do tour ainda não abriu', JSON.stringify(naCortina));
 
-    // 2,5 s é mais que o `LIVRE_MS` (1,2 s) do tour: sem o bloqueio, ele já
-    // teria aberto ou perguntado.
-    await pg.waitForTimeout(2500);
-    const depois = await estado(pg);
+    // B · a cortina sai e SÓ ENTÃO a janela aparece.
+    await esperarCortina(pg);
+    await pg.waitForFunction(() => window.AVTour && typeof window.__avBack === 'function', null, { timeout: 30000 });
+    const chegou = await esperar(pg, () => document.getElementById('appDialog').classList.contains('open'), null, 8000);
     const d1 = await dialogo(pg);
-    checar(depois === null && !d1.aberto && await cartaoNaTela(pg),
-      'A · e nem 2,5 s depois ele abre ou pergunta: o guia ESPERA o cartão', JSON.stringify({ tour: depois, dialogo: d1.aberto }));
+    checar(chegou === true && d1.aberto && d1.titulo === 'Quer fazer o tour?'
+      && d1.ok === 'Fazer o tour' && d1.cancelar === 'Agora não',
+      'B · saída a cortina, a janela do tour aparece com "Fazer o tour" e "Agora não"', JSON.stringify({ chegou, d1 }));
+    checar(await estado(pg) === null, 'B · e o tour AINDA não abriu: a janela vem antes dele');
 
-    // B · O VÉU É O QUE SEGURA: no centro da peça que o tour usaria, quem
-    // recebe o dedo é o véu — a peça do tour não é tocável enquanto ele está
-    // de pé. É a mesma pergunta que o `elementFromPoint` faz.
+    // C · a janela SEGURA o automático, e é ela que recebe o toque.
+    await pg.waitForTimeout(2500);   // mais que o `LIVRE_MS` (1,2 s)
     const hit = await pg.evaluate(() => {
       const alvo = document.getElementById('simpleConn');
       const r = alvo.getBoundingClientRect();
       const el = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-      return { alvo: el ? (el.id || el.className || el.tagName) : null, dentro: !!el && alvo.contains(el), peca: [r.left, r.top, r.width, r.height] };
+      return {
+        alvo: el ? (el.id || el.className || el.tagName) : null,
+        noDialogo: !!el && !!el.closest('#appDialog'),
+        dentro: !!el && alvo.contains(el),
+      };
     });
-    checar(hit.alvo === 'volAvisoVeu' && !hit.dentro,
-      'B · o véu recebe o toque no lugar da peça do tour (`elementFromPoint` no `#simpleConn`)', hit);
+    checar(await estado(pg) === null && (await dialogo(pg)).aberto,
+      'C · a janela segura o automático: nem 2,5 s depois o tour abre');
+    checar(hit.noDialogo && !hit.dentro,
+      'C · e o toque no centro do `#simpleConn` cai no DIÁLOGO, não na peça que o tour usaria', hit);
 
-    // C · O OK FECHA O CARTÃO, E SÓ ENTÃO A JANELA DO TOUR APARECE.
-    await pg.click('#volAvisoPopFechar');
-    await pg.waitForFunction(() => document.getElementById('volAvisoPop').hidden && document.getElementById('volAvisoVeu').hidden,
-      null, { timeout: 3000 });
-    await esperar(pg, () => document.getElementById('appDialog').classList.contains('open'), null, 6000);
-    const d2 = await dialogo(pg);
-    checar(d2.aberto && d2.titulo === 'Quer fazer o tour?' && d2.ok === 'Fazer o tour' && d2.cancelar === 'Agora não',
-      'C · fechado o cartão, a janela do tour aparece com "Fazer o tour" e "Agora não"', d2);
-    checar(await estado(pg) === null, 'C · e o tour AINDA não abriu: a janela vem antes dele');
-
-    // D · "FAZER O TOUR" ABRE O TOUR DO ESTADO (a cortina sem tela = `conexao`).
+    // D · "Fazer o tour" abre o tour do estado.
     await pg.click('#appDialogOk');
     await esperar(pg, () => {
       const e = window.AVTour && AVTour.estado();
@@ -163,10 +171,10 @@ try {
 
   // ── E · "AGORA NÃO" GRAVA A MARCA E NÃO PERGUNTA DE NOVO ─────────────────
   {
-    const { ctx, pg } = await abrir();
-    await pg.waitForSelector('#volAvisoPop:not([hidden])', { timeout: 10000 });
-    await pg.click('#volAvisoPopFechar');
-    await esperar(pg, () => document.getElementById('appDialog').classList.contains('open'), null, 6000);
+    const { ctx, pg } = await abrir(0);
+    await esperarCortina(pg);
+    await pg.waitForFunction(() => window.AVTour && typeof window.__avBack === 'function', null, { timeout: 30000 });
+    await esperar(pg, () => document.getElementById('appDialog').classList.contains('open'), null, 8000);
     await pg.click('#appDialogCancel');
     await pg.waitForTimeout(600);
     const v = await marcas(pg);
@@ -176,32 +184,31 @@ try {
     await pg.waitForTimeout(1600);
     checar(await estado(pg) === null && !(await dialogo(pg)).aberto,
       'E · passado o tempo do automático, ele não insiste');
-    checar(await cartaoNaTela(pg) === false,
-      'E · o cartão do volume ficou fechado (o OK dele já foi dado)');
 
-    // A SEGUNDA ABERTURA, mesmo aparelho e volume ainda baixo: o cartão do
-    // volume VOLTA (não há marca dele), e a janela do tour NÃO.
+    // A SEGUNDA ABERTURA, mesmo aparelho: a janela NÃO volta.
     await pg.reload({ waitUntil: 'domcontentloaded' });
     await esperarCortina(pg);
-    await pg.waitForFunction(() => window.__NATIVE__ === true && window.AVTour, null, { timeout: 30000 });
-    await pg.waitForSelector('#volAvisoPop:not([hidden])', { timeout: 10000 });
-    checar(true, 'E · na segunda abertura com o volume baixo o cartão do volume volta');
-    await pg.click('#volAvisoPopFechar');
+    await pg.waitForFunction(() => window.AVTour, null, { timeout: 30000 });
     await pg.waitForTimeout(2500);
     const v2 = await marcas(pg);
     checar(await estado(pg) === null && !(await dialogo(pg)).aberto && v2.conexao === 1,
-      'E · e a janela do tour NÃO volta: a marca do estado vale para esta tela', JSON.stringify({ tour: await estado(pg), marcas: v2 }));
+      'E · e a janela do tour NÃO volta: a marca do estado vale para esta tela',
+      JSON.stringify({ tour: await estado(pg), marcas: v2 }));
     await ctx.close();
   }
 
-  // ── F · O CARTÃO ESTÁ NA FILA `POPUPS`: O VOLTAR TAMBÉM O FECHA ───────────
-  {
-    const { ctx, pg } = await abrir();
-    await pg.waitForSelector('#volAvisoPop:not([hidden])', { timeout: 10000 });
-    const voltar = await pg.evaluate(() => window.__avBack());
-    const fechou = await pg.evaluate(() => document.getElementById('volAvisoPop').hidden && document.getElementById('volAvisoVeu').hidden);
-    checar(voltar === true && fechou,
-      'F · o voltar do Android fecha o cartão (e o véu) — ele entra na fila `POPUPS` como os outros popups', { voltar, fechou });
+  // ── F · NENHUM CARTÃO DE VOLUME, EM VOLUME NENHUM, E NENHUMA ESCRITA ─────
+  for (const cur of [0, 10]) {
+    const { ctx, pg } = await abrir(cur);
+    await esperarCortina(pg);
+    await pg.waitForFunction(() => window.AVTour && typeof window.__avBack === 'function', null, { timeout: 30000 });
+    await pg.waitForTimeout(1500);
+    const c = await cartaoNoDom(pg);
+    const ch = await pg.evaluate(() => JSON.parse(JSON.stringify(window.__chamadas)));
+    checar(c.pop === false && c.veu === false && c.classe === 0,
+      'F · com o sistema em ' + (cur * 10) + '% não existe cartão de volume nem véu no DOM', c);
+    checar(ch.definir.length === 0 && ch.dnd.length === 0 && ch.acesso === 0,
+      'F · e a abertura não escreve no volume nem no Não perturbe (chaves desligadas)', JSON.stringify(ch));
     await ctx.close();
   }
 

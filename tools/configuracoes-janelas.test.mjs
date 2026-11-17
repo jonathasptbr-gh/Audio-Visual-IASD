@@ -221,13 +221,15 @@ async function abrirJanela(pg, tile, secao) {
 
 try {
   // =========================================================================
-  // A · A GRADE: OITO TILES, NA ORDEM, E O QUE É SÓ DO APP NÃO EXISTE NO NAVEGADOR
+  // A · A GRADE: NOVE TILES, NA ORDEM, E O QUE É SÓ DO APP NÃO EXISTE NO NAVEGADOR
   //
   // v1.14.7: saem o tile "Saída de áudio" (o projeto da janela da Samsung foi
   // abandonado) e o "Editar mídia" (virou ferramenta); entra o "Tour do app",
   // último da grade, no molde do "Dados móveis" (v1.14.7).
   // =========================================================================
-  const ORDEM = ['temaTile', 'telaTile', 'dadosMoveisTile',
+  // A INICIALIZAÇÃO é a PRIMEIRA desde a v1.14.70: ela decide como o app NASCE,
+  // e as outras decisões desta folha valem depois disso.
+  const ORDEM = ['bootTile', 'temaTile', 'telaTile', 'dadosMoveisTile',
     'histOpenRow', 'testeTile', 'shareAppTile', 'pacoteTile', 'tourBtn'];
   const lerGrade = (pg) => pg.evaluate(() => {
     // `#fadePopup .qs-grade`: a grade das seções é OUTRA classe
@@ -251,9 +253,9 @@ try {
   await abrirConfiguracoes(app.pg);
   const gNativa = await lerGrade(app.pg);
   checar(JSON.stringify(gNativa.ids) === JSON.stringify(ORDEM),
-    'A · a grade de Configurações tem os OITO tiles, nesta ordem: preferências e '
-    + 'telas primeiro, o grupo do APARELHO (compartilhar, transferir) e o tour por '
-    + 'último',
+    'A · a grade de Configurações tem os NOVE tiles, nesta ordem: a Inicialização, as '
+    + 'preferências e telas, o grupo do APARELHO (compartilhar, transferir) e o tour '
+    + 'por último',
     JSON.stringify(gNativa.ids));
   checar(gNativa.escondidos.length === 0,
     'A · e no app nenhum está escondido', JSON.stringify(gNativa.escondidos));
@@ -266,7 +268,7 @@ try {
     + 'três deixariam um órfão', JSON.stringify(gNativa.colunasDaJanela));
 
   // ===== QUEM MORA DENTRO DE QUEM =====
-  const SECOES = ['telaSecao', 'pacoteSecao', 'histSecao', 'testeSecao'];
+  const SECOES = ['bootSecao', 'telaSecao', 'pacoteSecao', 'histSecao', 'testeSecao'];
   const casas = await app.pg.evaluate((secoes) => {
     const dentro = (id, sec) => {
       const n = document.getElementById(id);
@@ -301,7 +303,7 @@ try {
   checar(casas.naGrade.length === 0,
     'A · e NENHUM dos seis sobrou na grade', JSON.stringify(casas.naGrade));
   checar(casas.lugar.every(([, ok]) => ok) && casas.folhasVelhas.length === 0,
-    'A · as QUATRO seções moram DENTRO de Configurações, depois da grade (e antes do '
+    'A · as CINCO seções moram DENTRO de Configurações, depois da grade (e antes do '
     + 'rodapé, que desde a v1.12.49 só existe com a atualização adiada ou no navegador) — '
     + 'e as cinco folhas de baixo de antes não existem mais (o editor de mídia virou '
     + 'ferramenta na v1.14.7)',
@@ -344,7 +346,8 @@ try {
     gradeFora: document.getElementById('cfgTopo').hidden
       && document.querySelector('#fadePopup .qs-grade').getClientRects().length === 0,
   }));
-  const TILES = [['Tela', '#telaTile', 'telaSecao', 'tela'], ['Transferir', '#pacoteTile', 'pacoteSecao', 'pacote'],
+  const TILES = [['Inicialização', '#bootTile', 'bootSecao', 'boot'],
+    ['Tela', '#telaTile', 'telaSecao', 'tela'], ['Transferir', '#pacoteTile', 'pacoteSecao', 'pacote'],
     ['Histórico', '#histOpenRow', 'histSecao', 'hist'],
     ['Verificação', '#testeTile', 'testeSecao', 'teste']];
   for (const [nome, tile, secao, chave] of TILES) {

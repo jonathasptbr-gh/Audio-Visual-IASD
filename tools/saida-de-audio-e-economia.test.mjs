@@ -333,9 +333,10 @@ try {
   checar(!saiu.tile && !saiu.simbolo,
     'A1 · o tile "Saída de áudio" e o símbolo dele NÃO existem mais no documento (v1.14.7)',
     JSON.stringify(saiu));
-  checar(JSON.stringify(saiu.grade) === JSON.stringify(['temaTile', 'telaTile', 'dadosMoveisTile',
-    'histOpenRow', 'testeTile', 'shareAppTile', 'pacoteTile', 'tourBtn']),
-  'A2 · a grade de Configurações é a de OITO tiles, com o "Tour do app" fechando a fileira do aparelho',
+  checar(JSON.stringify(saiu.grade) === JSON.stringify(['bootTile', 'temaTile', 'telaTile',
+    'dadosMoveisTile', 'histOpenRow', 'testeTile', 'shareAppTile', 'pacoteTile', 'tourBtn']),
+  'A2 · a grade de Configurações é a de NOVE tiles (a Inicialização abre a fileira das '
+  + 'preferências desde a v1.14.70), com o "Tour do app" fechando a fileira do aparelho',
   JSON.stringify(saiu.grade));
   checar(JSON.stringify(saiu.ferramentas) === JSON.stringify(['clock', 'stopwatch', 'timer', 'msg', 'draw', 'edicao']),
     'A3 · e o "Editar mídia" é a ÚLTIMA ferramenta (a sexta desde que o Itinerário virou opção do Cronograma, v1.14.32)',

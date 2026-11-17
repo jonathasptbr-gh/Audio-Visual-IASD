@@ -902,15 +902,17 @@
       ? call((id) => B.systemVolumeAtual(id), CALL_TIMEOUT_MS)
         .then((r) => (r && typeof r === 'object' ? r : null))
       : Promise.resolve(null)),
-    // O PISO de volume do sistema na abertura (shell 86), sem painel e sem som de ajuste.
+    // O VOLUME DO SISTEMA NA ABERTURA (shell 86), sem painel e sem som de ajuste: a fração que a
+    // seção "Inicialização" de Configurações guardou, aplicada uma vez por `aplicarInicializacao`.
     systemVolumeDefinir(fracao) {
       try { if (typeof B.systemVolumeDefinir === 'function') B.systemVolumeDefinir(Number(fracao) || 0); } catch (_) { /* ponte indisponível */ }
     },
 
-    // O NÃO PERTURBE (shell 89). O aviso da abertura pergunta o estado antes de oferecer o
-    // botão — sem a autorização de "Acesso a Não perturbe" o `setInterruptionFilter` é um
-    // no-op SILENCIOSO, e o botão mentiria. O `typeof` é a degradação declarada dos métodos
-    // opcionais: num casco 88 tudo resolve `null` na hora, e o aviso nasce sem o botão.
+    // O NÃO PERTURBE (shell 89). A abertura e a seção "Inicialização" perguntam o estado antes
+    // de definir ou de oferecer o caminho do sistema — sem a autorização de "Acesso a Não
+    // perturbe" o `setInterruptionFilter` é um no-op SILENCIOSO. O `typeof` é a degradação
+    // declarada dos métodos opcionais: num casco 88 tudo resolve `null` na hora, e a chave
+    // fica sem o botão do sistema.
     naoPerturbe: () => (typeof B.naoPerturbe === 'function'
       ? call((id) => B.naoPerturbe(id), CALL_TIMEOUT_MS)
         .then((r) => (r && typeof r === 'object' ? r : null))
@@ -919,7 +921,8 @@
       ? call((id) => B.naoPerturbeDefinir(!!on, id), CALL_TIMEOUT_MS)
         .then((r) => (r && typeof r === 'object' ? r : null))
       : Promise.resolve(null)),
-    // A tela de acesso especial do sistema. Sem ela não há como autorizar, e o aviso diz isso.
+    // A tela de acesso especial do sistema. Sem ela não há como autorizar; quem a oferece é a
+    // seção "Inicialização" (sempre) e a abertura (uma vez, quando a chave está ligada).
     abrirAcessoNaoPerturbe() {
       try { if (typeof B.abrirAcessoNaoPerturbe === 'function') B.abrirAcessoNaoPerturbe(); } catch (_) { /* ponte indisponível */ }
     },
