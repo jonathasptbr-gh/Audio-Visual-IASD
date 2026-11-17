@@ -13262,7 +13262,10 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: var(--fs-2xl); font-weight: var(--fw-forte); color: var(--text);
   overflow-wrap: anywhere; text-align: center;
-  -webkit-user-select: text; user-select: text;
+  /* SELECIONÁVEL, e o `!important` não é gosto: sem ele o reset
+     `* { user-select: none !important }` vence — o mesmo jogo que o
+     realce de toque documenta no topo da folha (v1.14.72). */
+  -webkit-user-select: text !important; user-select: text !important;
 }
 /* O CÓDIGO é o accent, e o endereço não: eles não competem, porque o âmbar aqui
    diz "este é o número do momento" — ele muda a cada vez que a transmissão é

@@ -33,6 +33,23 @@ if g rev-parse --verify -q origin/main >/dev/null; then
   fi
 fi
 
+# O cofre do harness vem primeiro; o arquivo antigo é reserva — a mesma ordem
+# da `lib.mjs` do kit `~/.dsh-github/` (Pacote 24/C2, 2026-11-14). Ele sobe
+# PARA A FREnte da seção da versão: é o que a conferência da Release do
+# GitHub abaixo precisa (v1.14.72).
+COFRE="${DSH_HOME:-$HOME/.dsh}/.credentials.yaml"
+TOKEN=$(sed -n '/^refs:/,/^[^[:space:]]/p' "$COFRE" 2>/dev/null \
+  | sed -nE 's/^[[:space:]]+GITHUB_TOKEN:[[:space:]]*(.*)[[:space:]]*$/\1/p' | head -1)
+if [ -n "$TOKEN" ]; then
+  TOKEN="${TOKEN%\'}"; TOKEN="${TOKEN#\'}"; TOKEN="${TOKEN%\"}"; TOKEN="${TOKEN#\"}"
+  ORIGEM="cofre"
+elif [ -f "$HOME/.dsh-github/token" ]; then
+  TOKEN=$(cat "$HOME/.dsh-github/token")
+  ORIGEM="arquivo"
+else
+  ORIGEM=""
+fi
+
 p "versão — as três casas"
 python3 - <<'PY'
 import json, re, pathlib, subprocess
@@ -57,7 +74,8 @@ print(f"  minShell       {m.get('minShell')}   (SHELL_VERSION {shell.group(1) if
 print(f"  shellTag       {m.get('shellTag') or '(ausente)'}")
 # A ÚLTIMA RELEASE SAI DO GIT, NÃO DA PROSA (Pacote 25/A5): a linha "APK v…"
 # do CLAUDE.md era lida aqui e conferida contra ela mesma. A tag `v*` é o que
-# o workflow cria ao publicar; as locais andam com `git fetch --tags`.
+# o workflow cria ao publicar; as locais andam com `git fetch --tags`. A TAG
+# sobe para o shell (a conferência da Release do GitHub abaixo a usa).
 def git(*a):
     r = subprocess.run(['git', '-c', 'safe.directory=*', *a], capture_output=True, text=True)
     return r.stdout.strip() if r.returncode == 0 else ''
@@ -76,6 +94,36 @@ else:
     print("  última Release (nenhuma tag v* local — git fetch --tags)")
 PY
 
+# A RELEASE DO GITHUB PODE ESTAR NA FRENTE DA TAG LOCAL (v1.14.72, o resíduo
+# da v1.14.19): a tag nasce no runner e só chega ao clone com `git fetch
+# --tags` — comparar só com o git local mentiu uma vez, imprimindo "exige
+# shellTag" sem motivo (a v1.14.13 local contra a v1.14.18 no GitHub). A
+# conferência é a MESMA que o bloco `--ci` já fazia, agora com o aviso:
+# Release mais nova imprime; igual ou atrás, silêncio.
+TAGV=$(g describe --tags --abbrev=0 --match 'v*' HEAD 2>/dev/null || true)
+if [ -n "$TAGV" ] && [ -n "$TOKEN" ]; then
+  TOKEN_GITHUB="$TOKEN" TAG_LOCAL="$TAGV" node -e '
+    const token = process.env.TOKEN_GITHUB, local = process.env.TAG_LOCAL;
+    const ctl = new AbortController();
+    setTimeout(() => ctl.abort(), 8000);
+    const num = (t) => String(t || "").replace(/^v/, "").split(".").map((x) => parseInt(x, 10) || 0);
+    fetch("https://api.github.com/repos/jonathasptbr-gh/Audio-Visual-IASD/releases/latest", {
+      headers: { Authorization: "Bearer " + token, "User-Agent": "dsh-estado" },
+      signal: ctl.signal,
+    }).then(r => r.json()).then(r => {
+      const gh = r.tag_name;
+      if (!gh) return;
+      const a = num(gh), b = num(local);
+      let c = 0;
+      for (let i = 0; i < 3; i++) { const d = (a[i] || 0) - (b[i] || 0); if (d) { c = d; break; } }
+      if (c > 0) console.log("  AVISO: o GitHub tem Release mais nova (" + gh + ") que a tag local ("
+        + local + ") — as locais andam com `git fetch --tags`");
+    }).catch(() => console.log("  (API do GitHub indisponível — a Release mais nova não foi conferida)"));
+  '
+elif [ -n "$TAGV" ]; then
+  echo "  Release do GitHub: (sem token — não conferida)"
+fi
+
 p "cobertura do workflow"
 fora=$(comm -3 <(ls tools/*.test.mjs | sort) \
              <(grep -oE 'tools/[a-z0-9.-]+\.test\.mjs' .github/workflows/apk.yml | sort -u) | wc -l)
@@ -86,21 +134,6 @@ total=$(ls tools/*.test.mjs | wc -l)
 puro=$(comm -23 <(ls tools/*.test.mjs | sort) \
              <(grep -lE "(from |import\()'(\./)?(arnes\.mjs|playwright|acorn)'" tools/*.test.mjs | sort) | wc -l)
 echo "  oráculos: $total arquivos · $puro de Node puro · $fora fora do workflow"
-
-# O cofre do harness vem primeiro; o arquivo antigo é reserva — a mesma ordem
-# da `lib.mjs` do kit `~/.dsh-github/` (Pacote 24/C2, 2026-11-14).
-COFRE="${DSH_HOME:-$HOME/.dsh}/.credentials.yaml"
-TOKEN=$(sed -n '/^refs:/,/^[^[:space:]]/p' "$COFRE" 2>/dev/null \
-  | sed -nE 's/^[[:space:]]+GITHUB_TOKEN:[[:space:]]*(.*)[[:space:]]*$/\1/p' | head -1)
-if [ -n "$TOKEN" ]; then
-  TOKEN="${TOKEN%\'}"; TOKEN="${TOKEN#\'}"; TOKEN="${TOKEN%\"}"; TOKEN="${TOKEN#\"}"
-  ORIGEM="cofre"
-elif [ -f "$HOME/.dsh-github/token" ]; then
-  TOKEN=$(cat "$HOME/.dsh-github/token")
-  ORIGEM="arquivo"
-else
-  ORIGEM=""
-fi
 
 p "credencial"
 if [ -n "$TOKEN" ]; then

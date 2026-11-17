@@ -493,7 +493,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.71';
+const WEB_VERSION = '1.14.72';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -40687,7 +40687,10 @@ const ECO_MS = 420;
 // leitura auxiliar, a lupa do acervo. Um eco ali prometeria uma viagem que não
 // acontece.
 const ECO_SELETOR = [
-  '.transport .t-btn',        // playlist, repetir, ⏮, ▶, ⏭, ■
+  // O #plBtn FICA DE FORA (`:not(#plBtn)`): ele só abre a folha da playlist —
+  // nada vai ao telão, e a regra do comentário acima é exatamente esta
+  // (v1.14.72; ele entrava pelo `.t-btn` inteiro).
+  '.transport .t-btn:not(#plBtn)',  // repetir, ⏮, ▶, ⏭, ■
   '.slide-btn',               // os dois que flanqueiam a preview: passam slide NO telão
   // A CORTINA E O MUDO NÃO ENTRAM (decisão do operador). Duas razões
   // independentes, e cada uma bastaria:

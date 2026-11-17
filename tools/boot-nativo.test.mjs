@@ -4689,9 +4689,34 @@ try {
     }
     await load();
     await window.__bibliotecaComFavoritos();
-    await new Promise((r) => setTimeout(r, 400));
-    const corpo = document.querySelector('[data-fav-corpo]');
-    const li = corpo && corpo.querySelector('.lib-item[data-id="' + ids[0] + '"]');
+    // O DRENO É O DESENHO, não um prazo — flaky MEDIDO no CI (v1.14.34): no
+    // MESMO commit (`1ee7e618`) passou no run do push (#2585) e reprovou no
+    // disparo da Release (#2586), que passou ao repetir o job. O redesenho da
+    // seção mora atrás de `await` (`load` → `sincronizarFavoritosNaBiblioteca`)
+    // e o `setTimeout(400)` fixo era o prazo lido como veredito (a primeira
+    // classe da tabela do `CLAUDE.md`). A espera é o fato: a lista desenhada
+    // BATER com `AVDB.listIds('favs')`, com teto — quem dá o veredito é a
+    // asserção abaixo.
+    const esperarTelaIgualBanco = async (teto) => {
+      const bate = async () => {
+        const c = document.querySelector('[data-fav-corpo]');
+        if (!c) return false;
+        const tela = [...c.querySelectorAll('.fav-itens > .lib-item')].map((l) => l.dataset.id).join(',');
+        return tela === (await AVDB.listIds('favs')).join(',');
+      };
+      const ate = Date.now() + teto;
+      while (Date.now() < ate) { if (await bate()) return true; await new Promise((r) => setTimeout(r, 50)); }
+      return false;
+    };
+    await esperarTelaIgualBanco(5000);
+    // A LISTA SE RE-CONSULTA, nunca se carrega na mão — a lição da v1.9.9
+    // DESTE arquivo: o redesenho da placa substitui o nó, e um `corpo`/`li`
+    // captados cedo viram FANTASMA (a árvore destacada ainda mostra a ordem
+    // velha; MEDIDO neste lote: a espera casa na árvore viva e a leitura
+    // presa via a velha). Todo uso re-consulta pelo documento.
+    const corpoDe = () => document.querySelector('[data-fav-corpo]');
+    const liDe = () => corpoDe()?.querySelector('.lib-item[data-id="' + ids[0] + '"]');
+    const li = liDe();
     const ul = li && li.parentElement;
     if (!ul) return { erro: 'a lista dos favoritos não foi desenhada' };
 
@@ -4706,7 +4731,7 @@ try {
     //
     // O toque longo vem ANTES da gravação: `li` é a primeira linha, e soltar acima
     // de tudo (y = 10) é soltar onde ela já estava — nada muda.
-    const row = li.querySelector('.row');
+    const row = liDe()?.querySelector('.row');
     const ev = (t) => row.dispatchEvent(new PointerEvent(t,
       { bubbles: true, clientX: 10, clientY: 10, pointerId: 1 }));
     ev('pointerdown');
@@ -4717,15 +4742,18 @@ try {
     const ordemIntacta = (await AVDB.listIds('favs')).slice(0, 4).join(',') === ids.join(',');
 
     await moverNaListaAntesDe('favs', ids[0], ids[2]);   // [1, 0, 2, 3]
-    await new Promise((r) => setTimeout(r, 400));
+    // O MESMO DRENO do desenho inicial: a reordenação grava e a seção redesenha
+    // atrás de `await` — ler no vão do prazo era o que reprovava no CI.
+    await esperarTelaIgualBanco(5000);
     const ordemDepois = (await AVDB.listIds('favs')).indexOf(ids[0]);
-    const naTela = [...corpo.querySelectorAll('.fav-itens > .lib-item')].map((l) => l.dataset.id);
+    const naTela = [...(corpoDe()?.querySelectorAll('.fav-itens > .lib-item') || [])]
+      .map((l) => l.dataset.id);
     const reabriu = naTela.join(',') === (await AVDB.listIds('favs')).join(',');
 
     return {
       ordemDepois, reabriu, ordemIntacta,
       arrastando,
-      temExcluir: !!li.querySelector('.row-excluir'),
+      temExcluir: !!liDe()?.querySelector('.row-excluir'),
       ids,
     };
   });
@@ -5257,7 +5285,17 @@ try {
         acoes: (li.querySelector('.row-acoes') || {}).outerHTML || 'sem .row-acoes' };
     }
     confirmar.click();
-    await new Promise((r) => setTimeout(r, 450));
+    // O DRENO É O DESENHO, não um prazo (achado do LAÇO 40× da v1.14.72, que
+    // reprovou 2× — as correntes A e B, no mesmo minuto, sob carga 3×): o nome
+    // grava no banco e a LINHA se repinta atrás de um redesenho; o
+    // `setTimeout(450)` fixo lia o meio do caminho ("Nome novo" no banco,
+    // "Nome antigo" na tela). A espera é o FATO — a linha lida o nome novo —
+    // com teto; a asserção continua dando o veredito.
+    const ate = Date.now() + 5000;
+    while (Date.now() < ate
+      && document.querySelector('#library .lib-item[data-id="' + m.id + '"] .row-name')?.textContent !== 'Nome novo') {
+      await new Promise((r) => setTimeout(r, 50));
+    }
     const rec = await AVDB.getMedia(m.id);
     const linha = document.querySelector('#library .lib-item[data-id="' + m.id + '"] .row-name');
     const r = {

@@ -1157,18 +1157,23 @@ try {
   // é o `abrirCronoGaveta`; o da faixa é a porta (que também é a saída das folhas,
   // v1.14.53) — e o toque REAL na porta com a gaveta aberta cai no VÉU dela, que a
   // fecha primeiro: por isso a prova do segundo sentido chama a porta pelo DOM.
+  // (ACHADO DO LAÇO 40× DA v1.14.72: os dois `z(320/420)` eram prazos lidos como
+  // veredito — sob carga, o meio do movimento era lido. A espera é o FATO, com
+  // teto; a asserção dá o veredito.)
   {
     await abrirFaixa();
-    const conc = await pg.evaluate(async () => {
-      const z = (ms) => new Promise((f) => setTimeout(f, ms));
-      abrirCronoGaveta(); await z(320);
-      return { gaveta: cronoGavetaAberta(), faixa: itinFaixaAberta, bar: document.getElementById('itinBar').getClientRects().length };
-    });
-    const conc2 = await pg.evaluate(async () => {
-      const z = (ms) => new Promise((f) => setTimeout(f, ms));
-      document.getElementById('itinBarBtn').click(); await z(420);
-      return { gaveta: cronoGavetaAberta(), faixa: itinFaixaAberta, bar: document.getElementById('itinBar').getClientRects().length };
-    });
+    await pg.evaluate(() => abrirCronoGaveta());
+    await esperar(pg, () => cronoGavetaAberta() === true && !itinFaixaAberta
+      && document.getElementById('itinBar').getClientRects().length === 0, null, 4000);
+    const conc = await pg.evaluate(() => ({
+      gaveta: cronoGavetaAberta(), faixa: itinFaixaAberta, bar: document.getElementById('itinBar').getClientRects().length,
+    }));
+    await pg.evaluate(() => document.getElementById('itinBarBtn').click());
+    await esperar(pg, () => itinFaixaAberta === true && cronoGavetaAberta() === false
+      && document.getElementById('itinBar').getClientRects().length > 0, null, 4000);
+    const conc2 = await pg.evaluate(() => ({
+      gaveta: cronoGavetaAberta(), faixa: itinFaixaAberta, bar: document.getElementById('itinBar').getClientRects().length,
+    }));
     checar(conc.gaveta && !conc.faixa && conc.bar === 0 && !conc2.gaveta && conc2.faixa && conc2.bar > 0,
       'Z · as DUAS ABAS SÃO CONCORRENTES: abrir a gaveta dos cronogramas recolhe a faixa, e abrir a faixa fecha a '
       + 'gaveta — nunca as duas abertas', { conc, conc2 });
@@ -1585,6 +1590,16 @@ try {
   await abrirFaixa();
   await pg.click('#itinHorasBtn');
   await esperar(pg, () => document.getElementById('pvTextItin').classList.contains('sem-horas'));
+  // E PELO DRENO DO ESTADO (run #2640, reprovou na 1ª tentativa e o re-run do
+  // mesmo commit passou): o flip da classe é síncrono com o render, mas a
+  // escolha GRAVADA mora atrás de `await` (`saveItin` → `updateState`) — a
+  // asserção lê o banco, e lê-lo no vão pegava `horas` velho (a mesma classe
+  // do `nome-do-player`: prazo lido como veredito). Reproduzida com a
+  // gravação atrasada em cópia; `esperarDb` com teto, e a asserção dá o veredito.
+  await esperarDb(pg, async () => {
+    const s = await AVDB.getState('itinerario');
+    return !!s && s.horas === false;
+  }, null, 5000);
   {
     const v = await pv();
     const b = await banco();
@@ -1597,6 +1612,10 @@ try {
   await abrirFaixa();
   await pg.click('#itinHorasBtn');
   await esperar(pg, () => !document.getElementById('pvTextItin').classList.contains('sem-horas'));
+  await esperarDb(pg, async () => {
+    const s = await AVDB.getState('itinerario');
+    return !!s && s.horas !== false;
+  }, null, 5000);
   await abrirFaixa();
   checar((await faixa()).horas === 'true', 'E · e o botão volta a "horários" (`aria-pressed="true"`)', await faixa());
 
@@ -1710,10 +1729,18 @@ try {
       const b = document.getElementById('startBtn'); if (b) b.style.display = 'none';
     });
     // A CORTINA ainda pode estar terminando de abrir (o fade do cartão): mede-se
-    // com ela fora de vista, senão o branco dela clareia o bloco.
-    await esperar(tv, () => Number(getComputedStyle(document.getElementById('wallpaper')).opacity) === 0
-      || getComputedStyle(document.getElementById('wallpaper')).display === 'none');
-    await tv.waitForTimeout(100);
+    // com ela fora de vista, senão o branco dela clareia o bloco. O DRENO É O
+    // FATO, e não o prazo (run #2640, 1ª tentativa; a cópia armada reprovou o
+    // pixel com o cartão a meio do fade): capturar com animação rodando no
+    // cartão, nas linhas ou na cortina lê o meio do movimento.
+    await esperar(tv, () => {
+      const wp = document.getElementById('wallpaper');
+      const foraDeVista = Number(getComputedStyle(wp).opacity) === 0
+        || getComputedStyle(wp).display === 'none';
+      const parado = (el) => !el || ![...el.getAnimations()].some((a) => a.playState === 'running');
+      return foraDeVista && parado(wp) && parado(document.getElementById('text'))
+        && parado(document.getElementById('textItin'));
+    }, null, 8000);
     const img = lerPng(await tv.screenshot());
     const geo = await tv.evaluate(() => {
       const r = document.getElementById('textItin').getBoundingClientRect();

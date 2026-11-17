@@ -219,6 +219,73 @@ export const SONDA = (cfg) => {
     for (const f of el.children) anda(f);
   })(document.body);
 
+  // ---- AS CAIXAS DOS PSEUDO-ELEMENTOS (v1.14.72, o resíduo da v1.14.35) ----
+  // A VARREDURA ACIMA ANDA SÓ POR ELEMENTOS, e o respiro entre grupos é
+  // `margin-top` mais uma marca PINTADA: o demarcador do grupo é um `::after`
+  // ABSOLUTO na `.thumb` (`#library … .thumb::after`, 3px) — fora do fluxo, ele
+  // não muda a caixa do dono nem a de irmão nenhum, e uma marca assim ESCAPANDO
+  // da tela passaria despercebida por toda sonda. A caixa de um pseudo
+  // POSICIONADO é derivável EXATA do computed style: o bloco de contenção é o
+  // padding box do ancestral posicionado mais próximo (o viewport, no `fixed`),
+  // e insets + margens + dimensão declarada resolvem o retângulo. O que pede
+  // palpite (insets `auto` no posicionamento estático, `transform`) fica FORA:
+  // a sonda mede, não estima.
+  const px = (v) => parseFloat(v) || 0;
+  const caixaPseudo = (el, lado) => {
+    const cs = getComputedStyle(el, lado);
+    if (!cs.content || cs.content === 'none' || cs.display === 'none'
+      || cs.visibility === 'hidden' || cs.opacity === '0') return null;
+    if (cs.position !== 'absolute' && cs.position !== 'fixed') return null;
+    if (cs.transform && cs.transform !== 'none') return null;
+    let x0 = 0, y0 = 0, wAvail = innerWidth, hAvail = innerHeight;
+    if (cs.position !== 'fixed') {
+      // O BLOCO DE CONTENÇÃO: o ancestral posicionado MAIS PRÓXIMO — o próprio
+      // hospedeiro conta (o pseudo é filho dele), e sem posicionado nenhum é o
+      // bloco INICIAL (a janela, na origem da página).
+      let cb = null;
+      for (let n = el; n; n = n.parentElement) {
+        if (getComputedStyle(n).position !== 'static') { cb = n; break; }
+      }
+      if (cb) {
+        const cbs = getComputedStyle(cb);
+        const rc = cb.getBoundingClientRect();
+        x0 = rc.left + px(cbs.borderLeftWidth); y0 = rc.top + px(cbs.borderTopWidth);
+        wAvail = rc.width - px(cbs.borderLeftWidth) - px(cbs.borderRightWidth);
+        hAvail = rc.height - px(cbs.borderTopWidth) - px(cbs.borderBottomWidth);
+      } else {
+        x0 = -scrollX; y0 = -scrollY;
+      }
+    }
+    const esq = cs.left, dir = cs.right, topo = cs.top, base = cs.bottom;
+    if ((esq === 'auto' && dir === 'auto') || (topo === 'auto' && base === 'auto')) return null;
+    // A DIMENSÃO: com `box-sizing: border-box` o `width` É a caixa; no
+    // content-box, o retângulo soma padding e borda.
+    const extra = (c, s) => cs.boxSizing === 'border-box' ? 0 : px(c) + px(s);
+    const largura = cs.width !== 'auto'
+      ? px(cs.width) + extra(cs.paddingLeft, cs.paddingRight) + extra(cs.borderLeftWidth, cs.borderRightWidth)
+      : (esq !== 'auto' && dir !== 'auto'
+        ? wAvail - px(esq) - px(dir) - px(cs.marginLeft) - px(cs.marginRight) : null);
+    const altura = cs.height !== 'auto'
+      ? px(cs.height) + extra(cs.paddingTop, cs.paddingBottom) + extra(cs.borderTopWidth, cs.borderBottomWidth)
+      : (topo !== 'auto' && base !== 'auto'
+        ? hAvail - px(topo) - px(base) - px(cs.marginTop) - px(cs.marginBottom) : null);
+    if (largura == null || altura == null) return null;
+    const x = esq !== 'auto' ? x0 + px(esq) + px(cs.marginLeft)
+      : x0 + wAvail - px(dir) - px(cs.marginRight) - largura;
+    const y = topo !== 'auto' ? y0 + px(topo) + px(cs.marginTop)
+      : y0 + hAvail - px(base) - px(cs.marginBottom) - altura;
+    const r = { left: x, top: y, width: largura, height: altura,
+      right: x + largura, bottom: y + altura };
+    if (r.width < 0.5 || r.height < 0.5) return null;
+    return { cs, r };
+  };
+  for (const { el } of [...nos]) {
+    for (const lado of ['::before', '::after']) {
+      const p = caixaPseudo(el, lado);
+      if (p) nos.push({ el, cs: p.cs, r: p.r, pseudo: lado });
+    }
+  }
+
   const roupaDeAncestral = (el, teste) => {
     for (let n = el.parentElement; n && n !== document.documentElement; n = n.parentElement) {
       if (teste(getComputedStyle(n), n)) return true;
@@ -232,17 +299,19 @@ export const SONDA = (cfg) => {
 
   // ---- T1 · FORA DA JANELA -------------------------------------------------
   const forasT1 = new Set();
-  for (const { el, r } of nos) {
-    const excesso = Math.max(r.right - innerWidth, -r.left);
+  for (const n of nos) {
+    const excesso = Math.max(n.r.right - innerWidth, -n.r.left);
     if (excesso <= 0.5) continue;
-    if (roupaDeAncestral(el, (c) => /(auto|scroll)/.test(c.overflowX))) continue;
-    if (jaReportado(el, forasT1)) continue;
-    forasT1.add(el);
-    achados.push({ t: 'T1', onde: caminho(el), px: +excesso.toFixed(1), txt: trecho(el) });
+    if (roupaDeAncestral(n.el, (c) => /(auto|scroll)/.test(c.overflowX))) continue;
+    if (jaReportado(n.el, forasT1)) continue;
+    forasT1.add(n.el);
+    achados.push({ t: 'T1', onde: caminho(n.el) + (n.pseudo || ''), px: +excesso.toFixed(1),
+      txt: n.pseudo ? '(' + n.pseudo + ' do dono)' : trecho(n.el) });
   }
 
   // ---- T2 · IRMÃOS SOBREPOSTOS NUMA LINHA ----------------------------------
-  for (const { el, cs } of nos) {
+  for (const { el, cs, pseudo } of nos) {
+    if (pseudo) continue;   // um pseudo não é linha de flex: quem compara irmãos é o dono, já medido
     const linha = /flex$/.test(cs.display) && /^row/.test(cs.flexDirection);
     if (!linha) continue;
     const filhos = [...el.children].filter((f) => vistos.has(f)
@@ -264,7 +333,8 @@ export const SONDA = (cfg) => {
 
   // ---- T3 · CORTE SERRADO --------------------------------------------------
   const forasT3 = new Set();
-  for (const { el, cs } of nos) {
+  for (const { el, cs, pseudo } of nos) {
+    if (pseudo) continue;   // o corte que se mede é o do elemento dono do overflow
     if (!/^(hidden|clip)$/.test(cs.overflowY)) continue;
     const excesso = el.scrollHeight - el.clientHeight;
     if (excesso <= 1) continue;
@@ -301,7 +371,8 @@ export const SONDA = (cfg) => {
   }
 
   // ---- T4 · ALVO DE TOQUE --------------------------------------------------
-  for (const { el, r } of nos) {
+  for (const { el, r, pseudo } of nos) {
+    if (pseudo) continue;   // pseudo não é tocável: quem recebe o dedo é o dono, já medido
     const clicavel = /^(button|a|select)$/i.test(el.tagName)
       || el.getAttribute('role') === 'button'
       || (el.tagName === 'INPUT' && /^(button|submit|checkbox|radio)$/i.test(el.type));
@@ -316,11 +387,12 @@ export const SONDA = (cfg) => {
   }
 
   // ---- T5 · CAIXA FIXA FORA DA TELA ---------------------------------------
-  for (const { el, cs, r } of nos) {
-    if (cs.position !== 'fixed') continue;
-    const fora = Math.max(r.bottom - innerHeight, -r.top, r.right - innerWidth, -r.left);
+  for (const n of nos) {
+    if (n.cs.position !== 'fixed') continue;
+    const fora = Math.max(n.r.bottom - innerHeight, -n.r.top, n.r.right - innerWidth, -n.r.left);
     if (fora <= 1) continue;
-    achados.push({ t: 'T5', onde: caminho(el), px: +fora.toFixed(1), txt: trecho(el) });
+    achados.push({ t: 'T5', onde: caminho(n.el) + (n.pseudo || ''), px: +fora.toFixed(1),
+      txt: n.pseudo ? '(' + n.pseudo + ' do dono)' : trecho(n.el) });
   }
 
   return { achados, nos: nos.length };

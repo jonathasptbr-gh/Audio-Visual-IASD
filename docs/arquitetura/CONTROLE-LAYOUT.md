@@ -25,17 +25,24 @@
 │     e o #listFoot — e só eles; na LISTA ela tem a largura │
 │     da porta (v1.13.5)                                    │
 ├─────────────────────────────────────────────────────────┤
-│ [Cronograma] [Bíblia] [🔍]                              │  ← .tabs (dentro da barra)
-│  ┌─────────────────────────────────────┬──────┐         │  ← .bottombar (base fixa)
-│  │  Nome da mídia atual  [seek bar]    │ Hist │         │
-│  │─────────────────────────────────────│ Wall │         │
-│  │    Preview (proporção do telão)     │ Letra│         │
-│  │─────────────────────────────────────│ Mudo │         │
-│  │  [Playlist]  🔁  ⏮  ▶/⏸  ⏭  ⏹    │ Vol  │         │
-│  └─────────────────────────────────────┴──────┘         │
+│ [🎲]  [ 🔍 Buscar por nome ou número… ]  [📖]           │ ← #libBar (a barra da Biblioteca, 51,2px)
+│  ┌───────────────────────────────────────────────────┐  │
+│  │  Nome da mídia atual                              │  │  ← .deck (grade 3×3, sem grade aninhada):
+│  │  [0:00 ─────────●────────── 3:21]                 │  │     .nowplaying atravessa as TRÊS colunas
+│  │ ┌──┐ ┌───────────────────────────────┐ ┌──┐       │  │
+│  │ │◀ │ │⌃     prévia do telão     ⛶ │ │▶ │       │  │  ← linha 2: .slide-side · .preview-row · .slide-side--dir
+│  │ │  │ │[cortina][mudo]   [telão][⛶]│ │  │       │  │     as fabs moram SOBRE a preview (o palco)
+│  │ └──┘ └───────────────────────────────┘ └──┘       │  │
+│  │ [Playlist] 🔁  ⏮  ▶/⏸  ⏭  ■   [📖 leitura]       │  │  ← linha 3: .transport (colunas 1-2) + a
+│  └───────────────────────────────────────────────────┘  │     SÉTIMA célula (#lyricsViewBtn, coluna 3)
 │  [margem segura para navegação por gestos]              │
 └─────────────────────────────────────────────────────────┘
 ```
+**Medido por `getBoundingClientRect` a 430×900 (v1.14.72):** cabeçalho 43,6px;
+`#libBar` 51,2px; as três fileiras do deck 45,8 / 138,4 / 36,4px; as sete células
+da linha de baixo com **53,4px** de largura cada; a preview 289,6px de largura;
+as fabs sobre a preview com 34px (`--hit`).
+
 **Sem barra de topo (`.appbar`):** o app começa no cabeçalho da lista, e `main`
 ganhou `padding-top` com `env(safe-area-inset-top)`.
 
@@ -147,12 +154,13 @@ navegação por gestos.
 
 **Grade real (CSS Grid), não flex aproximado:** `.deck` é um `grid` de **3
 colunas** (`var(--deck-col)` / `minmax(0, 1fr)` / `var(--deck-col)`) × 3 linhas
-(todas `auto`), com **sete itens DIRETOS** e nenhuma grade aninhada:
+(todas `auto`), com **seis itens DIRETOS** e nenhuma grade aninhada:
 `.nowplaying` (atravessa as três), `.slide-side`, `.preview-row`,
-`.slide-side--dir`, `.transport` (atravessa as duas primeiras) e `#historyBtn`.
-Desde a v1.3.8 não há `subgrid`: cada botão da coluna da direita cai na faixa do
-vizinho da esquerda por estar na MESMA linha da grade, não por um alinhamento
-calculado à parte.
+`.slide-side--dir`, `.transport` (atravessa as duas primeiras) e
+`#lyricsViewBtn` — a sétima célula, que desde a v1.4.31 é o auxiliar de
+leitura (era o `#historyBtn`, que foi para Configurações). Desde a v1.3.8 não
+há `subgrid`: cada item cai na faixa do vizinho da esquerda por estar na MESMA
+linha da grade, não por um alinhamento calculado à parte.
 
 **A terceira coluna nasceu na v1.3.5**, quando a preview passou a ser
 FLANQUEADA pelos dois botões de slide (ver "Um par de botões, dois eixos"). Ela
@@ -180,11 +188,12 @@ volume "com margem diferente" — MEDIDO, 15,2px até o vizinho contra os 5,6px 
 os outros seis usavam entre si.
 
 **A coluna lateral vale `(100% - 6 vãos) / 7`**, e isso não é aproximação: é a
-largura que faz as SETE células da linha de baixo (os seis do transporte mais o
-volume) saírem idênticas, e ela se demonstra. O transporte atravessa as colunas
-1-2, isto é `W - col - vão`; seis botões com cinco vãos dão
+largura que faz as SETE células da linha de baixo (os seis do transporte mais a
+sétima, o auxiliar de leitura) saírem idênticas, e ela se demonstra. O transporte
+atravessa as colunas 1-2, isto é `W - col - vão`; seis botões com cinco vãos dão
 `(W - col - 6·vão)/6`, e substituindo `col = (W - 6·vão)/7` isso volta a ser
-`col`. Com 56px fixos os do transporte mediam 52,3 e o do volume 44,8.
+`col`. MEDIDO a 430×900 (v1.14.72): deck de 407,6px, `col = (407,6 − 6·5,6)/7`
+= **53,4px**, e as sete células medem exatamente 53,4.
 
 **A faixa da preview é `auto`, e a preview PREENCHE a coluna.** Ela era fixa em
 150px enquanto a miniatura dentro dela era dimensionada pela proporção do
@@ -208,27 +217,24 @@ os outros medem 5,6.
   contra uma faixa `auto` é indefinida enquanto a própria faixa está sendo
   dimensionada, e o botão sairia com a altura do ícone.
 
-#### A coluna da direita: dois botões soltos (v1.3.8)
+#### A coluna da direita: um botão solto e a sétima célula
 
-Aqui morava o `#mixer`, um `subgrid` de três fatias com os botões dentro de um
-`.mixer-stack` **absoluto**. Toda essa máquina existia por UMA razão: o fader de
-volume atravessava duas linhas, e um item no fluxo de um subgrid contribuiria
-para as faixas do PAI — era essa contribuição que deformava o deck ao abrir o
-volume.
-
-**Sem o fader não há o que atravessar.** Sobraram dois botões, cada um numa
-linha, e eles são itens diretos da grade do deck como todos os outros:
+Aqui morou o `#mixer` até a v1.3.8 — um `subgrid` de três fatias com os botões
+dentro de um `.mixer-stack` **absoluto**, toda essa máquina existindo por UMA
+razão: o fader de volume atravessava duas linhas, e um item no fluxo de um
+subgrid contribuiria para as faixas do PAI — era essa contribuição que deformava
+o deck ao abrir o volume. Sem o fader não há o que atravessar, e ele saiu daqui
+na v1.13.57 (o volume virou a pílula do mudo sobre a preview). Hoje a coluna é
+dois itens diretos da grade do deck, como todos os outros:
 
 | item | coluna | linha |
 |---|---|---|
 | `#slideNextBtn` (`.slide-side--dir`) | 3 | 2 (a faixa da preview) |
-| `.fader-wrap` (só enquanto aceso) | 3 | 2 — a MESMA célula, e é por isso que um esconde o outro |
-| `#historyBtn` | 3 | 3 (a faixa do transporte) |
+| `#lyricsViewBtn` (a sétima célula) | 3 | 3 (a faixa do transporte) |
 
 Saíram com o subgrid: `.mixer`, `.mixer-slot`, `.mixer-stack`,
-`.mixer-top/mid/bottom`, `.vol-btn` e `.vol-close`. O FADER ficou (v1.3.9) e é
-item da grade como os outros; o que sobrou dos estados é `vol-open`/`vol-closing`
-no `.deck`.
+`.mixer-top/mid/bottom`, `.vol-btn` e `.vol-close` — e, com o fader do deck
+(v1.13.57), `.fader-wrap` e os estados `vol-open`/`vol-closing` do `.deck`.
 
 **O `#historyBtn` mudou de fatia**, da de cima para a que era do botão de
 volume. A linha de baixo tem sete células iguais e a sétima ficou vaga — e era
@@ -262,7 +268,7 @@ vindo da coluna sobre a preview. O motivo é o mesmo dos dois lados — a coluna
 preview passou a ser só o que muda o que a congregação vê e ouve (cortina e
 mudo), e o que abre uma leitura no celular desceu para a fileira das folhas.
 
-#### O fader ficou; o BOTÃO que o abria é que saiu (v1.3.8 → v1.3.9)
+#### O fader sobreviveu ao lote; o BOTÃO que o abria é que saiu (v1.3.8 → v1.3.9; o fader deixou o deck na v1.13.57)
 
 Pedido do operador, e a distinção é o recurso inteiro — ela já foi entendida ao
 contrário uma vez: *"eu não queria que removesse o sistema de slide de volume
@@ -274,21 +280,26 @@ aparecer e ser controlado pelas teclas físicas do volume."*
 - **O QUE SAIU** (v1.3.8): `#volToggle` e `#volClose`, o botão de tela que abria
   e fechava o fader, mais `cancelVolPeek`/`bumpVolPeek` — a máquina do caso
   "aberto na mão", que deixou de existir.
-- **O QUE FICOU**: o fader (`.fader-wrap`, `#volSlider`, `#volValue`,
-  `syncFader`), a interceptação das teclas físicas e o `peekVolume` que as
-  acende. **A tecla é a ÚNICA porta, e o relógio dela a única saída** (2,8 s).
+- **O QUE FICOU ENTÃO** (v1.3.9): o fader (`.fader-wrap`, `#volSlider`,
+  `#volValue`, `syncFader`), a interceptação das teclas físicas e o
+  `peekVolume` que as acende. **A tecla é a ÚNICA porta, e o relógio dela a
+  única saída** (2,8 s). O fader de DECK saiu depois — v1.13.57: o volume é hoje
+  a pílula do mudo sobre a preview (`#volSlider` mora lá), e `.fader-wrap` e os
+  estados `vol-open`/`vol-closing` não existem mais; a interceptação da tecla e
+  o `peekVolume` (o aceno da pílula) continuam.
 - **POR QUE O APP CONSOME A TECLA**, que é o ponto: quem não consome deixa o
   Android desenhar o painel de volume dele, e com espelhamento ativo esse painel
-  aparece **sobre a projeção**, na frente da congregação. Este fader é o que o
-  substitui — mora no celular, some sozinho, e nada disso chega ao telão.
+  aparece **sobre a projeção**, na frente da congregação. O volume do app é o que
+  o substitui — mora no celular, some sozinho, e nada disso chega ao telão.
 - **O número não é o volume do aparelho:** `applyVolume` e o comando `volume`
   viajam para as **telas da rede**, que são outros aparelhos, e o volume de
   mídia do celular não as alcança.
-- **E o de VOLTAR slide NÃO some mais.** O fader ocupa a célula do
-  `#slideNextBtn` (coluna 3, a faixa da preview) e só o esconde; uma regra
-  (`.deck.vol-open .slide-side`) escondia o da outra ponta junto, "para não
-  deixar meia dupla no ar". Foi esse sumiço que o operador relatou, e ela **não
-  voltou** com o fader.
+- **E o de VOLTAR slide não é escondido por caixa nenhuma hoje** (v1.13.57):
+  era o fader, ocupando a célula do `#slideNextBtn` (coluna 3, a faixa da
+  preview) e o escondendo — e uma regra (`.deck.vol-open .slide-side`) escondia
+  o da outra ponta junto, "para não deixar meia dupla no ar". Foi esse sumiço
+  que o operador relatou; com o fader fora do deck, o par de slide não se
+  esconde mais.
 
 #### A barra de progresso segue a grade do deck (v1.3.8)
 
@@ -464,12 +475,14 @@ nenhum**, e nas duas `attachTransportStep` segue sendo o mecanismo:
 - **O fim do caminho é o `disabled` de sempre** — o esmaecido que a v5.49 tinha
   trocado pelo `.axis-end`, e que voltou a valer quando o botão passou a ter um
   significado só.
-- **O de VOLTAR NÃO SOME MAIS** (v1.3.8). O fader ocupa a célula do
-  `#slideNextBtn` e o esconde — os dois dividem aquela caixa —, mas uma regra
-  (`.deck.vol-open .slide-side`) escondia o da OUTRA ponta junto, "para não
-  deixar meia dupla no ar". Foi esse sumiço que o operador relatou, e a regra
-  saiu. Ela **não voltou** quando o fader ficou (v1.3.9): o oráculo acende o
-  fader por `peekVolume` e afirma que o botão de VOLTAR continua no ar.
+- **O de VOLTAR NÃO SOME MAIS** (v1.3.8, e o fim da história é a v1.13.57). No
+  lote de então o fader ocupava a célula do `#slideNextBtn` e o escondia — os
+  dois dividiam aquela caixa —, mas uma regra (`.deck.vol-open .slide-side`)
+  escondia o da OUTRA ponta junto, "para não deixar meia dupla no ar". Foi esse
+  sumiço que o operador relatou, e a regra saiu. Ela **não voltou** quando o
+  fader ficou (v1.3.9). Desde a v1.13.57 o fader nem mora mais no deck — o
+  volume é a pílula do mudo sobre a preview —, e o par de slide fica inteiro,
+  sem caixa nenhuma para dividir.
 
 Oráculo: **`tools/controles-layout.test.mjs`** — a geometria (quem flanqueia
 quem, e com que caixa), o eixo do transporte medido pelo COMANDO que sai no

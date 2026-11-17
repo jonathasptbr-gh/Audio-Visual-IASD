@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.14.72",
+    "itens": [
+      "O endereço do telão na folha de conectar voltou a poder ser selecionado com o dedo, para copiar.",
+      "O botão da playlist parou de acender o brilho de \"comando enviado\": ele só abre a lista.",
+      "A medição interna do app agora enxerga também as marcas desenhadas fora do fluxo.",
+      "O desenho do player no guia interno foi refeito com o deck medido de hoje.",
+      "O estado medido agora avisa quando o GitHub tem versão publicada mais nova que a do clone.",
+      "Dois testes que reprovavam de vez em quando sem defeito nenhum no app passaram a esperar o desenho pronto. Nada muda no uso."
+    ]
+  },
+  {
     "versao": "1.14.71",
     "itens": [
       "A versão 1.14.70 não chegou ao seu aparelho; é esta 1.14.71 que traz a Inicialização e tira o aviso de volume.",

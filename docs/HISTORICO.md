@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.72** — o lote de higienização: as oito linhas de dono "higienização" fecham num lote só (só web e `tools/`, sem `shellTag`) — o `!important` do `.cast-url`, o portão de 120 do `notas.json`, a sonda vendo pseudo-elemento, o aviso de Release no `estado.sh`, o `:not(#plBtn)`, o deck refeito medido e os dois flaky esperando o FATO.
 - **v1.14.71** — Pacote 47: o pop-up de volume da abertura SAI, e nasce a seção "Inicialização" em Configurações — modo, Não perturbe e volume na abertura, as duas últimas desligadas por padrão e a barra guardando o número quando a chave desliga (só web); na carona, o número do passador fica centralizado na caixa.
 - **v1.14.69** — Pacote 45: o aviso de volume da abertura vira um cartão na BASE com véu, fonte maior e os botões do app — não sobe o som nem fecha sozinho —, entra na fila `POPUPS` (o tour espera o OK) e o tour ganha a janela "Fazer o tour / Agora não" antes de abrir; na carona, a caixa do número do passador encolhe (só web).
 - **v1.14.67** — o "Copiar link" do cartão do passador vai para a ESQUERDA da caixa do número, na MESMA linha (`[Copiar link] [caixa] [ícone]`), com o rótulo inteiro e as três peças sem truncar a 390×844 e 360×640 (só web).
@@ -804,6 +805,87 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.72 — o lote de higienização: as oito linhas de dono "higienização" fecham num lote só
+
+**SÓ WEB E `TOOLS/`** (`SHELL_VERSION` 89 não muda), **sem `shellTag`** — a última
+Release é a v1.14.56 e o shell não foi tocado. Degrau CORREÇÃO, número **1.14.72**;
+a base web mudou (itens 1 e 5), e o `web-ota` publica. O texto integral de cada
+linha de origem está no `docs/RESIDUOS.md` que a gerou.
+
+1. **`.cast-url`** (resíduo da v1.14.64): o `user-select: text` sem `!important`
+   perdia do reset `* { user-select: none !important }` e o endereço do telão não
+   era selecionável. Medido antes/depois: computado `none` → `text`.
+2. **`notas.json`** (v1.14.47): a linha mandava ler e executar o que ela manda —
+   o portão de 120 caracteres. Medido: os 4 itens da v1.14.47 têm 104/112/98/70 e
+   NENHUM item do arquivo inteiro excede 120. Fecha sem código.
+3. **`tools/geometria.mjs`** (v1.14.35): a sonda andava só por elementos e não
+   enxergava pseudo-elemento — e o demarcador do grupo é um `::after` ABSOLUTO de
+   3px na `.thumb`. A sonda passa a medir as caixas de `::before`/`::after`
+   POSICIONADOS, derivadas exatas do computed style (o bloco de contenção é o
+   padding box do ancestral posicionado; insets + margens + dimensão resolvem o
+   retângulo — `auto` estático e `transform` ficam de fora, a sonda mede e não
+   estima). T2/T3/T4 pulam pseudo (não é linha de flex, não é alvo de toque).
+   **Provado com número**: na superfície "faixa do itinerário" a conta de nós foi
+   de **172 para 175** (os três demarcadores do grupo), e um pseudo deslocado
+   −999px é acusado na T1 com **999,0px** (`div.list-header::after`) que antes
+   ninguém via.
+4. **`tools/estado.sh`** (v1.14.19): comparava só com a última tag LOCAL — com a
+   v1.14.13 local e a v1.14.18 no GitHub, imprimiu "exige shellTag" sem motivo. A
+   leitura do token subiu para a frente da seção da versão e, com tag local
+   presente, a Release mais nova do GitHub é conferida (a consulta que o bloco
+   `--ci` já fazia): MAIS NOVA imprime o aviso (`git fetch --tags`); IGUAL, o
+   silêncio. Prova: com a tag real (v1.14.56 = GitHub) o script cala; numa cópia
+   com a tag forçada a v1.14.13, ele imprime o aviso.
+5. **`ECO_SELETOR`** (v1.14.21): o `.transport .t-btn` inteiro incluía o
+   `#plBtn`, que só abre a folha da playlist — contra a regra do próprio
+   comentário ("fica de fora o que NÃO vai ao telão"). Vira
+   `.transport .t-btn:not(#plBtn)`, com o motivo ao lado.
+6. **`docs/arquitetura/CONTROLE-LAYOUT.md`** (v1.14.21): o diagrama do deck era
+   de antes da v1.3.9 ("Vol" na coluna da direita, o `#historyBtn`, e a `.tabs`
+   que não existe mais — hoje é a `#libBar`). Refeito **medindo o deck atual** por
+   `getBoundingClientRect` a 430×900: cabeçalho 43,6px, `#libBar` 51,2px, as três
+   fileiras 45,8/138,4/36,4px, as sete células de **53,4px** (`col =
+   (407,6 − 6·5,6)/7`), preview 289,6px, fabs 34px. As seis células velhas da
+   mesma seção vieram junto — os itens diretos da grade ("sete itens" com o
+   `#historyBtn` na lista), a sétima célula "o volume", a tabela do
+   `.fader-wrap`/`#historyBtn` e o "O QUE FICOU" do fader (que deixou o deck na
+   v1.13.57) — porque afirmavam a mesma anatomia morta que o desenho refeito.
+7. **`tools/boot-nativo.test.mjs`** (v1.14.34; o flaky medido no CI entre o run
+   do push #2585 e o da Release #2586, o MESMO commit `1ee7e618`): os dois
+   `setTimeout(400)` — após `__bibliotecaComFavoritos` e após
+   `moverNaListaAntesDe` — viram a espera pelo FATO: a lista desenhada BATER com
+   `AVDB.listIds('favs')`, com teto de 5s e sem veredito no estouro. E a leitura
+   passou a **RE-CONSULTAR a árvore viva** (`corpoDe()`/`liDe()`) — a lição da
+   v1.9.9 do próprio arquivo, provada neste lote: com a espera casando na árvore
+   viva e o `corpo` captado cedo, a leitura presa via a ordem VELHA de um nó que
+   o redesenho substituíra (histórico de batidas em cópia de diagnóstico).
+   Reproduzido ANTES do conserto com o redesenho atrasado (600ms) em cópia
+   armada: o prazo fixo reprovou "a seção se redesenha NA ORDEM NOVA" — a
+   asserção exata do run — e o arquivo consertado com a MESMA arma passa.
+   **O LAÇO 40× ACHOU UM SEGUNDO PONTO NESTE ARQUIVO**: o confirmar do
+   RENOMEAR media após `setTimeout(450)` fixo e reprovou 2× no laço (as duas
+   correntes no mesmo minuto, sob carga 3×) — "Nome novo" no banco, "Nome
+   antigo" na tela; o prazo virou a espera pelo FATO (a linha lida o nome
+   novo), asserção intacta.
+8. **`tools/itinerario.test.mjs`** (2026-11-17; o flaky do run #2640 — reprovou
+   na 1ª tentativa e o re-run do MESMO commit `88c127cb` passou). No bloco E, a
+   escolha GRAVADA mora atrás de `await` (`saveItin` → `updateState`) e o banco
+   era lido no vão do flip da classe — reproduzido com a gravação atrasada
+   (600ms) em cópia armada com a assinatura exata (`semHoras: true` no DOM,
+   `horas: true` no banco); o conserto é `esperarDb` com teto após cada
+   alternada. No bloco M, o `waitForTimeout(100)` antes da captura de pixel
+   virou a espera pelo DRENO — nenhuma animação rodando na cortina, no cartão e
+   nas linhas; reproduzido com o cartão re-entrando a meio do fade em cópia
+   armada. **Nenhuma asserção mudou**, e as três linhas do `docs/ORACULOS.md`
+   (geometria, boot-nativo, itinerario) trocaram de sentido. **O LAÇO 40× ACHOU UM
+   TERCEIRO PONTO NO MESMO ARQUIVO**: o bloco Z (as duas abas concorrentes) media
+   depois de `z(320/420)` fixos e reprovou 1× no laço (o meio do movimento lido sob
+   carga); os dois prazos viraram a espera pelo FATO, com a asserção intacta.
+
+**RESIDUOS:** as oito linhas de dono `higienização` SAEM da tabela Aberto e
+descem para o Fechado/decidido (uma linha do lote, com a origem de cada); o lote
+declarou **nenhum** resíduo novo. `PEDIDOS-EM-ESPERA.md` intocado.
 
 ## v1.14.71 — Pacote 47: a seção "Inicialização" toma o lugar do pop-up de volume da abertura
 
