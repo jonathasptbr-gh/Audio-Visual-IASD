@@ -883,9 +883,18 @@ linha de origem está no `docs/RESIDUOS.md` que a gerou.
    depois de `z(320/420)` fixos e reprovou 1× no laço (o meio do movimento lido sob
    carga); os dois prazos viraram a espera pelo FATO, com a asserção intacta.
 
+**A SUÍTE COMPLETA LOCAL NÃO RODOU** (corte por créditos, decisão da
+coordenação em 17/11): o que rodou na máquina foi o laço 40× do `itinerario`
+(**40/40 verdes, 0 reprovadas**), 37/37 oráculos Node-puro do `verificar`,
+`docs-coerentes` e o portão — a suíte Chromium inteira (153) e as 40 corridas do
+`boot-nativo` ficam para o CI, que é o portão de verdade deste lote. O laço do
+`boot-nativo` chegou a 5/5 verdes antes do corte, com as provas de reprodução e
+reversão fechadas.
+
 **RESIDUOS:** as oito linhas de dono `higienização` SAEM da tabela Aberto e
 descem para o Fechado/decidido (uma linha do lote, com a origem de cada); o lote
-declarou **nenhum** resíduo novo. `PEDIDOS-EM-ESPERA.md` intocado.
+declara UM resíduo novo (o L′ do `itinerario`, amostragem de quadro — decisão de
+régua). `PEDIDOS-EM-ESPERA.md` intocado.
 
 ## v1.14.71 — Pacote 47: a seção "Inicialização" toma o lugar do pop-up de volume da abertura
 
