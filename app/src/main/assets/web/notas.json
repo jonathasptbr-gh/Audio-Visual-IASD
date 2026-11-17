@@ -1,5 +1,17 @@
 [
   {
+    "versao": "1.14.68",
+    "itens": [
+      "O aviso de volume da abertura não sobe mais o som sozinho e não fecha mais sozinho: ele PERGUNTA.",
+      "O cartão nasce na base da tela, escurece o resto e tem letra maior, com os botões do app.",
+      "Dá para subir até 60%, ajustar o volume do aparelho no −/+ e ligar o Não perturbe.",
+      "O OK descarta o aviso desta abertura; se o som continuar baixo, ele volta na próxima.",
+      "Antes do tour agora aparece a pergunta \"Quer fazer o tour?\": \"Fazer o tour\" abre, \"Agora não\" não pergunta de novo.",
+      "O tour espera o aviso de volume fechar — ele não abre mais por cima.",
+      "O número do passador de slides ficou numa caixa mais estreita, ainda com os 11 dígitos inteiros."
+    ]
+  },
+  {
     "versao": "1.14.67",
     "itens": [
       "O \"Copiar link\" do passador foi para a esquerda da caixa do número, na mesma linha do ícone de compartilhar.",

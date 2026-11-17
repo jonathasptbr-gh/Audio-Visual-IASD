@@ -8,6 +8,9 @@
 // NOVO (`comTour: true` — o arnês marca os três como vistos em todo outro
 // oráculo) e cobra:
 //   A · Fácil com cortina: o automático é o da CONEXÃO, só com peças da cortina;
+//       (desde o Pacote 45 o automático PERGUNTA antes — a janela "Fazer o tour /
+//       Agora não" —, e o arnês deste arquivo a aceita; a porta em si é medida
+//       pelo `ordem-da-abertura.test.mjs`);
 //       cada passo acha a peça e o recorte é o retângulo dela (± a folga);
 //       recarregar não o reabre.
 //   B · destravado: o automático passa a ser o dos CONTROLES; sem mídia, a letra
@@ -78,6 +81,19 @@ async function abrir(viewport, { avancado = false, tema = 'escuro', fonte = 1, r
   if (avancado) await comModoAvancado(ctx);
   const pg = await ctx.newPage();
   pg.on('pageerror', (e) => erros.push('pageerror: ' + e.message + ' @ ' + String(e.stack || '').split('\n').slice(1, 3).join(' ')));
+  // A JANELA DO TOUR (Pacote 45) É ACEITA PELO ARNÊS: o automático pergunta
+  // antes de abrir, e este arquivo mede o tour DEPOIS da resposta. A pergunta em
+  // si — a ordem volume → OK → janela → tour, e o "Agora não" que marca — é do
+  // `tools/ordem-da-abertura.test.mjs`. O clique só acontece com o rótulo
+  // exato, para não tocar nos diálogos que os próprios blocos abrem.
+  await pg.addInitScript(() => {
+    setInterval(() => {
+      const d = document.getElementById('appDialog');
+      if (!d || !d.classList.contains('open')) return;
+      const ok = document.getElementById('appDialogOk');
+      if (ok && ok.textContent.trim() === 'Fazer o tour') ok.click();
+    }, 40);
+  });
   await pg.goto(base, { waitUntil: 'load' });
   // A escala de fonte como a `varredura-geometrica` a aplica (o `textZoom` do aparelho).
   if (fonte !== 1) await pg.evaluate((f) => { document.documentElement.style.fontSize = (16 * f) + 'px'; }, fonte);
@@ -345,7 +361,7 @@ try {
     checar(premissa.modo === 'simple' && premissa.cortina && !premissa.visto,
       'A · premissa: aparelho novo, Modo Fácil com a cortina "sem tela"', JSON.stringify(premissa));
     const r = await esperarTour(pg, 'conexao');
-    checar(r === true, 'A · o tour da CONEXÃO abre SOZINHO na primeira vez', porque(r));
+    checar(r === true, 'A · o tour da CONEXÃO abre na primeira vez (depois da janela, que o arnês aceita)', porque(r));
     const passos = await percorrer(pg);
     const fora = passos.filter((m) => !(Array.isArray(m.alvo) ? m.alvo : [m.alvo])
       .every((s) => ['#simpleConn', '#castMirrorBtn', '#castNetBtn', '#castLocalBtn'].includes(s)));
@@ -373,7 +389,7 @@ try {
     // ---------------- B · destravado: o tour dos CONTROLES ----------------
     await pg.evaluate(() => { setTocarNoCelular(true); renderSimpleGate(); });
     const rb = await esperarTour(pg, 'simples');
-    checar(rb === true, 'B · destravar (sair da cortina) abre SOZINHO o tour dos controles', porque(rb));
+    checar(rb === true, 'B · destravar (sair da cortina) abre o tour dos controles (depois da janela)', porque(rb));
     const pb = await percorrer(pg);
     const alvos = pb.map((m) => [].concat(m.alvo).join('+'));
     checar(['#simpleBarra+#libBar', '#volPill', '#simpleSettingsBtn'].every((a) => alvos.includes(a))
@@ -627,7 +643,7 @@ try {
       renderSlideNav(); renderSimpleGate();
     }, id);
     const rh = await esperarTour(pg, 'tocando');
-    checar(rh === true, 'H · a primeira vez que algo toca no Fácil abre SOZINHO o tour da tela tocando', porque(rh)
+    checar(rh === true, 'H · a primeira vez que algo toca no Fácil abre o tour da tela tocando (depois da janela)', porque(rh)
       || await pg.evaluate(() => simpleModeEl.className + ' ' + qualTour()));
     const ph = rh === true ? await percorrer(pg) : [];
     const alvosH = ph.map((m) => [].concat(m.alvo).join('+'));
@@ -656,7 +672,7 @@ try {
   {
     const { ctx, pg } = await abrir({ width: 390, height: 860 }, { avancado: true, tema: 'claro' });
     const r = await esperarTour(pg, 'avancado');
-    checar(r === true, 'C · no avançado o tour completo abre SOZINHO na primeira vez', porque(r));
+    checar(r === true, 'C · no avançado o tour completo abre na primeira vez (depois da janela)', porque(r));
     const pc = await percorrer(pg);
     const alvos = pc.map((m) => [].concat(m.alvo).join('+'));
     // O DECK, UM A UM (v1.14.20): a barra, a prévia com as setas, o grupo de tocar (sem o repetir e a
@@ -721,7 +737,7 @@ try {
     // ---------------- G2 · os tours de SEÇÃO no avançado: Ferramentas e uma delas ----------------
     await pg.click('#toolsBtn');
     const rf2 = await esperarTour(pg, 's.ferramentas');
-    checar(rf2 === true, 'G2 · abrir Ferramentas pela primeira vez abre SOZINHO o tour delas', porque(rf2));
+    checar(rf2 === true, 'G2 · abrir Ferramentas pela primeira vez abre o tour delas (depois da janela)', porque(rf2));
     const pf = rf2 === true ? await percorrer(pg) : [];
     const ruinsF = pf.filter((m) => !recorteBate(m) || !haloBate(m));
     checar(pf.length >= 4 && ruinsF.length === 0, 'G2 · cada ferramenta é recortada na grade, com o halo',

@@ -1144,45 +1144,87 @@ body {
 .vol-pill-aviso[hidden] { display: none; }
 .vol-pill-aviso svg { width: 18px; height: 18px; color: var(--warn-text); }
 
-/* ===== O AVISO DA ABERTURA (v1.14.46) =====
-   O piso de 60% agiu e o operador precisa SABER — e poder desfazer. Cartão no
-   TOPO da tela, pelo motivo do aviso de salvamento (v5.104): na base ele
-   cobriria o transporte, e ancorado na lista ficaria atrás das folhas.
-   A CAMADA é 340 — acima das folhas e do diálogo padrão (300), abaixo da pílula
-   de volume (350), que é o controle que ele acompanha, e muito abaixo da
-   cortina (500). `pointer-events: auto` (o contrário do toast): ele TEM botões,
-   e um aviso que não recebe o dedo teria os botões de enfeite. */
+/* ===== O AVISO DA ABERTURA (v1.14.68) =====
+   O cartão da base: a condição de disparo é a de sempre (o volume de mídia do
+   aparelho abaixo de 60%), e o que ele faz é PERGUNTAR — o app não sobe mais o
+   som sozinho, o cartão não fecha sozinho e o resto da tela escurece atrás do
+   véu para o operador ver o que está decidindo.
+
+   AS CAMADAS são 288 (o cartão) e 286 (o véu): acima de TODA a tela do app (as
+   folhas vão até 220) e abaixo do diálogo do app (300) — o aviso de atualização,
+   que também nasce na abertura, abre por cima e continua alcançável. Muito
+   abaixo da cortina (500) e do tour (600). O véu recebe o dedo (`pointer-events`
+   padrão): é ele que segura a tela até o OK, e o cartão é o único caminho de
+   volta — por isso o `hidden` dos dois anda junto (ver `esconderAvisoDoVolume`).
+
+   A FONTE é a do app, um degrau acima da que o cartão usava: título em
+   `--fs-lg`, corpo e botões em `--fs-md`. Os ícones são os do sprite
+   (`#icoSom`), e os botões são o vocabulário do app (`--radius-btn` no passo de
+   volume, `--radius-pill` nas ações), não o desenho de um popup de sistema. */
+.vol-veu {
+  position: fixed; inset: 0; z-index: 286;
+  background: var(--scrim);
+}
+.vol-veu[hidden] { display: none; }
 .vol-aviso {
   position: fixed; left: 50%; transform: translateX(-50%);
-  top: calc(.5rem + env(safe-area-inset-top, 0px));
-  z-index: 340;
+  bottom: calc(.75rem + env(safe-area-inset-bottom, 0px));
+  z-index: 288;
   width: min(92vw, 24rem);
-  display: flex; flex-direction: column; gap: var(--sp-3);
-  padding: .6rem .7rem;
+  display: flex; flex-direction: column; gap: var(--sp-4);
+  padding: var(--sp-5);
   background: var(--bar); color: var(--text);
   border-radius: var(--radius-card);
   box-shadow: 0 8px 22px var(--shadow-card);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-md);
 }
 .vol-aviso[hidden] { display: none; }
 .vol-aviso-topo { display: flex; align-items: center; gap: var(--sp-4); }
 .vol-aviso-ico { display: flex; flex: none; color: var(--accent); }
-.vol-aviso-topo strong { flex: 1; min-width: 0; font-size: var(--fs-sm); font-weight: var(--fw-max); }
-.vol-aviso-fechar {
-  flex: none; display: flex; align-items: center; justify-content: center;
-  width: var(--hit); height: var(--hit); padding: 0;
-  border: 0; cursor: pointer; background: none; color: var(--muted);
+.vol-aviso-ico svg { width: 22px; height: 22px; }
+.vol-aviso-topo strong {
+  flex: 1; min-width: 0;
+  font-size: var(--fs-lg); font-weight: var(--fw-max); line-height: 1.25;
 }
-.vol-aviso-texto { margin: 0; color: var(--muted); font-size: var(--fs-xs); line-height: 1.35; }
+.vol-aviso-texto { margin: 0; color: var(--muted); font-size: var(--fs-md); line-height: 1.4; }
+/* O CONTROLE DO VOLUME DO APARELHO: −, o número e +. O fundo é o recesso do
+   cartão (`--surface-sunk`), o mesmo sinal dos controles dentro da folha. */
+.vol-aviso-volume {
+  display: flex; align-items: center; gap: var(--sp-4);
+  padding: var(--sp-2);
+  background: var(--surface-sunk);
+  border-radius: var(--radius-btn);
+}
+.vol-aviso-passo {
+  flex: none; width: var(--hit); height: var(--hit); padding: 0;
+  border: 0; cursor: pointer;
+  background: var(--surface-2-sunk); color: var(--text);
+  border-radius: var(--radius-btn);
+  font: inherit; font-size: var(--fs-xl); font-weight: var(--fw-max); line-height: 1;
+}
+.vol-aviso-nivel {
+  flex: 1; text-align: center;
+  font-size: var(--fs-lg); font-weight: var(--fw-max);
+}
 .vol-aviso-acoes { display: flex; gap: var(--sp-4); }
 .vol-aviso-acao {
-  flex: 1; height: var(--hit); padding: 0 .6rem;
+  flex: 1; min-height: var(--hit); padding: var(--sp-2) var(--sp-4);
   border: 0; cursor: pointer;
   background: var(--btn-accent); color: var(--text);
   border-radius: var(--radius-pill);
-  font: inherit; font-size: var(--fs-xs); font-weight: var(--fw-max);
+  font: inherit; font-size: var(--fs-md); font-weight: var(--fw-max);
 }
+.vol-aviso-acao--calma { background: var(--surface-sunk); }
 .vol-aviso-acao[hidden] { display: none; }
+/* O ÚNICO CONTROLE QUE FECHA (o OK): largura inteira, na calma do cartão — o
+   azul cheio é do "Subir até 60%", que é a ação. */
+.vol-aviso-ok {
+  width: 100%; height: var(--hit); padding: 0;
+  border: 0; cursor: pointer;
+  background: var(--surface-sunk); color: var(--text);
+  border-radius: var(--radius-pill);
+  font: inherit; font-size: var(--fs-md); font-weight: var(--fw-max);
+}
 /* ===== NO MUDO, O NÚMERO MANDA E O ALTO-FALANTE É O SECUNDÁRIO (v1.14.9) =====
    Pedido do operador: *"inverta a prioridade dos dois símbolos, pois hoje o botão de som é maior
    que o número do volume atual … o número principal e o ícone de som secundário, abaixo na
@@ -13287,13 +13329,18 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
    inteira — nessa ordem desde a v1.14.67, por pedido do operador (17/11). O
    "Copiar link" fica com a largura do conteúdo (`flex: 0 0 auto`) e o campo
    com todo o resto; o `min-width: var(--hit)` dele é o piso de toque (o
-   `0` de antes deixava o `placeholder` decidir o encolhimento). A largura de
-   cada peça e a régua de
-   truncamento (as três com `scrollWidth <= clientWidth + 1`, os alvos ≥
-   `--hit`) são medidas pelo `tools/passador-grupo.test.mjs`. */
+   `0` de antes deixava o `placeholder` decidir o encolhimento).
+   O TETO DA LINHA ENCOLHEU NA v1.14.68 (carona do Pacote 45): o operador viu
+   espaço sobrando na caixa do número — "há bastante espaço sobrado na caixa de
+   texto do número... pode encolher um pouco mais" —, e a linha inteira desce de
+   22rem para 19rem (304px) em vez de o campo perder só ele: assim o
+   "Copiar link" e o ícone continuam encostados no campo, e o cartão segue
+   centrado. A régua é a mesma: os 11 dígitos mascarados inteiros
+   (`scrollWidth <= clientWidth + 1`) e alvo ≥ `--hit`, medidos a 390×844 e
+   360×640 pelo `tools/passador-grupo.test.mjs`. */
 .cast-passador-envio {
   display: flex; align-items: center; gap: var(--sp-3);
-  width: 100%; max-width: 22rem;
+  width: 100%; max-width: 19rem;
 }
 .cast-zap-num {
   flex: 1 1 auto; min-width: var(--hit); min-height: var(--hit);

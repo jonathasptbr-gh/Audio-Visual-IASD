@@ -44,6 +44,11 @@
 //     do número COM os 11 dígitos mascarados e no botão-ícone, a linha única na
 //     ordem `[Copiar link] [caixa] [ícone]`, a soma das três peças dentro da
 //     largura útil do cartão e todo alvo ≥ o `--hit` lido do `:root`.
+//     **A CARONA DO PACOTE 45 (v1.14.68):** o operador viu espaço sobrando na
+//     caixa do número e mandou encolhê-la. A linha desceu de 22rem para 19rem,
+//     e o que se cobra aqui é o RESULTADO: a caixa fica mais estreita que a
+//     METADE da linha (sem tocar nos outros dois), mantém a altura do `--hit` e
+//     o raio dos botões, e continua mostrando os 11 dígitos inteiros.
 //
 //   node tools/passador-grupo.test.mjs
 // ============================================================================
@@ -391,6 +396,17 @@ try {
     checar(mG.copiar.h >= mG.hit && mG.zap.h >= mG.hit && mG.num.h >= mG.hit,
       `os três alvos cumprem o --hit (${mG.hit}px)`,
       `${mG.copiar.h}px · ${mG.zap.h}px · ${mG.num.h}px`);
+    // A CARONA (v1.14.68): a caixa do número encolheu SEM trocar de roupa — a
+    // altura continua a do `--hit` e o raio é o mesmo dos outros dois botões.
+    checar(mG.num.h === mG.hit && mG.num.raio === mG.zap.raio && mG.num.raio === mG.copiar.raio,
+      'a caixa do número mantém o raio e a altura de antes (o `--hit` e o `--radius-btn` dos vizinhos)',
+      JSON.stringify({ altura: mG.num.h, hit: mG.hit, raio: mG.num.raio, raioZap: mG.zap.raio, raioCopiar: mG.copiar.raio }));
+    // 170 é o teto DESTE lote: as duas medidas de antes eram 203,6 px (a 390) e
+    // 173,6 px (a 360), e as de agora são 156 px nos dois. O teto não repete a
+    // largura do código — ele prende o ENCOLHIMENTO que o operador pediu.
+    checar(mG.num.w < 170,
+      `a caixa do número encolheu de verdade em ${tela.nome} (era 203,6/173,6; o teto do lote é 170)`,
+      `${mG.num.w}px`);
     for (const [nome, c] of [['o rótulo do "Copiar link"', mG.rotuloCopiar],
       ['a caixa do número', mG.num], ['o botão-ícone', mG.zap]]) {
       checar(c && !c.truncado && c.scrollW <= c.clientW + 1,

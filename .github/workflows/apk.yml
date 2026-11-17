@@ -737,6 +737,7 @@ jobs:
           rodar tools/controles-layout.test.mjs
           rodar tools/volume-troca.test.mjs
           rodar tools/aviso-do-volume.test.mjs
+          rodar tools/ordem-da-abertura.test.mjs
           rodar tools/nao-perturbe.test.mjs
           rodar tools/sombra-das-portas.test.mjs
           rodar tools/portas-presenca.test.mjs

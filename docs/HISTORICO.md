@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.68** — Pacote 45: o aviso de volume da abertura vira um cartão na BASE com véu, fonte maior e os botões do app — não sobe o som nem fecha sozinho —, entra na fila `POPUPS` (o tour espera o OK) e o tour ganha a janela "Fazer o tour / Agora não" antes de abrir; na carona, a caixa do número do passador encolhe (só web).
 - **v1.14.67** — o "Copiar link" do cartão do passador vai para a ESQUERDA da caixa do número, na MESMA linha (`[Copiar link] [caixa] [ícone]`), com o rótulo inteiro e as três peças sem truncar a 390×844 e 360×640 (só web).
 - **v1.14.66** — o cartão do passador enxuga para quatro coisas (título, caixa do número, botão-ícone e "Copiar link"), a mensagem que viaja passa a ser SÓ o link por decisão do operador, a caixa ganha a máscara `(xx) x xxxx-xxxx` (11) / `(xx) xxxx-xxxx` (10) que não pula o cursor, e o foco nativo amarelo dá lugar ao anel de `--accent` do app (só web).
 - **v1.14.65** — o conserto do vermelho da v1.14.64: o rótulo do passador mede 135px na DejaVu Sans do runner e 103px na fonte desta máquina, então ele passa a QUEBRAR em duas linhas em vez de truncar, e o oráculo mede a ausência de truncamento nos dois viewports em vez de "cabe em 158px" (só web; o mesmo lote da v1.14.64, que nunca chegou ao OTA).
@@ -800,6 +801,89 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.14.68 — o pop-up de volume da abertura pergunta em vez de agir, e a porta do tour
+
+**O PEDIDO DO OPERADOR** (Pacote 45 da fila, 2026-11-16/17), só web:
+`SHELL_VERSION` 89 (o shell NÃO foi tocado), `minShell` 83, **sem `shellTag`** —
+a última Release é a v1.14.56 e os métodos que este lote usa
+(`systemVolumeAtual`, `systemVolumeDefinir`, `naoPerturbe`,
+`naoPerturbeDefinir`, `abrirAcessoNaoPerturbe`) já estão nela, com
+`ACCESS_NOTIFICATION_POLICY` no manifesto. Degrau CORREÇÃO. O lote tem as nove
+partes do pacote e a carona autorizada da caixa do número do passador.
+
+**O QUE O CARTÃO DEIXOU DE FAZER.** Saiu o piso da v1.13.65: o app não chama
+mais `systemVolumeDefinir(0.6)` na abertura — em 30 s de medição o volume do
+sistema não muda sozinho (`__chamadas.definir` vazio). Saiu também o
+`VOL_AVISO_MS` (12 s): o cartão não some sozinho, e o `aviso-do-volume` espera
+30 s com ele de pé. O OK — o ÚNICO controle de fechar; não há ✕ — descarta a
+mensagem desta abertura, e a próxima com o volume ainda baixo a traz de novo
+(não existe "não mostrar mais").
+
+**O DESENHO E A PONTE.** O cartão nasce na BASE, sobre um véu (`#volAvisoVeu`,
+z 286, `--scrim` = `rgba(0,0,0,.6)`), com o cartão em z 288 — acima das folhas
+(200–220), abaixo do diálogo do app (300), do tour (600) e da cortina (500) —,
+fonte `--fs-lg` no título e `--fs-md` no corpo/botões (era `--fs-sm`/`--fs-xs`),
+o `#icoSom` do sprite e os botões do app. As ações: "Subir até 60%"
+(`systemVolumeDefinir(0.6)`), o volume do APARELHO no `−`/`+` (um degrau de
+`STREAM_MUSIC` por toque, `systemVolumeDefinir` com flags 0, sem painel), o Não
+perturbe (`naoPerturbe`/`naoPerturbeDefinir`, com a tela de acesso quando falta
+autorização) e o OK. Com o cartão aberto, as TECLAS físicas de volume também vão
+ao aparelho (`__avVolumeKey`), e não ao fader do app. Medido no Chromium:
+**358,8×238,3** a 390×844 (topo **593,7**, base **832**) e **331,2×238,3** a
+360×640 (topo **389,7**, base **628**); véu de 390×844 e 360×640, título
+**14,4px**, corpo **13,12px**, todos os alvos ≥ `--hit` (34). Screenshots em
+`~/tmp/p45/volume-390x844.png` e `volume-360x640.png`.
+
+**A REDE DE PROTEÇÃO.** A montagem é protegida por `try/catch`: se o
+`systemVolumeAtual` não existe (casco < 86) ou não responde, o cartão e o véu
+NÃO nascem e o app abre normal — provado por `elementFromPoint` na porta de
+conexão do Modo Fácil, com o `#simpleConn` recebendo o dedo. Num casco 88 o
+cartão nasce (a leitura é do 86) e o Não perturbe fica FORA.
+
+**O CARTÃO VIROU POPUP DE VERDADE.** Entra na fila `POPUPS` (o voltar do Android
+o fecha, provado) e no `bloqueioDoTour`; o `secaoDoTour` o vê pela fila e
+devolve `volAvisoPop`, que não tem tour próprio — as duas leituras dizem "tela
+ocupada". O tour ESPERA: com o cartão de pé, nem 2,5 s depois ele abre ou
+pergunta; o `elementFromPoint` no `#simpleConn` devolve o véu.
+
+**A JANELA DO TOUR.** O automático não abre mais direto: ele chama
+`perguntar(qual)` (o gancho novo do `AVTour.ligar`), o `controle.js` mostra a
+janela do app — "Quer fazer o tour?" com "Fazer o tour" e "Agora não" — e só o
+"Fazer o tour" abre. "Agora não" grava a MESMA marca `av.tour` do estado
+(`conexao`, `simples`, `tocando`, `avancado`, ou `s.<seção>`), e a janela não
+pergunta de novo naquele estado; `refazer()` e `abrir()` à mão não perguntam. A
+janela aparece uma vez por estado, como o tour. O oráculo novo
+`ordem-da-abertura` mede a sequência inteira: cartão → OK → janela → tour da
+conexão, e a variante "Agora não" com a segunda abertura.
+
+**A CARONA.** A linha do cartão do passador desceu de `22rem` para `19rem`
+(304px): a caixa do número foi de **203,6×34** para **156×34** a 390 e de
+**173,6×34** para **156×34** a 360, com o mesmo `--radius-btn` e o mesmo
+`--hit`, os 11 dígitos mascarados inteiros (`scrollWidth <= clientWidth + 1`) e
+o "Copiar link" e o ícone sem truncar. Um ajuste de largura; o cartão não foi
+redesenhado.
+
+**OS ORÁCULOS.** `aviso-do-volume` reescrito (A–J: base/véu/fonte/ícone, só o OK
+fecha, "Subir até 60%", o −/+ do aparelho, o Não perturbe com e sem autorização,
+o volume já no piso, a rede de proteção sem leitura, o casco 88, os 30 s sem
+timer e o OK que não silencia a próxima abertura). `ordem-da-abertura` é NOVO (a
+sequência, o véu no `elementFromPoint`, o "Agora não" com a marca e a segunda
+abertura, e o voltar que fecha o cartão). `tour` ganhou o aceite da janela no
+arnês (ele mede o tour, não a porta) — 75 asserções verdes; `passador-grupo`
+ganhou a régua da carona; `boot-nativo` e `abertura-e-transferencia` passaram sem
+mudança. **Reversões medidas:** (1) o timer de 12 s de volta reprova o bloco I
+do `aviso-do-volume`; (2) tirar o cartão do `POPUPS` e do `bloqueioDoTour`
+reprova A e B do `ordem-da-abertura` (a janela abre por cima do cartão e o
+`elementFromPoint` devolve o diálogo); (3) tirar o `marcar(qual, true)` do
+"Agora não" reprova três asserções do bloco E.
+
+**O QUE NÃO DEU PARA MEDIR:** o Android de verdade — o `setStreamVolume` com
+flags 0, o filtro `ALARMS` e a tela de acesso especial só se conferem no
+aparelho, e a linha do `RESIDUOS.md` diz o que falta ver. O APK do aparelho
+precisa ser ≥ v1.14.56 (shell 89); num APK anterior o Não perturbe não aparece.
 
 ---
 

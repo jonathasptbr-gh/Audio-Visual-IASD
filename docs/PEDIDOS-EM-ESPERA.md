@@ -97,7 +97,6 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **13** — Estudos (não são fila de execução) | 4 | estudo | nenhuma entrega |
 | **16** — O cronograma pronto: o organizador entrega o culto ao sonoplasta | 8 (I4×U2) | pedido | planejamento → Kotlin + web |
 | **29** — Guia do site: a captura da lista de Ferramentas e do Cronograma | 2 (I2×U1) | resíduo | só site (pede o app em tela) |
-| **45** — Pop-up de volume na abertura, e a porta do tour | 9 (I3×U3) | pedido | web + shell (APK no CI) |
 
 ---
 
@@ -112,7 +111,6 @@ diferentes, e um lote nunca mistura dois temas.
 |---|---|---|
 | **Cronograma e destinos** | 16 | a abertura antes do culto, e o organizador entregando o culto pronto |
 | **Site** | 29 | as capturas do guia |
-| **Abertura** | 45 | o volume, a porta do tour e a ordem entre eles |
 | **Fila anterior a 14/11** | 5 | a tela de espera do Itinerário, na ordem que a fila já tinha |
 | **Estudos** | 13 | não são fila de execução: a entrega é a decisão do operador |
 
@@ -329,50 +327,9 @@ operador manda a captura, ou ela sai da prévia visual no Chromium.
 
 ---
 
-## Pacote 45 — Pop-up de volume na abertura, e a porta do tour
-
-**Nota 9 (I3×U3) · pedido · web + shell (o APK sai no CI)**
-
-**Onde:** `acertarPisoDoVolumeDoSistema` (`controle.js:43595`), `mostrarAvisoDoVolume` (`:43633`),
-`VOL_AVISO_MS` (`:43625`), `systemVolumeDefinir(0.6)` (`:43600`), o `#volAvisoPop`
-(`controle/index.html:3297`, z 340), a lista `POPUPS` (`controle.js:46522-46559`), o
-`bloqueioDoTour` (`:46678-46681`) e o `telaOcupadaParaTour` (`:46716`), e o `controle/tour.js`
-(a marca `av.tour`, `:416-422`).
-
-**Estado medido em 2026-11-16:** hoje o cartão **sobe** o volume de mídia para 60% e **fecha
-sozinho em 12 s**; ele não conhece o tour, e o tour passa por cima (z 600 × 340) na primeira
-abertura com volume baixo. Não há oráculo de ordem.
-
-**Os itens, um a um:**
-
-- **45.1** não desaparece sozinho — sai o timer de 12 s.
-- **45.2** não sobe o volume sozinho — sai o `systemVolumeDefinir(0.6)` do disparo; entram os
-  botões "subir até 60%", controle de volume **do aparelho** e "não perturbe".
-- **45.3** o popup nasce na **base** da tela, não no topo.
-- **45.4** fonte maior, no padrão do app (hoje é pequena e fora de escala).
-- **45.5** o resto da tela escurece (véu) para focar o popup.
-- **45.6** ícones e botões no desenho **interno do app**, não no vocabulário de popup de sistema.
-- **45.7** vira popup de verdade: entra na fila `POPUPS` e no `bloqueioDoTour`/`telaOcupadaParaTour`
-  — o guia **espera** o popup fechar.
-- **45.8** oráculo novo da **ordem** (hoje não existe): abertura com volume baixo → popup de volume
-  abre e o guia espera; fechado o popup → abre a janela do tour; respondida ela → o tour.
-- **45.9** no início do tour, uma **primeira janela** perguntando se ele quer fazer o tour
-  ("Fazer o tour" / "Agora não"). "Agora não" marca a mesma `av.tour` e não pergunta de novo; a
-  janela aparece **uma vez por estado**, como o tour.
-
-**Decisões já dadas pelo operador:** fecha com **um** controle só (OK, sem ✕ de canto); a função
-dele é descartar a mensagem ATUAL e ela **volta na próxima abertura** enquanto o volume do
-aparelho estiver baixo — não existe "não mostrar mais"; com o popup aberto, os botões de volume
-mexem no **volume do aparelho**; a condição de disparo é a de hoje.
-
-**O que NÃO se decide sozinho:** (a) o botão de volume abre o **painel do sistema** ou sobe o
-stream direto; (b) a permissão de DND no manifesto — o app já sobe volume pelo shell, mas DND não
-posso presumir; (c) se o popup, sem fechar sozinho, bloqueia a abertura até o OK (com o véu, ele
-bloqueia de fato).
-
----
-
 ## O que saiu desta lista (rastro, não log)
+
+**v1.14.68 (2026-11-17), só web:** o **Pacote 45** — o pop-up de volume da abertura pergunta em vez de agir: sai o piso de 60% que subia o som do aparelho em silêncio e sai o timer de 12 s, o cartão nasce na BASE sobre um véu, com a fonte do app e os botões do app ("Subir até 60%", o volume do APARELHO no −/+, o Não perturbe e o OK, o único controle que fecha; o OK descarta a mensagem desta abertura e a próxima com o volume baixo a traz de novo). Ele entra na fila `POPUPS` e no `bloqueioDoTour`, e o tour espera o OK; antes do tour automático aparece a janela "Quer fazer o tour?" ("Fazer o tour" abre; "Agora não" grava a mesma `av.tour` e não pergunta de novo naquele estado). Oráculo NOVO `ordem-da-abertura` (a sequência cartão → OK → janela → tour, o véu no `elementFromPoint` e o "Agora não" com a segunda abertura), `aviso-do-volume` reescrito e o `tour` aceitando a janela pelo arnês; a rede de proteção (sem a leitura do volume o cartão e o véu não nascem e o app abre normal) e três reversões provadas. Na carona autorizada, a caixa do número do passador desceu de 22rem para 19rem (203,6/173,6 para 156px), com os 11 dígitos inteiros. O shell NÃO mudou (`SHELL_VERSION` 89 já tinha os métodos desde a v1.14.56, sem `shellTag`). Nota em `docs/HISTORICO.md`.
 
 **v1.14.64 (2026-11-17), só web:** o **Pacote 44** — o cartão do passador de slides vira UMA ação só: os dois botões voltam a ter TEXTO ("Copiar link" / "Enviar no WhatsApp", ícone ao lado e com o nome acessível do conteúdo), e a MENSAGEM que viaja aparece no mesmo cartão (`#passadorMsg`, as duas linhas da v1.14.59), acima da linha do número — que abre e fecha pelo próprio botão que a nomeia. `.cast-passador` é o contêiner único, com a mesma `--surface` e o mesmo `--radius-card` do cartão do endereço, e a linha do WhatsApp deixou de pintar superfície própria (era o que fazia o grupo ler como dois assuntos). Oráculo `passador-grupo` (novo, Chromium) e o `passador-fronteira`/`boot-nativo` atualizados, com as duas reversões provadas. Nota em `docs/HISTORICO.md`.
 

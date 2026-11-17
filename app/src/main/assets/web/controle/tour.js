@@ -27,6 +27,13 @@
  * seguidos — o diálogo de atualização e o "O que mudou" chegam um pouco depois
  * do boot. Se algo abrir no meio do tour, ele fecha e DESMARCA (volta depois).
  *
+ * A PERGUNTA VEM ANTES (Pacote 45): o automático não abre o tour — ele PEDE, pelo
+ * gancho `perguntar(qual)`, que o `controle.js` resolve com a janela do app
+ * ("Fazer o tour" / "Agora não"). "Fazer o tour" abre o tour; "Agora não" grava a
+ * MESMA marca `av.tour` e a janela não pergunta de novo naquele estado, como o
+ * tour não se repete. É uma pergunta por estado, e ela é o único caminho do
+ * automático: `refazer()` e `abrir()` à mão não perguntam.
+ *
  * A CAMADA É 600 (`.tour` no `controle.css`): acima dos diálogos (`.dialog-backdrop`,
  * 300) e da cortina de abertura (`#splash`, 500), abaixo da prévia inteira
  * (2147483000, popover no top layer). A cortina e a prévia contam como ocupado: o
@@ -402,6 +409,7 @@
   let g = null;            // os ganchos do controle.js
   let autoTimer = null;
   let livreDesde = 0;
+  let perguntando = null;  // o `qual` da pergunta aberta (`perguntar`), se houver
   let vigia = null;
   let raiz = null, recorte = null, balao = null, contEl = null, tituloEl = null, textoEl = null;
   let voltarEl = null, proximoEl = null;
@@ -811,6 +819,7 @@
   function abrir(qual, auto) {
     const todos = passosDe(qual);
     if (!todos || !g) return false;
+    perguntando = null;
     montar();
     if (atual) fechar({ manter: true });
     // `opcional` sem a peça sai da conta antes de contar "N de M".
@@ -897,7 +906,7 @@
   }
   let candidatoAntes = null;
   function tique() {
-    if (atual) return;
+    if (atual || perguntando) return;
     if (!ativo()) { clearInterval(autoTimer); autoTimer = null; livreDesde = 0; return; }
     const v = vistos();
     if (chaves().every((k) => v[k])) { clearInterval(autoTimer); autoTimer = null; return; }
@@ -907,7 +916,26 @@
     if (!qual) { livreDesde = 0; return; }
     const agora = Date.now();
     if (!livreDesde) { livreDesde = agora; return; }
-    if (agora - livreDesde >= (qual.startsWith('s.') ? SECAO_MS : LIVRE_MS)) { livreDesde = 0; abrir(qual, true); }
+    if (agora - livreDesde >= (qual.startsWith('s.') ? SECAO_MS : LIVRE_MS)) { livreDesde = 0; perguntar(qual); }
+  }
+
+  // A PORTA DO AUTOMÁTICO (Pacote 45): pergunta antes de abrir. O `perguntar` é
+  // do `controle.js` (a janela é do app, e este arquivo não desenha UI); sem o
+  // gancho — um controle.js mais velho —, o tour abre como abria, que é a
+  // degradação declarada. Enquanto a pergunta está de pé, o `tique` não insiste.
+  function perguntar(qual) {
+    const abrirAgora = () => abrir(qual, true);
+    if (typeof g.perguntar !== 'function') { abrirAgora(); return; }
+    perguntando = qual;
+    Promise.resolve(g.perguntar(qual)).then((sim) => {
+      perguntando = null;
+      if (sim) { abrirAgora(); return; }
+      // "AGORA NÃO" GRAVA A MESMA MARCA DO TOUR: a janela aparece uma vez por
+      // estado, e o silêncio não se repete naquela tela. O tour não é desligado
+      // (o quadrado de Configurações continua ligado) — só este estado já foi.
+      marcar(qual, true);
+      livreDesde = 0;
+    }).catch(() => { perguntando = null; livreDesde = 0; });
   }
 
   function armar() {
