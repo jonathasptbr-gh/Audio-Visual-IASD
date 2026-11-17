@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.14.63",
+    "itens": [
+      "Tocar num momento do itinerário sem mídias embaixo não faz mais nada: só recolhe e expande quando há mídias.",
+      "A edição do momento continua no lápis da linha, com a barra do itinerário aberta, já com o horário e o título dele.",
+      "A aba de criar ou editar momento agora fica afastada da barra de configurações, no mesmo vão que ela tem do topo.",
+      "E ela ganhou os cantos arredondados das outras folhas do app, em vez de ficar colada como uma terceira linha da barra."
+    ]
+  },
+  {
     "versao": "1.14.62",
     "itens": [
       "Os momentos do itinerário viraram uma lista de tópicos: um encosta no outro.",

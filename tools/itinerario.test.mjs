@@ -15,8 +15,10 @@
 //    data:{ min } }` em `imports` (a lista do cronograma ATIVO), como qualquer item:
 //    linha `li.lib-item.momento` SEM capa, com `.momento-hora`, `.row-name` e
 //    `.row-sub` ('Agora' / 'A seguir' / 'previsto HH:MM' / duração / 'Último momento').
-//    Tocar edita (sub-aba `#itinEditor`); segurar ARRASTA; sem `⋮`: excluir (a pergunta
-//    NA LINHA) e editar sempre à vista, só o ícone — não há par ↑↓.
+//    COM GRUPO o toque recolhe/expande as mídias dele; SEM GRUPO o toque é INERTE
+//    (v1.14.63) e quem edita é o LÁPIS `.itin-editar` (sub-aba `#itinEditor`, com a
+//    faixa aberta); segurar ARRASTA; sem `⋮`: excluir (a pergunta NA LINHA) e editar
+//    são só ícones — não há par ↑↓.
 //  · A ORDEM: a posição da linha é do OPERADOR (organiza as mídias); o TELÃO é
 //    ordenado pelo RELÓGIO (`ordenarItin`). Momento novo entra antes do primeiro
 //    momento posterior no relógio, senão no fim da lista; lista sem momento: no TOPO.
@@ -56,8 +58,8 @@
 //  NOVOS (v1.14.32):
 //  B′. MOMENTOS NA LISTA, PELA UI REAL: três (e mais um) criados FORA da ordem do
 //     relógio pela folha; a lista sai pelo relógio; sem `.thumb`; hora e título à vista;
-//     o registro é cue `momento` em `imports`; editar por TOQUE na linha; excluir pelo
-//     ícone sempre à vista, com a pergunta na linha; persistência por RECARGA.
+//     o registro é cue `momento` em `imports`; o toque SEM grupo é INERTE (v1.14.63) e
+//     editar é o LÁPIS; excluir pelo ícone, com a pergunta na linha; persistência por RECARGA.
 //  D′. ARRASTO REAL: uma MÍDIA muda de lugar (e de grupo) sem mexer em horário, e o telão
 //     não muda; um MOMENTO leva o grupo e REESCREVE os horários pela grade (o k-ésimo da
 //     lista recebe o k-ésimo `min`); nada toca sozinho quando o relógio cruza um horário.
@@ -383,24 +385,38 @@ try {
       + 'primeira linha ficam no mesmo pixel em todos os quadros', { alto, meio, libTopos: [...libTopos], liTopos: [...liTopos] });
     const g = await pg.evaluate(() => {
       const ed = document.getElementById('itinEditor'), r = ed.getBoundingClientRect();
-      const bar = document.getElementById('itinBar').getBoundingClientRect();
+      const barEl = document.getElementById('itinBar'), bar = barEl.getBoundingClientRect();
+      const header = document.querySelector('.list-header').getBoundingClientRect();
       const li = document.querySelector('#library > li.lib-item').getBoundingClientRect();
       const b = document.getElementById('itinNovoBtn');
+      const cs = getComputedStyle(ed);
       // O PONTO DA PRIMEIRA LINHA que a sub-aba cobre: quem responde é ela, não a linha.
       const y = Math.max(li.top + 4, r.top + 4);
       const quem = document.elementFromPoint(innerWidth / 2, Math.min(y, r.bottom - 4));
       return {
         topo: +(r.top - bar.bottom).toFixed(1), cobre: li.top < r.bottom, porCima: !!quem && ed.contains(quem),
-        fundo: getComputedStyle(ed).backgroundColor, larg: Math.round(r.width), vw: innerWidth,
+        fundo: cs.backgroundColor, larg: Math.round(r.width), vw: innerWidth,
         l: +r.left.toFixed(1), dir: +r.right.toFixed(1), barW: Math.round(bar.width),
         exp: b.getAttribute('aria-expanded'), usos: [...b.querySelectorAll('use')].map((u) => u.getAttribute('href')),
         pintado: !/,\s*0\)$/.test(getComputedStyle(b).backgroundColor), titulo: b.title,
+        // O VÃO E O RAIO (v1.14.63): o afastamento da sub-aba é o MESMO que a faixa
+        // tem da barra do topo, e o canto é o token das folhas do app.
+        vaoTopo: +(bar.top - header.bottom).toFixed(1),
+        sp3: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sp-3'))
+          * parseFloat(getComputedStyle(document.documentElement).fontSize),
+        raios: [cs.borderTopLeftRadius, cs.borderTopRightRadius, cs.borderBottomLeftRadius, cs.borderBottomRightRadius],
+        raioToken: getComputedStyle(document.documentElement).getPropertyValue('--radius-sheet').trim(),
       };
     });
-    checar(Math.abs(g.topo) <= 1 && g.cobre && g.porCima && !/,\s*0\)$/.test(g.fundo)
+    checar(Math.abs(g.topo - g.sp3) <= 0.6 && Math.abs(g.vaoTopo - g.topo) <= 0.6
+      && g.cobre && g.porCima && !/,\s*0\)$/.test(g.fundo)
       && Math.abs(g.larg - g.barW) <= 1 && Math.abs((g.l + g.dir) / 2 - g.vw / 2) <= 1,
-      'L′ · a sub-aba nasce na borda de BAIXO da faixa, na LARGURA dela e centrada (v1.14.54: ela desce de uma aba de '
-      + '24rem, e um painel mais largo leria como outra peça), OPACA, e fica POR CIMA da primeira linha da lista', g);
+      'L′ · a sub-aba nasce ABAIXO da faixa, com o mesmo afastamento que ela tem da barra do topo (v1.14.63: '
+      + '`--sp-3` nos dois), na LARGURA dela e centrada (v1.14.54: ela desce de uma aba de 24rem, e um painel '
+      + 'mais largo leria como outra peça), OPACA, e fica POR CIMA da primeira linha da lista', g);
+    checar(g.raios.every((x) => x === g.raioToken) && parseFloat(g.raioToken) > 10,
+      'L′ · e a sub-aba é a FOLHA QUE DESCEU: os QUATRO cantos no raio das folhas do app (`--radius-sheet`, '
+      + 'maior que o de cartão), e não mais a continuação colada da faixa', g);
     checar(antes.exp === 'false' && antes.ctl === 'itinEditor' && antes.usos === 0 && antes.pintado
       && g.exp === 'true' && g.usos.join() === '#icoExpandir' && !g.pintado && /fechar/i.test(g.titulo),
       'L′ · o `+` é o fechar: aberta a sub-aba ele vira a SETA (`#icoExpandir`, a da porta da faixa), SEM card, '
@@ -575,9 +591,30 @@ try {
       'B′ · cada momento é um registro `{ kind:"cue", cue:"momento", name, data:{ min } }` em `imports`, na ordem da lista', regs);
   }
 
-  // EDITAR: tocar na linha abre a MESMA sub-aba, com o horário e o título dela.
+  // O TOQUE SEM GRUPO É INERTE (v1.14.63): nenhum destes momentos tem mídia
+  // debaixo, então tocar a linha NÃO abre a sub-aba, não abre folha nenhuma, não
+  // leva o foco a campo nenhum e não deixa nada para o voltar do aparelho
+  // consumir. Depois disso, a edição é o LÁPIS (com a faixa aberta, que é onde
+  // ele mora) — com o horário e o título DELA.
   const idSermao = await idDe('Sermão');
-  await pg.click('#library > li.momento[data-id="' + idSermao + '"] .row-name');
+  const inerte = await pg.evaluate(async (id) => {
+    const li = document.querySelector('#library > li.momento[data-id="' + id + '"]');
+    const alvo = li.querySelector('.row-name');
+    const ev = (tipo) => alvo.dispatchEvent(new PointerEvent(tipo, { bubbles: true, pointerId: 31, clientX: 120, clientY: 260, button: 0 }));
+    ev('pointerdown'); ev('pointerup');
+    await new Promise((ok) => setTimeout(ok, 450));
+    return {
+      editor: itinEditor, oculto: document.getElementById('itinEditor').hidden,
+      folhas: document.querySelectorAll('.popup-backdrop.open').length + (ferramentasAbertas() ? 1 : 0),
+      foco: document.activeElement ? (document.activeElement.id || document.activeElement.tagName) : '-',
+      campo: document.activeElement && document.activeElement.tagName === 'INPUT',
+      voltar: window.__avBack(),
+    };
+  }, idSermao);
+  checar(inerte.editor === null && inerte.oculto && inerte.folhas === 0 && !inerte.campo && inerte.voltar === false,
+    'B′ · (v1.14.63) tocar um momento SEM grupo NÃO FAZ NADA: `itinEditor` fica nulo, a sub-aba `hidden`, nenhuma folha '
+    + 'aberta, o foco não vai a campo nenhum e o voltar do aparelho não consome nada', inerte);
+  await pg.click('#library > li.momento[data-id="' + idSermao + '"] .itin-editar');
   await abrirFolha();
   {
     const e = await pg.evaluate(() => ({
@@ -588,7 +625,8 @@ try {
         + roletaValorDe(document.getElementById('itinRoleta_min')),
     }));
     checar(e.titulo === 'Editar momento' && e.rotulo === 'Salvar' && e.campo === 'Sermão' && e.valor === 630,
-      'B′ · tocar na linha abre a sub-aba de EDIÇÃO ("Editar momento" / "Salvar") com o horário e o título dela', e);
+      'B′ · a edição continua alcançável pelo LÁPIS da linha: abre a MESMA sub-aba ("Editar momento" / "Salvar") '
+      + 'com o horário e o título dela', e);
   }
   await escolherHora('10:40');
   await pg.fill('#itinCampoTitulo', 'Pregação');
@@ -602,7 +640,7 @@ try {
     }, idSermao);
     checar(l.includes('10:40 Pregação') && !l.some((x) => /Sermão/.test(x)) && (await idDe('Pregação')) === idSermao
       && r && r.name === 'Pregação' && r.min === 640 && r.cue === 'momento',
-      'B′ · editar por toque troca HORÁRIO e TÍTULO do MESMO registro (mesmo id, nome e `data.min` novos)', { l, r });
+      'B′ · editar pelo LÁPIS troca HORÁRIO e TÍTULO do MESMO registro (mesmo id, nome e `data.min` novos)', { l, r });
   }
   // EXCLUIR pelo ícone à vista (um toque de verdade, sem `⋮`): a pergunta é NA LINHA, sem diálogo.
   await pg.click('#library > li.momento[data-id="' + (await idDe('Bênção')) + '"] .row-excluir');
@@ -2239,7 +2277,8 @@ try {
 
   // ── G′. O GRUPO RECOLHIDO: tocar o momento com mídia esconde as mídias dele ──
   // Do lote de hoje: tocar a `.row` do momento recolhe o grupo (só em memória), tocar de
-  // novo expande; um momento SEM mídia não recolhe (o toque abre a sub-aba `#itinEditor`); o grupo
+  // novo expande; um momento SEM mídia não recolhe e o toque nele é INERTE (v1.14.63 —
+  // a edição é o LÁPIS); o grupo
   // recolhido leva as mídias escondidas no arrasto (ordem gravada + horários pela grade);
   // e com os momentos ocultos nada fica recolhido. Recomeça a lista do zero para medir o
   // ponto de partida conhecido (o mesmo do começo do G′).
@@ -2319,14 +2358,21 @@ try {
     checar(dois === true && voltaram === true,
       'G′ · o subtítulo do recolhido conta o que está escondido ("2 itens"), e reabrir devolve as duas mídias na ordem',
       { dois, voltaram });
-    // (3) MOMENTO SEM MÍDIA NÃO RECOLHE: o toque abre a sub-aba de edição ("Bênção" é o último).
-    // E COM A FAIXA RECOLHIDA (v1.14.52) a faixa abre JUNTO: o fechar da sub-aba é o `+` dela.
+    // (3) MOMENTO SEM MÍDIA: o toque NÃO FAZ NADA (v1.14.63) — não recolhe, não abre
+    // a sub-aba e não abre a faixa. A edição dele é o LÁPIS, que mora no estado da
+    // faixa: ela abre pela porta e ele abre a sub-aba com os dados do momento.
     const faixaAntes = await portaAberta();
     await fecharFaixa();
     await tocar('Bênção');
-    const folha = await esperar(pg, () => !document.getElementById('itinEditor').hidden && !itinEditorAnimando && !itinFaixaAnimando);
+    const naoAbriu = await pg.evaluate(async () => {
+      await new Promise((ok) => setTimeout(ok, 450));
+      return { editor: itinEditor === null, oculta: document.getElementById('itinEditor').hidden, faixa: itinFaixaAberta };
+    });
     const eB = await estadoDo('Bênção');
     const nenhumRecolhido = await pg.evaluate(() => document.querySelectorAll('#library > li.recolhido').length);
+    await abrirFaixa();
+    await pg.click('#library > li.momento[data-id="' + (await idDe('Bênção')) + '"] .itin-editar');
+    await abrirFolha();
     const junto = await pg.evaluate(() => ({
       faixa: !document.getElementById('itinBar').hidden && itinFaixaAberta,
       titulo: document.getElementById('itinEditorTitulo').textContent,
@@ -2337,12 +2383,14 @@ try {
     await esperar(pg, () => document.getElementById('itinEditor').hidden && !itinEditorAnimando);
     const depois = await portaAberta();
     if (!faixaAntes) await fecharFaixa();
-    checar(folha === true && !eB.recolhido && eB.exp === null && nenhumRecolhido === 0,
-      'G′ · um momento SEM mídia não recolhe: o toque abre a sub-aba `#itinEditor`, e a linha não ganha `recolhido` nem `aria-expanded`',
-      { folha, eB, nenhumRecolhido });
+    checar(naoAbriu.editor && naoAbriu.oculta && naoAbriu.faixa === false && !eB.recolhido && eB.exp === null && nenhumRecolhido === 0,
+      'G′ · um momento SEM mídia não recolhe — e (v1.14.63) o TOQUE NELE É INERTE: a sub-aba `#itinEditor` continua '
+      + 'fechada, a faixa continua recolhida e a linha não ganha `recolhido` nem `aria-expanded`',
+      { naoAbriu, eB, nenhumRecolhido });
     checar(junto.faixa && junto.titulo === 'Editar momento' && junto.campo === 'Bênção' && junto.mais === 'true' && depois === true,
-      'G′ · com a faixa RECOLHIDA, tocar no momento abre a faixa JUNTO com a sub-aba de edição (o `+` dela vira o fechar, '
-      + '`aria-expanded="true"`); fechar a sub-aba deixa a faixa aberta', { junto, depois });
+      'G′ · a edição do momento SEM grupo continua pelo LÁPIS, com a faixa aberta: a sub-aba abre em "Editar momento" '
+      + 'com o título DELE ("Bênção"), o `+` vira o fechar (`aria-expanded="true"`) e fechar a sub-aba deixa a faixa aberta',
+      { junto, depois });
     // (4) ARRASTAR O GRUPO RECOLHIDO leva as mídias escondidas: ordem gravada e grade.
     await tocar('Pregação');
     await esperar(pg, () => {

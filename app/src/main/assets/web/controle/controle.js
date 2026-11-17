@@ -482,7 +482,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.62';
+const WEB_VERSION = '1.14.63';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -9132,12 +9132,16 @@ async function projetarItinerarioCue(d, cueId) {
 // CARTÃO (só o texto, o horário em destaque) — ela é um TÍTULO que organiza as
 // mídias que vêm depois, e não um item do culto. Mesma `lib-item > .row` das
 // outras (o arrasto e o excluir que pergunta na linha são os de sempre), mas sem
-// o `⋮`: excluir e editar ficam SEMPRE à vista, só o ícone (pedido de 15/11).
-// Tocar EDITA; segurar ARRASTA. O item de AGORA é marcado pela mesma leitura do
-// telão (`itinMarcar`, um laço de um segundo que só troca marcas e textos).
+// o `⋮`: editar e excluir são dois ícones, e quem os mostra é a faixa aberta
+// (`body.itin-faixa-aberta`, no CSS — pedido de 15/11; v1.14.63).
+// COM GRUPO, tocar RECOLHE/EXPANDE; SEM GRUPO, o toque NÃO FAZ NADA — a edição
+// é o lápis (pedido do operador em 16/11: *"o toque só tem função quando há um
+// grupo de mídias no momento, senão ele não faz nada"*). Segurar ARRASTA. O item
+// de AGORA é marcado pela mesma leitura do telão (`itinMarcar`, um laço de um
+// segundo que só troca marcas e textos).
 function linhaDeMomento(item, sob = 0) {
   const li = document.createElement('li');
-  // COM GRUPO (`sob` linhas debaixo dele), tocar RECOLHE/EXPANDE o grupo; sem grupo, EDITA.
+  // COM GRUPO (`sob` linhas debaixo dele), tocar RECOLHE/EXPANDE o grupo.
   const recolhido = sob > 0 && itinRecolhidos.has(item.id);
   li.className = 'lib-item momento' + (recolhido ? ' recolhido' : '');
   li.dataset.id = item.id;
@@ -9145,7 +9149,9 @@ function linhaDeMomento(item, sob = 0) {
   if (recolhido) li.dataset.ocultas = String(sob);
   const row = document.createElement('div');
   row.className = 'row';
-  row.title = sob ? (recolhido ? 'Mostrar as mídias deste momento' : 'Recolher as mídias deste momento') : 'Editar este momento';
+  // O `title` SÓ PROMETE O QUE O TOQUE FAZ: sem grupo não há recolher, e a linha
+  // não anuncia edição nenhuma (o lápis é que a abre).
+  row.title = sob ? (recolhido ? 'Mostrar as mídias deste momento' : 'Recolher as mídias deste momento') : '';
   const hora = document.createElement('span');
   hora.className = 'momento-hora';
   const min = Number(item.data && item.data.min);
@@ -9187,7 +9193,7 @@ function linhaDeMomento(item, sob = 0) {
   caixa.append(ed, botaoExcluirDaLinha(item, 'imports', () => load()));
   row.append(hora, texto, caixa);
   li.appendChild(row);
-  attachRowGestures(row, item, { lista: 'imports', aoTocar: (it) => (sob ? itinAlternarGrupo(it.id, sob) : abrirItinEditor(it.id)) });
+  attachRowGestures(row, item, { lista: 'imports', aoTocar: sob ? ((it) => itinAlternarGrupo(it.id, sob)) : null });
   return li;
 }
 // A SETA DO GRUPO: para cima = aberto; o CSS a gira para baixo no recolhido. O
@@ -9385,8 +9391,9 @@ function renderItinBar() {
 // empurrar nenhuma. Abre e fecha DESLIZANDO pela altura medida (a família do
 // `itinFaixaAlternar`, com o `padding` na conta para o fecho chegar a zero). Quem
 // abre E fecha é o `+` da faixa (`#itinNovoBtn`, que vira a seta com ela aberta);
-// tocar num momento abre a mesma sub-aba, em edição, e ABRE A FAIXA junto (o
-// fechar mora nela). O voltar do aparelho a fecha (`__avBack`, degrau 1.8).
+// a EDIÇÃO de um momento é o LÁPIS da linha (`.itin-editar`, v1.14.63 — o toque
+// sem grupo é inerte), e o lápis só existe com a faixa aberta. O voltar do
+// aparelho a fecha (`__avBack`, degrau 1.8).
 //
 // A HORA NÃO É UM `<input type="time">`: a escolha dele é um diálogo do SISTEMA,
 // que o WebView pode não abrir. A hora e o minuto se escolhem nas MESMAS roletas
@@ -9491,8 +9498,9 @@ function abrirItinEditor(id) {
   fecharAcoesDaLinha();
   const jaAberta = !!itinEditor;
   itinEditor = { id: x ? x.id : null };
-  // O FECHAR MORA NA FAIXA: aberta pela linha de um momento com ela recolhida, ela
-  // abre junto — sem ela a sub-aba não teria o `+` que a fecha.
+  // O FECHAR MORA NA FAIXA: a guarda a abre junto se ela estiver recolhida — hoje
+  // o lápis só aparece com a faixa aberta, mas a sub-aba não pode existir sem o
+  // `+` que a fecha.
   if (!itinFaixaAberta) itinFaixaAlternar(true);
   const min = x ? x.min : itinHoraSugerida();
   itinEditorTituloEl.textContent = x ? 'Editar momento' : 'Novo momento';

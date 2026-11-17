@@ -1169,10 +1169,10 @@
          `renderCronoGaveta`. -->
     <!-- A SUB-ABA DE UM MOMENTO DO ITINERÁRIO (v1.14.52): adicionar e editar, com as
          roletas de hora e minuto do Tempo e o título. Mora no TOPO do `.list-body`,
-         logo abaixo da `#itinBar` (a âncora é medida, ver `medirFaixaDoItin`), e
-         SOBREPÕE a lista, sem empurrá-la; desliza ao abrir e fechar, e quem a abre e
-         fecha é o `+` da faixa (`#itinNovoBtn`). O corpo é montado por
-         `abrirItinEditor`. -->
+         abaixo da `#itinBar` e com o afastamento de `--sp-3` dela (v1.14.63 — a
+         âncora é medida, ver `medirFaixaDoItin`), e SOBREPÕE a lista, sem
+         empurrá-la; desliza ao abrir e fechar, e quem a abre e fecha é o `+` da
+         faixa (`#itinNovoBtn`). O corpo é montado por `abrirItinEditor`. -->
     <section id="itinEditor" class="itin-editor" aria-labelledby="itinEditorTitulo" hidden>
       <span class="itin-editor-titulo" id="itinEditorTitulo">Novo momento</span>
       <div id="itinEditorCorpo" class="itin-editor-corpo"></div>
@@ -2059,7 +2059,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.14.62</span>
+          <span id="appVersion">v1.14.63</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>

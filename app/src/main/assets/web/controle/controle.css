@@ -7671,21 +7671,24 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
    do JS (`itinEditorDeslizar`): a altura E o `padding`. */
 .itin-editor {
   /* A ÂNCORA É A BORDA DE BAIXO DA FAIXA: ela é a primeira filha do `.list-body`,
-     no fluxo (v1.14.55), e a sub-aba desce logo abaixo dela. Quem escreve a medida
-     é `medirFaixaDoItin` (o `top` da faixa — a margem de `--sp-3` somada — mais a
+     no fluxo (v1.14.55), e a sub-aba desce dela. Quem escreve a medida é
+     `medirFaixaDoItin` (o `top` da faixa — a margem de `--sp-3` somada — mais a
      altura dela), e o `top: 0` é só o valor de partida — a sub-aba nunca abre com
      a faixa fechada (`abrirItinEditor` a abre antes). A LARGURA é a da faixa: ela
      desce dela, e um painel mais largo que a aba que o abriu leria como outra
      peça. */
   position: absolute; top: var(--itin-barra-base, 0px); left: 0; right: 0; z-index: 7;
-  margin: 0 auto; width: min(100%, 24rem);
+  /* O AFASTAMENTO DA FAIXA (v1.14.63): o MESMO `--sp-3` que separa a faixa da
+     barra do topo, e não um número novo — a sub-aba deixa de ler como a terceira
+     linha da barra de configurações, que é a razão da folga de lá. */
+  margin: var(--sp-3) auto 0; width: min(100%, 24rem);
   box-sizing: border-box;
   display: flex; flex-direction: column; gap: var(--sp-3);
   padding: var(--sp-3) .8rem var(--sp-5);
   background: var(--bar);
-  /* O canto de cima some porque a faixa está colada nele; os dois de baixo são os
-     da folha que desce. */
-  border-radius: 0 0 var(--radius-card) var(--radius-card);
+  /* A FOLHA QUE DESCEU, e não uma continuação da faixa (v1.14.63): solta pelos
+     quatro cantos, no raio das folhas do app (`--radius-sheet`, o dos popups). */
+  border-radius: var(--radius-sheet);
   box-shadow: 0 6px 14px var(--shadow-card);
 }
 .itin-editor[hidden] { display: none; }

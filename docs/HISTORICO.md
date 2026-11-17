@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.63** — Duas correções do itinerário por fora da fila (pedido de 2026-11-16 22:37): o toque num momento sem mídias é inerte — a edição fica no lápis da linha, com a faixa aberta —, e a sub-aba de criar/editar ganha o vão de `--sp-3` (5,59px) da faixa e os quatro cantos do `--radius-sheet` (18px) (só web).
 - **v1.14.62** — Pacote 42: o momento do itinerário perde o corpo do card e vira uma lista de tópicos (34px em vez de 45,2, passo de 39,6 em vez de 50,8, e 11 momentos na tela de 390 onde cabiam 9), com o eixo do nome, o toque e o respiro do grupo intactos (só web).
 - **v1.14.61** — Pacote 46: o estado e a conexão do passador de slides centralizados no quadro do meio (saem a pílula do topo, o status do cabeçalho e a legenda repetida nos três quadros; conectado é silêncio, e a queda aparece dentro do quadro) (só web).
 - **v1.14.60** — Pacote 43 (o passador de slides sem apresentação: aviso numa faixa, três quadros desenhando a espera e controles no lugar) e o conserto do link público da v1.14.59, que perdia a rota `/passador-de-slides` e caía na página do telão (só web e site).
@@ -797,6 +798,65 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.63 — toque inerte no momento sem grupo, e a sub-aba afastada da faixa
+
+**Duas correções POR FORA DA FILA** (pedido do operador, 2026-11-16 22:37), só
+web: `SHELL_VERSION` 89 (o shell não foi tocado), `minShell` 83, **sem
+`shellTag`** (a Release da v1.14.56 já publicou todo o Kotlin). Degrau CORREÇÃO.
+A fila não foi tocada — os Pacotes 44 e 45 continuam no `PEDIDOS-EM-ESPERA.md`.
+
+**O PEDIDO, literal:** *"o toque só tem função quando há um grupo de mídias no
+momento, senão ele não faz nada"*, e a aba de criar/editar momento *"deve ficar
+afastada, com o mesmo vão que já existe entre a barra de configurações e a top
+bar"*, com *"borda arredondada … com o raio que as outras folhas do app já
+usam"*.
+
+**1. O TOQUE SEM GRUPO É INERTE.** `linhaDeMomento` passa `aoTocar: null` quando
+não há `sob`: o gesto continua sendo capturado pela linha (o arrasto e o toque
+longo não mudam), mas o `pointerup` não chama função nenhuma — nenhuma sub-aba,
+nenhuma folha, nenhum foco. O `title` da linha fica vazio (ele prometia "Editar
+este momento" e o toque já não edita). COM grupo, o comportamento é o de
+sempre: tocar recolhe/expande o grupo (`itinAlternarGrupo`).
+
+**O CAMINHO DE EDIÇÃO QUE SOBRA.** O lápis `.itin-editar` da linha — o ícone de
+edição da `.row-acoes--solta`, que já existia e chama `abrirItinEditor(item.id)`
+com o horário e o título do momento. Ele mora no estado da faixa
+(`body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta >
+:is(.itin-editar, .row-excluir) { display: none }`): quem edita abre a faixa
+pela porta `#itinBarBtn` e toca o lápis. Não foi criado botão novo; o `+` da
+faixa continua sendo o criar.
+
+**2. A SUB-ABA DESCE AFASTADA, E COM OS CANTOS DAS FOLHAS.** `.itin-editor`
+ganhou `margin-top: var(--sp-3)` (o MESMO vão que o `.itin-bar` tem da barra do
+topo, `margin: var(--sp-3) auto 0`) e a borda dos QUATRO cantos virou
+`--radius-sheet` (18px, o token dos `.popup-sheet`) no lugar de `0 0
+var(--radius-card) var(--radius-card)` (10px embaixo). O `top` medido
+(`--itin-barra-base`) não mudou: o afastamento é uma margem, e a âncora continua
+sendo a borda de baixo da faixa.
+
+**MEDIDO no Chromium, a 390×844 e a 360×640.** O vão barra do topo ↔ faixa é
+**5,59px** (o `--sp-3` de 5,6 com o arredondamento do layout); o vão faixa ↔
+sub-aba era **0** e passou a **5,59px** — o mesmo número. O raio da sub-aba era
+**0/0/10/10** e passou a **18/18/18/18**. Antes e depois em
+`~/tmp/shots-63/{antes,depois}-{390x844,360x640}.png` (o "antes" é a cópia do
+HEAD em `~/tmp/antes-web`).
+
+**ORÁCULOS.** O `itinerario` mudou em três pontos: o **L′** passa a cobrar o vão
+igual ao da faixa (dentro de 0,6px) e os QUATRO cantos no token
+`--radius-sheet`; o **B′** ganhou o bloco do toque INERTE (`itinEditor` nulo, a
+sub-aba `hidden`, nenhuma folha, o foco fora de campo, `__avBack` devolvendo
+`false` — nada para o voltar consumir) e a edição pelo LÁPIS; o **G′** (3)
+inverteu a premissa do momento sem mídia: o toque não abre nada (nem recolhe,
+nem a faixa), e o lápis abre "Editar momento" com o título DELE. A prova da
+reversão: devolver `aoTocar` com `abrirItinEditor` reprova **duas** células (uma
+no B′, uma no G′). O `docs/ORACULOS.md` e o capítulo
+`docs/arquitetura/CAMADA-DE-TEXTO.md` foram corrigidos junto — os dois
+afirmavam que tocar abria a edição.
+
+**O QUE NÃO DEU PARA MEDIR:** o aparelho — o toque real num momento sem grupo
+(nenhuma resposta é o que se espera) e o vão de 5,6px na densidade da tela dele.
+A linha do `RESIDUOS` diz isso.
 
 ## v1.14.62 — o momento do itinerário perde o corpo do card e vira lista de tópicos
 
