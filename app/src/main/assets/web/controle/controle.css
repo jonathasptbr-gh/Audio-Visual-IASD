@@ -13277,9 +13277,18 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
   margin-top: var(--sp-3); padding: var(--sp-4);
   background: var(--surface); border-radius: var(--radius-card);
 }
-/* OS DOIS BOTÕES COM TEXTO. Metade da largura cada, alinhados pelo topo do
-   texto, e `min-width: 0` porque são itens de um flex: sem isso o rótulo não
-   encolhe e o par sai da caixa a 360px. O piso é o `--hit` do app. */
+/* OS DOIS BOTÕES COM TEXTO. Metade da largura cada, e `min-width: 0` porque são
+   itens de um flex: sem isso o rótulo não encolhe e o par sai da caixa a 360px.
+   O piso é o `--hit` do app, e ele é PISO, não altura: com o rótulo em duas
+   linhas o botão cresce, e o par inteiro cresce junto (`align-items: stretch`).
+
+   A LARGURA DO TEXTO É DO SISTEMA, NÃO DO LOTE (v1.14.65). "Enviar no WhatsApp"
+   media 103px no Chromium desta máquina e **135px no do runner** — o
+   `system-ui` cai em fontes diferentes, e a DejaVu Sans do CI é 31% mais larga
+   que a WenQuanYi Zen Hei daqui. Em 158px de botão sobram ~127px para o rótulo,
+   então o mesmo desenho cabia numa máquina e truncava na outra (`ellipsis`), e
+   o texto que diz o que se compartilha virava "Enviar no WhatsA…". Nenhuma
+   largura em px fecha isso: quem decide é a FONTE. */
 .cast-passador-acoes {
   display: flex; align-items: stretch; gap: var(--sp-3);
   width: 100%; max-width: 22rem;
@@ -13287,17 +13296,23 @@ body.mode-simple .bottombar:has(.preview:fullscreen, .preview.pv-inteira) { disp
 .cast-passador-btn {
   flex: 1 1 0; min-width: 0;
   display: flex; align-items: center; justify-content: center; gap: var(--sp-2);
-  min-height: var(--hit); padding: 0 var(--sp-3);
+  min-height: var(--hit); padding: var(--sp-2) var(--sp-3);
   border: 0; border-radius: var(--radius-btn);
   background: var(--surface-2); color: var(--text);
   font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-medio);
+  text-align: center;
   cursor: pointer; appearance: none; -webkit-appearance: none;
 }
 /* O ícone é o METADADO do rótulo, não o botão: ele fica no `--muted` e não
    divide o peso do texto. */
 .cast-passador-btn svg { flex: 0 0 auto; color: var(--muted); }
+/* O RÓTULO QUEBRA, NÃO TRUNCA. Sem `nowrap`, sem `ellipsis` e sem
+   `overflow: hidden`: quando a fonte do aparelho é larga o texto vira duas
+   linhas ("Enviar no" / "WhatsApp") dentro do mesmo par, em vez de sair
+   cortado. `anywhere` é a rede da fonte extrema — nenhuma palavra pode furar a
+   caixa, como na mensagem abaixo. */
 .cast-passador-btn > span {
-  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  min-width: 0; overflow-wrap: anywhere; line-height: 1.3;
 }
 /* A LINHA DO NÚMERO ABERTA é o estado do PRÓPRIO botão que a abriu, e a cor
    não é decoração: é o par do `--btn-accent` das outras linhas em que o app

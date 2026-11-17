@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.65** — o conserto do vermelho da v1.14.64: o rótulo do passador mede 135px na DejaVu Sans do runner e 103px na fonte desta máquina, então ele passa a QUEBRAR em duas linhas em vez de truncar, e o oráculo mede a ausência de truncamento nos dois viewports em vez de "cabe em 158px" (só web; o mesmo lote da v1.14.64, que nunca chegou ao OTA).
 - **v1.14.64** — Pacote 44: o cartão do passador de slides vira UMA ação só — os dois botões voltam a ter texto ("Copiar link" / "Enviar no WhatsApp", ícone ao lado e nome acessível do conteúdo) e a mensagem que viaja aparece no mesmo cartão, acima da linha do número, que abre e fecha pelo próprio botão (só web).
 - **v1.14.63** — Duas correções do itinerário por fora da fila (pedido de 2026-11-16 22:37): o toque num momento sem mídias é inerte — a edição fica no lápis da linha, com a faixa aberta —, e a sub-aba de criar/editar ganha o vão de `--sp-3` (5,59px) da faixa e os quatro cantos do `--radius-sheet` (18px) (só web).
 - **v1.14.62** — Pacote 42: o momento do itinerário perde o corpo do card e vira uma lista de tópicos (34px em vez de 45,2, passo de 39,6 em vez de 50,8, e 11 momentos na tela de 390 onde cabiam 9), com o eixo do nome, o toque e o respiro do grupo intactos (só web).
@@ -797,6 +798,95 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.14.65 — o rótulo do passador quebra em duas linhas em vez de truncar (a fonte do CI)
+
+**O FECHO DO PACOTE 44** (v1.14.64, commit `e5be6c53`), só web: `SHELL_VERSION`
+89 (o shell não foi tocado), `minShell` 83, **sem `shellTag`** — nenhuma Release
+pendente. Degrau CORREÇÃO. **A v1.14.64 NUNCA CHEGOU AOS APARELHOS:** o run
+#2631 (`44067706738`) ficou VERMELHO no `verificar` e o `web-ota` foi PULADO, e
+o canal seguiu em 1.14.63. Como o bundle não saiu, o conserto é o MESMO lote no
+número seguinte (a regra do rito: publicado ⇒ número novo; não publicado ⇒
+mesmo número) — e a nota da v1.14.64 continua sendo a do que ele entregou.
+
+**O DEFEITO, com os números dos dois lugares.** O rótulo "Enviar no WhatsApp"
+media **103px** no Chromium desta máquina e **135px** no do runner — 31% mais
+largo —, e o botão de meia largura deixa ~127px para o rótulo a 360px. Resultado
+do run #2631: a 390×844 passava (135/135) e a 360×640 reprovava com
+**135/127**, o `ellipsis` cortando o texto que diz o que se compartilha. Não era
+o layout do 44: era a métrica da fonte.
+
+**O DIAGNÓSTICO.** O `font-family` do botão é `system-ui, -apple-system,
+sans-serif` — o app não fixa família, e a escolha é do fontconfig. Aqui
+`fc-match system-ui` devolve `wqy-zenhei.ttc` (WenQuanYi Zen Hei, a única sem
+serifada do conjunto que o proot tinha); no runner a mesma pilha resolve para a
+**DejaVu Sans**, que a imagem do GitHub Actions traz e esta máquina não tinha.
+MEDIDO no Chromium, a 11,84px/600 (o `--fs-sm` × `--fw-medio` do botão): DejaVu
+Sans **135,1** e **71,7** ("Copiar link") contra WenQuanYi Zen Hei **102,8** e
+**54,6** — os 135 e 72 que o CI imprimiu. A fonte monoespaçada vai junto: aqui
+`monospace` cai na WenQuanYi Zen Hei Mono (0,5 em de avanço, e a linha de 59
+caracteres cabe em 321,6px por 5,4px de folga); lá cai na DejaVu Sans Mono
+(0,6 em), a mesma linha quebra, e o bloco da mensagem desenha **três** linhas
+(45,7px) em vez de duas (30,4px) — o `overflow-wrap: anywhere` fazendo o
+trabalho dele, sem truncar.
+
+**A REPRODUÇÃO, na máquina.** Instalar `fonts-dejavu-core` aqui (o proot não a
+tinha; o `--with-deps` do Playwright não a instala, a imagem do runner traz) faz
+o `system-ui` resolver para a DejaVu Sans, e o MESMO teste passa a reprovar com
+**135/127** e mensagem de 45,7px — os números do CI, na casa decimal. É a
+reversão que prova o diagnóstico e é por isso que ela fica no relatório: o
+vermelho não era do lote, era da máquina que o mediu.
+
+**O CONSERTO É O RÓTULO QUEBRAR, não um número mágico.** `.cast-passador-btn >
+span` perde `white-space: nowrap`, `text-overflow: ellipsis` e `overflow:
+hidden`; ganha `overflow-wrap: anywhere` (a rede da fonte extrema, a mesma da
+mensagem) e `line-height: 1.3`; o botão ganha `padding: var(--sp-2)
+var(--sp-3)` no lugar do `0`, mantém `min-height: var(--hit)` como PISO, e o
+`align-items: stretch` do par faz os dois crescerem juntos. MEDIDO depois (com
+a fonte do runner): a 390×844, rótulos 72/72 e 135/135, **1 linha cada**, botões
+173×34 (nada mudou); a 360×640, rótulo **127/127 em DUAS linhas desenhadas**
+("Enviar no" / "WhatsApp") e botões 158×**38,8** — 4,8px acima do `--hit`,
+parede e teto longe de uma torre. O cartão cresceu 4,7px (folha 408,6 → 413,3).
+
+**POR QUE ASSIM, e não as outras duas.** Duas linhas de botão inteiro custariam
++34px de altura (dois alvos de 34 mais o vão) e desfariam o PAR, que é como o 44
+resolveu o "são duas coisas"; encurtar o rótulo para "Enviar" é o defeito da
+v1.14.57 de volta (só o ícone, ou pior, um verbo sem objeto) e "WhatsApp" sozinho
+só se sustenta com o grupo dizendo "Passador de slides" ao lado — o que existe,
+mas a quebra preserva a frase inteira por 4,8px. O critério do operador é que o
+texto DIGA o que se compartilha: quebrar em duas linhas é o que mantém a frase
+completa na largura de meia tela.
+
+**A ASSERÇÃO PASSA A MEDIR A REGRA, NÃO A FONTE.** O F do
+`passador-grupo.test.mjs` não diz mais "cabe inteiro em 158px" (a largura do
+botão): ele afirma `scrollWidth <= clientWidth + 1` no `<span>` do rótulo nos
+DOIS viewports, o teto de DUAS linhas desenhadas (contadas por `getClientRects`
+do `Range`, não pela entrelinha), e — numa asserção que atravessa os dois — que
+o NOME ACESSÍVEL continua igual ao texto renderizado (quebrar linha não pode
+comer palavra). **Reversão medida:** devolver `nowrap`/`ellipsis`/`overflow:
+hidden` reprova DUAS asserções a 360×640 com `135/127`, e o teste volta verde
+com o conserto. É a mesma célula que o CI reprovou — e ela não depende de qual
+fonte a máquina tem.
+
+**O QUE O 44 ENTREGOU E CONTINUA PROVADO.** O valor copiado é exatamente
+`https://audiovisualiasd.com.br/passador?h=192.168.0.14:8787` (lido da ÁREA DE
+TRANSFERÊNCIA, não da tela), e a mensagem é
+`https://audiovisualiasd.com.br/passador?h=192.168.0.14:8787` + `\n` +
+`Se o link não abrir, use: 192.168.0.14:8787`, idêntica no `#passadorMsg` e no
+`?text=` do `wa.me` com o 55 no número. O link e o texto NÃO foram tocados.
+
+**ORÁCULOS.** `passador-grupo` (o conserto e a asserção nova), `passador-fronteira`
+(Node puro, a porta do pregador e o formato do link), `boot-nativo`, o
+`tools/portao.sh` com os vizinhos `ferramentas-folha`, `teclado-das-folhas`,
+`geometria` e `tour`. O `docs/ORACULOS.md` mudou na linha do `passador-grupo`
+porque o F mudou de sentido.
+
+**O QUE NÃO DEU PARA MEDIR:** o WebView do aparelho com a fonte do sistema dele
+— o que se mediu aqui foi a fonte do RUNNER, que era o que faltava; e o leitor de
+tela de verdade (aqui só o nome acessível computado). A linha do `RESIDUOS` diz
+isso.
 
 ---
 

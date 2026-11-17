@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.14.65",
+    "itens": [
+      "O botão \"Enviar no WhatsApp\" cortava o texto em aparelhos com outra fonte do sistema; agora ele quebra em duas linhas.",
+      "O cartão do passador continua um só: os dois botões, a mensagem do link e o campo do número.",
+      "O link copiado e o texto que vai para o WhatsApp são os mesmos de antes.",
+      "A v1.14.64 não chegou aos aparelhos; esta versão leva o mesmo lote já consertado."
+    ]
+  },
+  {
     "versao": "1.14.64",
     "itens": [
       "Os dois botões do passador de slides voltaram a ter texto: \"Copiar link\" e \"Enviar no WhatsApp\", com ícone ao lado.",

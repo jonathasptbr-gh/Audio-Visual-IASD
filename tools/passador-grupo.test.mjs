@@ -38,9 +38,18 @@
 //     `pre-line` viva), e o texto SELECIONÁVEL (o reset do app põe
 //     `user-select: none !important` em `*`; sem `!important` aqui o bloco fica
 //     com o texto na tela e nada para copiar).
-//  F. **A GEOMETRIA** — 390×844 e 360×640: a largura de cada botão, o rótulo
-//     truncado (`scrollWidth > clientWidth` no `<span>`) e o alvo de toque
+//  F. **A GEOMETRIA** — 390×844 e 360×640: nenhum rótulo TRUNCADO
+//     (`scrollWidth > clientWidth + 1` no `<span>`, e o texto inteiro também no
+//     nome acessível), o rótulo em no máximo DUAS linhas e o alvo de toque
 //     contra o `--hit` do app, lido do `:root` — nunca digitado.
+//
+//     A LARGURA DO TEXTO É DO SISTEMA, NÃO DO LOTE (v1.14.65). "Enviar no
+//     WhatsApp" mede 103px no Chromium desta máquina e **135px no do runner**:
+//     o `system-ui` cai em fontes diferentes (aqui a WenQuanYi Zen Hei, lá a
+//     DejaVu Sans, 31% mais larga). Uma asserção "cabe em 158px" mediria a
+//     FONTE da máquina que a roda e reprovaria no CI, que é exatamente o que
+//     aconteceu na v1.14.64. O que o app promete é NÃO TRUNCAR — e é isso que
+//     se mede, nas duas condições.
 //
 //   node tools/passador-grupo.test.mjs
 // ============================================================================
@@ -93,6 +102,13 @@ const CAIXA = `(el) => {
     w: Math.round(b.width * 10) / 10, h: Math.round(b.height * 10) / 10,
     clientW: el.clientWidth, scrollW: el.scrollWidth,
     truncado: el.scrollWidth > el.clientWidth + 1,
+    // AS LINHAS DESENHADAS, contadas pelo navegador: um retangulo por linha de
+    // texto (getClientRects), e nao a altura dividida por uma entrelinha que
+    // pode vir normal.
+    linhas: (() => {
+      try { const r = document.createRange(); r.selectNodeContents(el); return r.getClientRects().length; }
+      catch (_) { return 0; }
+    })(),
     texto: (el.textContent || '').replace(/\\s+/g, ' ').trim(),
     fundo: cs.backgroundColor, raio: cs.borderRadius,
     select: cs.userSelect || cs.webkitUserSelect,
@@ -244,10 +260,20 @@ try {
     // ---- F. A GEOMETRIA -----------------------------------------------------
     checar(copiar.h >= m.hit && zap.h >= m.hit,
       `os dois alvos cumprem o --hit (${m.hit}px)`, `${copiar.h}px · ${zap.h}px`);
+    // A REGRA É "NÃO TRUNCA", NÃO "CABE EM 158px". O limite por largura seria a
+    // métrica da fonte DESTA máquina — e é ele que derrubou a v1.14.64 no
+    // runner, onde o mesmo texto mede 135px em vez de 103. O nó que rola prova
+    // o truncamento por si: `scrollWidth > clientWidth + 1` é uma palavra
+    // cortada (o `ellipsis` da v1.14.64), e não há fonte que o faça passar sem
+    // o rótulo estar inteiro. DUAS LINHAS é o teto do desenho: o rótulo quebra
+    // ("Enviar no" / "WhatsApp") e o botão cresce; um que virasse torre de três
+    // seria outro erro.
     for (const b of m.botoes) {
-      checar(!b.truncado && b.rotulo && !b.rotulo.truncado,
-        `o rótulo "${b.rotulo && b.rotulo.texto}" cabe inteiro em ${b.w}px`,
-        b.rotulo ? `${b.rotulo.scrollW}/${b.rotulo.clientW}` : 'sem rótulo');
+      const r = b.rotulo || {};
+      checar(!b.truncado && !r.truncado && r.scrollW <= r.clientW + 1
+        && r.linhas >= 1 && r.linhas <= 2,
+        `o rótulo "${r.texto}" não é truncado a ${tela.nome}, em até duas linhas`,
+        r.clientW ? `${r.scrollW}/${r.clientW} px · ${r.linhas} linha(s)` : 'sem rótulo');
     }
     checar(m.grupo.x >= m.folha.x - 0.5 && m.grupo.x + m.grupo.w <= m.folha.x + m.folha.w + 0.5,
       'o grupo cabe na largura da folha', `${m.grupo.w}px de ${m.folha.w}px`);
@@ -291,11 +317,24 @@ try {
   await new Promise((r) => servidor.close(r));
 }
 
+// A MESMA REGRA NAS DUAS CONDIÇÕES, e o NOME ACESSÍVEL junto: quando o rótulo
+// quebra em duas linhas nenhuma palavra pode sumir do texto nem do que o leitor
+// de tela lê. É a asserção que atravessa os dois viewports — a de dentro do laço
+// mede um por vez.
+for (const [nome, v] of Object.entries(vistas)) {
+  for (const b of v.botoes) {
+    checar(b.rotulo && b.nome === b.rotulo.texto && !b.rotulo.truncado,
+      `a ${nome} o botão diz "${b.nome}" inteiro, no texto e no nome acessível`,
+      b.rotulo ? `${b.nome} · ${b.rotulo.scrollW}/${b.rotulo.clientW}` : 'sem rótulo');
+  }
+}
+
 // A GEOMETRIA IMPRESSA: o número que o relatório do lote cita sai daqui, da
 // mesma execução que reprova — número medido à parte envelhece em um lote.
 for (const [nome, m] of Object.entries(vistas)) {
   console.log(`  ${nome}: botões ${m.botoes.map((b) => b.w + 'x' + b.h).join(' · ')} px`
     + ` · rótulos ${m.botoes.map((b) => (b.rotulo ? b.rotulo.scrollW + '/' + b.rotulo.clientW : '?')).join(' · ')}`
+    + ` · linhas ${m.botoes.map((b) => (b.rotulo ? b.rotulo.linhas : '?')).join('/')}`
     + ` · mensagem ${m.msg.w}x${m.msg.h} px · grupo ${m.grupo.w}px · folha ${m.folha.h}px`);
 }
 
