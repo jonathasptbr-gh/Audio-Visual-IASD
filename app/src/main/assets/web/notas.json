@@ -1,5 +1,17 @@
 [
   {
+    "versao": "1.14.62",
+    "itens": [
+      "Os momentos do itinerário viraram uma lista de tópicos: um encosta no outro.",
+      "Saiu o corpo do card de cada momento — ele era transparente e só ocupava altura.",
+      "Cada momento ficou 11 pixels mais baixo e dois seguidos ficaram 11 pixels mais próximos.",
+      "Na tela maior cabem 11 momentos onde antes cabiam 9; na menor, 6 onde antes cabiam 5.",
+      "O nome, o horário, os ícones e o arrastar/abrir continuam exatamente no mesmo lugar.",
+      "A área de toque não encolheu: cada momento continua com os 34 pixels mínimos.",
+      "O espaço entre um bloco de mídias e o próximo continua como estava."
+    ]
+  },
+  {
     "versao": "1.14.61",
     "itens": [
       "Toda informação de conexão e estado agora vive num lugar só: o quadro do meio.",

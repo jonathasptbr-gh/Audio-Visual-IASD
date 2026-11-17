@@ -2492,6 +2492,108 @@ try {
       + 'final', seco);
   }
 
+  // ── G″. O CORPO DO CARD DO MOMENTO SAIU (v1.14.62) ───────────────────────
+  // O pedido do Pacote 42: *"considere remover o 'card' em que eles estão, pois
+  // tecnicamente esse card é transparente, seu corpo não existe para os momentos do
+  // itinerario, a ideia dos momentos é ser mais apenas uma lista de tópicos"*. Até a
+  // v1.14.57 o corpo era o `padding` vertical do `.row` (5,6 em cima e embaixo): ele
+  // não pintava nada, só ocupava altura. Aqui se mede DE NOVO, e não se herda: (1) o
+  // corpo sumiu — `li` e `.row` transparentes, ZERO de padding vertical, sem borda
+  // nem sombra; (2) a LINHA mede o próprio conteúdo, o piso de toque `--hit`; (3) a
+  // DISTÂNCIA entre dois momentos consecutivos é a altura da linha mais o `gap` da
+  // lista (`--sp-3`), o respiro de uma linha de tópico; (4) o ALVO de cada momento é
+  // a linha inteira e `elementFromPoint` no centro acha um elemento de dentro dela;
+  // (5) o EIXO do nome não mudou com a remoção (o `padding-left` de .5rem e o `gap`
+  // de `--sp-4` continuam os mesmos). O respiro do GRUPO (a margem de `--sp-4`) NÃO
+  // é tocado: é outra caixa, e o Pacote 42 a deixa fora.
+  {
+    await pg.evaluate(async () => {
+      itinAjusteZerar();
+      for (const x of await AVDB.listItems('imports')) await AVDB.listRemove('imports', x.id);
+      const nomes = ['Recepção', 'Aviso', 'Louvor', 'Oração', 'Hino', 'Pregação', 'Apelo', 'Bênção',
+        'Encerramento', 'Saída', 'Coral', 'Mensagem', 'Oferta', 'Leitura', 'Testemunho', 'Vigília'];
+      for (let i = 0; i < nomes.length; i++) {
+        await AVDB.addCue('momento', { min: 540 + i * 15 }, { name: nomes[i], list: 'imports' });
+      }
+      await load();
+    });
+    const dezesseis = await esperar(pg, () => document.querySelectorAll('#library > li.momento').length === 16);
+    await fecharFaixa();
+    const medirLinhas = () => pg.evaluate(() => {
+      const lib = document.getElementById('library');
+      const lr = lib.getBoundingClientRect(), csLib = getComputedStyle(lib);
+      const lis = [...document.querySelectorAll('#library > li.momento')];
+      const dados = lis.map((li) => {
+        const row = li.querySelector('.row');
+        const r = row.getBoundingClientRect(), l = li.getBoundingClientRect();
+        const cs = getComputedStyle(row), ls = getComputedStyle(li);
+        const hora = li.querySelector('.momento-hora').getBoundingClientRect();
+        const nome = li.querySelector('.row-name').getBoundingClientRect();
+        const alvo = document.elementFromPoint((r.left + r.right) / 2, (r.top + r.bottom) / 2);
+        return {
+          titulo: li.querySelector('.row-name').textContent,
+          linha: +l.height.toFixed(2), caixa: +r.height.toFixed(2), topo: +r.top.toFixed(2),
+          fundo: [cs.backgroundColor, ls.backgroundColor],
+          padV: [cs.paddingTop, cs.paddingBottom], padL: parseFloat(cs.paddingLeft),
+          bordaV: [cs.borderTopWidth, cs.borderBottomWidth], sombra: cs.boxShadow,
+          eixo: +(nome.left - hora.right).toFixed(2), gapDoTexto: parseFloat(cs.columnGap),
+          // A ALTURA DO TEXTO é o outro lado da régua: a linha mede o MAIOR entre ele e o
+          // piso `--hit` — com a fonte do sistema maior, é o texto que manda (a regra é a
+          // mesma de toda linha da lista), e o oráculo não pode apostar num número de hoje.
+          textoH: +li.querySelector('.row-text').getBoundingClientRect().height.toFixed(2),
+          dentro: !!(alvo && li.contains(alvo)),
+          botoes: [...li.querySelectorAll('.row > .row-acoes--solta > button')]
+            .filter((b) => b.getClientRects().length)
+            .map((b) => +Math.min(b.getBoundingClientRect().width, b.getBoundingClientRect().height).toFixed(2)),
+        };
+      });
+      return {
+        hit: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hit')),
+        gap: parseFloat(csLib.rowGap), libH: +lr.height.toFixed(2),
+        padTopo: parseFloat(csLib.paddingTop),
+        passo: dados.length > 1 ? +(dados[1].topo - dados[0].topo).toFixed(2) : null,
+        cabem: dados.filter((x) => x.topo >= lr.top - 0.5 && x.topo + x.caixa <= lr.bottom + 0.5).length,
+        dados,
+      };
+    });
+    const semFaixa = await medirLinhas();
+    const d = semFaixa.dados[0];
+    const transp = (c) => c === 'rgba(0, 0, 0, 0)' || c === 'transparent';
+    checar(dezesseis === true && semFaixa.dados.length === 16,
+      'G″ · ponto de partida: 16 momentos consecutivos (só momentos, nenhuma mídia entre eles) desenhados na lista', porque(dezesseis));
+    checar(d.fundo.every(transp) && d.padV.every((v) => v === '0px')
+      && d.bordaV.every((v) => v === '0px') && d.sombra === 'none',
+      'G″ · o CORPO do card do momento SAIU: o `li` e a `.row` não pintam fundo, o `padding` vertical da `.row` é ZERO, '
+      + 'sem borda e sem sombra — a linha foi reduzida ao próprio conteúdo', d);
+    checar(Math.abs(d.caixa - Math.max(semFaixa.hit, d.textoH)) <= 0.5 && Math.abs(d.linha - d.caixa) <= 0.5,
+      'G″ · e a LINHA mede o MAIOR entre o conteúdo e o piso de toque: ' + d.caixa + 'px = max(`--hit` ' + semFaixa.hit
+      + ', texto ' + d.textoH + ') — o texto e os botões cabem dentro, e nenhum padding de card a infla',
+      { caixa: d.caixa, linha: d.linha, hit: semFaixa.hit, textoH: d.textoH });
+    checar(semFaixa.dados.every((x) => Math.abs(x.caixa - Math.max(semFaixa.hit, x.textoH)) <= 0.5),
+      'G″ · TODOS os 16 momentos têm a MESMA altura (' + d.caixa + 'px): a mesma régua, sem nenhum estado inflando um '
+      + 'deles', semFaixa.dados.map((x) => x.caixa));
+    checar(Math.abs(semFaixa.passo - (d.caixa + semFaixa.gap)) <= 0.5 && semFaixa.passo <= semFaixa.hit + semFaixa.gap + 0.5,
+      'G″ · e a DISTÂNCIA entre dois momentos consecutivos é a linha mais o `gap` da lista (`--sp-3`): '
+      + semFaixa.passo + 'px (' + d.caixa + ' + ' + semFaixa.gap + ') — o respiro de uma linha de tópico, '
+      + 'não o passo de um card', { passo: semFaixa.passo, caixa: d.caixa, gap: semFaixa.gap });
+    checar(semFaixa.dados.every((x) => x.caixa >= semFaixa.hit - 0.5 && x.dentro),
+      'G″ · o ALVO de cada momento é a própria linha: ' + semFaixa.hit + 'px ou mais de `getBoundingClientRect`, e '
+      + '`elementFromPoint` no centro dela devolve um elemento de dentro do `li`', semFaixa.dados.slice(0, 3));
+    checar(d.padL === 8 && Math.abs(d.eixo - d.gapDoTexto) <= 0.5,
+      'G″ · o EIXO do nome não mudou ao remover o corpo: o horário começa a ' + d.padL + 'px da borda da linha (o '
+      + '`padding-left` de .5rem) e o nome a ' + d.eixo + 'px do horário (o `gap` de `--sp-4`, ' + d.gapDoTexto + 'px)', d);
+    // COM A FAIXA ABERTA os comandos voltam ao desenho (lápis e lixeira); a linha
+    // continua nos 34px e os botões continuam com o alvo `--hit`.
+    await abrirFaixa();
+    const aberta = await medirLinhas();
+    const da = aberta.dados[0];
+    checar(aberta.dados.every((x) => Math.abs(x.caixa - Math.max(aberta.hit, x.textoH)) <= 0.5
+      && x.botoes.length === 2 && x.botoes.every((b) => b >= aberta.hit - 0.5) && x.dentro),
+      'G″ · e com a faixa ABERTA (lápis e lixeira no desenho) a linha continua em ' + da.caixa + 'px por momento, '
+      + 'com os dois botões no alvo `--hit` e o centro ainda dentro do `li`', { caixa: da.caixa, botoes: da.botoes, hit: aberta.hit });
+    await fecharFaixa();
+  }
+
   checar(erros.length === 0, 'nenhum erro de console', erros);
 } catch (e) {
   checar(false, 'o oráculo rodou até o fim', e && e.stack || String(e));

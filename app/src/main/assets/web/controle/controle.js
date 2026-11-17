@@ -482,7 +482,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.61';
+const WEB_VERSION = '1.14.62';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -9172,7 +9172,7 @@ function linhaDeMomento(item, sob = 0) {
   const caixa = document.createElement('div');
   caixa.className = 'row-acoes row-acoes--solta';
   // A SETA DO GRUPO (pedido de 15/11): um BOTÃO, e só onde há grupo (`sob` > 0). O
-  // toque faz o MESMO do corpo do card (`aoTocar` — recolhe e expande).
+  // toque faz o MESMO do corpo da linha (`aoTocar` — recolhe e expande).
   // `aria-expanded` leva o estado do grupo.
   if (sob) {
     const seta = document.createElement('button');

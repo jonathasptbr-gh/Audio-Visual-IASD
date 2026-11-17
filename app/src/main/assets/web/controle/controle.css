@@ -7326,18 +7326,21 @@ main {
    veste o fundo das linhas, senão o nome se leria por cima do vizinho. */
 .lib-item.momento { --linha: transparent; }
 #library > .lib-item.momento.arrastando { --linha: var(--camada); }
-/* **O CORPO DO MOMENTO É MAIS COMPACTO QUE O DE UMA MÍDIA (v1.14.57).** A linha
-   de uma mídia mede a miniatura (`--thumb`, 40) mais o `padding` vertical do
-   `.row` (`--sp-3` em cima e embaixo); a do momento não tem capa, e são os
-   BOTÕES (o alvo `--hit`, 34) que a sustentam: 45,2px contra os 51,2 de uma
-   mídia. O operador: *"preferiria que os momentos sejam mais compactos em altura
-   que os itens comuns do cronograma … mas não diminua suas fontes, ou tamanho de
-   botões, apenas ocupe menos espaço vertical de corpo"*. A v1.14.55 tinha
-   igualado a altura à da mídia (por causa do momento de um grupo, que era o mais
-   alto); aqui ela volta a ser a do próprio conteúdo, com a fonte e o `--hit`
-   INTOCADOS — e o momento de um grupo mede o mesmo que os outros porque o
-   respiro dele é margem, não padding (ver abaixo). */
-.lib-item.momento > .row { padding-left: .5rem; }
+/* **O CORPO DO CARD DO MOMENTO SAIU (v1.14.62).** O pedido: *"considere remover o
+   'card' em que eles estão, pois tecnicamente esse card é transparente, seu corpo
+   não existe para os momentos do itinerario, a ideia dos momentos é ser mais
+   apenas uma lista de tópicos"*. O `li` e a `.row` já não pintavam nada (o B′ do
+   oráculo prova os dois fundos transparentes); o que restava de "corpo" era o
+   `padding` vertical do `.row` — `--sp-3` em cima e embaixo —, que só ocupava
+   altura. Sem ele a linha mede o próprio CONTEÚDO: os BOTÕES (o alvo `--hit`, 34)
+   são o piso, e o texto cabe dentro deles. O respiro entre dois momentos passa a
+   ser o `gap` da lista (o `--sp-3` de "entre linhas", 5,6px): a linha de tópico.
+   O EIXO HORIZONTAL NÃO MUDA (o `padding-left` e o vão até a hora continuam os
+   mesmos); a fonte e o `--hit` também não. A v1.14.57 tinha devolvido a linha ao
+   corpo compacto (45,2 contra 51,2 de uma mídia); aqui o corpo some, e ela desce
+   aos 34 do alvo. O respiro do GRUPO (a margem de `--sp-4` entre grupos) é outra
+   caixa e fica como está (ver abaixo). */
+.lib-item.momento > .row { padding-block: 0; padding-left: .5rem; }
 /* AS OPÇÕES SEMPRE À VISTA, só o ícone (sem o `⋮` e sem caixa): a `.row-acoes` sai
    do absoluto e entra no fluxo da linha, cada botão com o alvo `--hit`. A pergunta
    do excluir nasce dentro dela e, enquanto pergunta, toma o lugar do título. */
@@ -7348,7 +7351,8 @@ main {
      momento SEM grupo perde a seta e os dois botões (`display: none`) e a caixa
      zerada encolhia a linha em 0,4px — o bastante para os momentos não terem a
      MESMA altura no estado em que a lista é mais vista. O `min-height` é a
-     altura de UM botão: o momento fica em 45,2px com ou sem comandos à vista. */
+     altura de UM botão: o momento fica nos 34px do alvo com ou sem comandos à
+     vista (o corpo do card saiu na v1.14.62, e é este piso que o sustenta). */
   min-height: var(--hit);
 }
 .lib-item.momento .row-acoes--solta > * { transform: none; }
@@ -7358,7 +7362,7 @@ main {
   width: var(--hit); height: var(--hit); background: none; color: var(--muted);
 }
 /* A SETA DO GRUPO (`ITIN_SETA_GRUPO`) É UM BOTÃO, à ESQUERDA do lápis (pedido de
-   15/11): a posição é visual, o toque é o mesmo do corpo do card (recolhe e expande
+   15/11): a posição é visual, o toque é o mesmo do corpo da linha (recolhe e expande
    o grupo). Ela veste a `.row-btn` da `.row-acoes--solta` — alvo `--hit`, sem fundo,
    `--muted` — e o ícone tem os MESMOS 19 px do lápis e da lixeira (sem os atributos
    de tamanho ele cai no padrão do `<svg>`, 300×150, e estoura a linha). Girada para
@@ -7394,7 +7398,7 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
    `medirArrasto` lê o MENOR vão entre linhas vizinhas, e não o primeiro par,
    justamente para uma margem de grupo não inflar o passo do arrasto — e é ela
    também que deixa a caixa do momento de um grupo do tamanho das outras, com a
-   altura compacta da v1.14.57. */
+   altura compacta da v1.14.62. */
 #library > li + .grupo-ini { margin-top: var(--sp-4); }
 /* O HORÁRIO EM ALGARISMOS TABULARES: "23:59" e "10:00" ocupam a mesma largura, e
    os títulos da lista se alinham uns com os outros. */

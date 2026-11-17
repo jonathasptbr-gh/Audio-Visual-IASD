@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.62** — Pacote 42: o momento do itinerário perde o corpo do card e vira uma lista de tópicos (34px em vez de 45,2, passo de 39,6 em vez de 50,8, e 11 momentos na tela de 390 onde cabiam 9), com o eixo do nome, o toque e o respiro do grupo intactos (só web).
 - **v1.14.61** — Pacote 46: o estado e a conexão do passador de slides centralizados no quadro do meio (saem a pílula do topo, o status do cabeçalho e a legenda repetida nos três quadros; conectado é silêncio, e a queda aparece dentro do quadro) (só web).
 - **v1.14.60** — Pacote 43 (o passador de slides sem apresentação: aviso numa faixa, três quadros desenhando a espera e controles no lugar) e o conserto do link público da v1.14.59, que perdia a rota `/passador-de-slides` e caía na página do telão (só web e site).
 - **v1.14.59** — Pacote 41: o link do passador vira uma página pública do site (`audiovisualiasd.com.br/passador?h=ip:porta`) que só redireciona para IPv4 de rede privada, com o endereço cru na segunda linha do WhatsApp e o link antigo no caso TLS (só web e site).
@@ -796,6 +797,22 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.62 — o momento do itinerário perde o corpo do card e vira lista de tópicos
+
+**Pacote 42** (pedido do operador, 2026-11-16 20:05), só web: `SHELL_VERSION` 89 (o shell não foi tocado), `minShell` 83, **sem `shellTag`** (a Release da v1.14.56 já publicou todo o Kotlin). Degrau CORREÇÃO.
+
+**O PEDIDO, literal:** *"vamos ter de compactar mais ainda a altura dos momentos do itinerário, eles devem ficar bem proximos um dos outros, considere remover o 'card' em que eles estão, pois tecnicamente esse card é transparente, seu corpo não existe para os momentos do itinerario, a idéia dos momentos é ser mais apenas uma lista de tópicos, por isso ele não precisa ser tão volumoso em altura."*
+
+**O QUE A v1.14.57 JÁ TINHA FEITO, e o que faltava.** Ela devolveu a linha ao corpo compacto: saiu o `min-height` que a v1.14.55 tinha igualado ao da mídia, e a linha ficou nos BOTÕES (`--hit`, 34) mais os dois `padding` verticais do `.row` (`--sp-3`, 5,6 cada) — **45,2px**, contra 51,2 de uma mídia. O que sobrava era o próprio corpo do card: o `padding` vertical, que não pinta nada (o `li` e a `.row` já eram transparentes desde a v1.14.32) e só ocupava altura. E o respiro entre dois momentos era o `gap` da lista — correto —, mas sobre uma caixa de 45,2.
+
+**O CONSERTO.** `.lib-item.momento > .row { padding-block: 0 }`: a linha passa a medir o próprio conteúdo, e quem a sustenta é o `min-height: var(--hit)` da caixa de ações (a v1.14.57 que garantiu os 34 mesmo com os comandos escondidos). O espaço entre dois momentos consecutivos vira a altura da linha mais o `gap` da lista (`--sp-3`): **39,59px**, a linha de tópico. O EIXO NÃO MUDA — o `padding-left` de `.5rem` e o `gap` de `--sp-4` até a hora continuam os mesmos (medido: o horário a 8px da borda e o nome a 8px do horário, antes e depois) —, e o respiro do GRUPO (a `margin-top` de `--sp-4`) NÃO foi tocado: é outra caixa, e o Pacote 42 a deixou para a decisão do operador.
+
+**MEDIDO no Chromium, antes → depois.** A linha do momento **45,19 → 34px** (11,19 a menos); a distância entre dois momentos consecutivos **50,78 → 39,59px** (11,19 a menos); a mídia fica em 51,19. Numa lista só de momentos, a 390×844 cabem **11** onde cabiam **9**, e a 360×640 cabem **6** onde cabiam **5** (pela caixa de rolagem seriam 12 e 7; o rodapé das portas cobre a última linha). A área de toque é a própria linha: 34px = `--hit`, e `elementFromPoint` no centro acha um elemento de dentro do `li` (com a faixa aberta, os dois botões medem 34). O card não existe mais no repouso: `li` e `.row` transparentes, zero de `padding` vertical, sem borda e sem sombra.
+
+**ORÁCULOS.** O `itinerario` ganhou o bloco **G″**, com 16 momentos CONSECUTIVOS (sem mídia entre eles): o corpo do card sumiu (os quatro sinais), a linha mede `--hit`, todos medem igual, o passo é a linha mais o `gap` da lista, o alvo é a linha e o eixo do nome continua a 8px/8px. A prova da reversão: devolver `padding-block: var(--sp-3)` reprova **cinco** células (o corpo de 5,6 volta, a linha a 45,19 e o passo a 50,78). Os vizinhos: `itinerario`, `geometria`, `smoke`, `cronogramas-multiplos`, `engrenagem-do-item`, `sombra-de-rolagem`, `ferramentas-folha`, `barra-do-topo-e-titulos`, `teclado-das-folhas`, `tour`, `cronograma-pronto`, `favoritos-menu-na-linha`.
+
+**O QUE NÃO DEU PARA MEDIR:** o aparelho — o texto de duas linhas dentro dos 34px com a fonte real do operador, e o toque de 34px num momento colado no vizinho (5,6px de vão). A linha do `RESIDUOS` diz isso.
 
 ## v1.14.61 — o estado do passador mora no quadro central, e só nele
 

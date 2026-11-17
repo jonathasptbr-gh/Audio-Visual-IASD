@@ -97,7 +97,6 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 | **13** — Estudos (não são fila de execução) | 4 | estudo | nenhuma entrega |
 | **16** — O cronograma pronto: o organizador entrega o culto ao sonoplasta | 8 (I4×U2) | pedido | planejamento → Kotlin + web |
 | **29** — Guia do site: a captura da lista de Ferramentas e do Cronograma | 2 (I2×U1) | resíduo | só site (pede o app em tela) |
-| **42** — Itinerário: os momentos como lista, não como card | 6 (I3×U2) | pedido | só web |
 | **44** — Conectar: os botões com texto e o card integrado | 4 (I2×U2) | pedido | só web |
 | **45** — Pop-up de volume na abertura, e a porta do tour | 9 (I3×U3) | pedido | web + shell (APK no CI) |
 
@@ -112,7 +111,7 @@ diferentes, e um lote nunca mistura dois temas.
 
 | tema | pacotes | o que sai junto |
 |---|---|---|
-| **Cronograma e destinos** | 16, 42 | a abertura antes do culto, o organizador entregando o culto pronto; e os momentos do itinerário como lista |
+| **Cronograma e destinos** | 16 | a abertura antes do culto, e o organizador entregando o culto pronto |
 | **Site** | 29 | as capturas do guia |
 | **Passador de slides** | 44 | o convite que manda o link |
 | **Abertura** | 45 | o volume, a porta do tour e a ordem entre eles |
@@ -161,7 +160,6 @@ ordem; a fila é dele.
 | 13.3 | layout de paisagem (o app no Windows saiu) | | 3 | 1 | 3 | estudo |
 | **16** | **O cronograma pronto: o organizador entrega o culto** | pedido | 4 | 2 | **8** | planejamento |
 | **29** | **Guia do site: a captura da lista de Ferramentas e do Cronograma** | resíduo | 2 | 1 | **2** | site |
-| **42** | **Itinerário: os momentos como lista, não como card** | pedido | 3 | 2 | **6** | web |
 | **44** | **Conectar: os botões com texto e o card integrado** | pedido | 2 | 2 | **4** | web |
 | **45** | **Pop-up de volume na abertura, e a porta do tour** | pedido | 3 | 3 | **9** | web + shell |
 
@@ -334,34 +332,6 @@ operador manda a captura, ou ela sai da prévia visual no Chromium.
 
 ---
 
-## Pacote 42 — Itinerário: os momentos como lista, não como card
-
-**Nota 6 (I3×U2) · pedido · só web**
-
-**Onde:** a faixa do itinerário (`#itinBar`), a linha do momento e o corpo que a embrulha. A linha
-já foi tocada em três lotes seguidos: a v1.14.35 (Pacote 35, a faixa em três seções), a v1.14.49
-(Pacote 40, a porta como checklist fechada) e a v1.14.57, que a devolveu ao **corpo compacto**. O
-pacote começa do estado da 1.14.57 — não do desenho anterior.
-
-**O pedido (2026-11-16, 20:05):** *"vamos ter de compactar mais ainda a altura dos momentos do
-itinerário, eles devem ficar bem proximos um dos outros, considere remover o 'card' em que eles
-estão, pois tecnicamente esse card é transparente, seu corpo não existe para os momentos do
-itenerario, a idéia dos momentos é ser mais apenas uma lista de tópicos, por isso ele não precisa
-ser tão volumoso em altura."*
-
-**O que muda:** o corpo do card do momento sai (ele é transparente: não pinta nada, só ocupa
-altura); os momentos encostam um no outro com o respiro de linha de tópico; o `padding` do grupo
-encolhe junto. Área de toque não encolhe abaixo de `--hit`.
-
-**O que NÃO se decide sozinho:** a **moldura do grupo** de momentos (a do Pacote 35, discreta e
-recolhível) fica ou sai junto. O pedido fala do card do MOMENTO; o grupo é outra caixa. Perguntar
-antes de mexer.
-
-**Oráculo:** o `itinerario` (bloco U) — a altura da linha e o eixo do nome precisam ser medidos
-de novo, não herdados.
-
----
-
 ## Pacote 44 — Conectar: os botões com texto e o card integrado
 
 **Nota 4 (I2×U2) · pedido · só web**
@@ -428,6 +398,8 @@ bloqueia de fato).
 ---
 
 ## O que saiu desta lista (rastro, não log)
+
+**v1.14.62 (2026-11-16), só web:** o **Pacote 42** — o momento do itinerário perde o CORPO do card: o `padding` vertical do `.row` (5,6 em cima e embaixo), que não pintava nada e só ocupava altura, sai, e a linha passa a medir o próprio conteúdo — 34px (o piso `--hit` dos botões) contra 51,2 de uma mídia. Dois momentos consecutivos ficam a 39,59px (a linha mais o `gap` da lista, `--sp-3`, o respiro de uma linha de tópico), contra 50,78 antes, e numa lista só de momentos cabem 11 na tela de 390×844 (antes 9) e 6 na de 360×640 (antes 5). O eixo do nome, a fonte, o `--hit` e o respiro do GRUPO (a `margin-top` de `--sp-4`) ficam como estavam — a moldura do grupo é outra caixa e continua fora deste lote. Oráculo `itinerario`, bloco G″ novo, com a reversão provada. Nota em `docs/HISTORICO.md`.
 
 **v1.14.60 (2026-11-16), só web e site:** o **Pacote 43** — a página do passador sem apresentação: o aviso vira uma faixa (26 px, 3,1% da tela), os três quadros desenham a espera ("Aguardando", o monitor do app) em vez do ícone de imagem quebrada, e os controles continuam no lugar e alcançáveis. A causa era o `[hidden]` da folha perder para o `display: flex/grid` (as três seções apareciam juntas) e o `<img>` sem `src` desenhar o ícone quebrado. Oráculo `passador-espera` (novo), mais as medidas do estado vazio no `passador-cabe`. **No mesmo lote, o conserto urgente do link da v1.14.59**: o destino perdia a rota `/passador-de-slides` e caía na página do telão (defeito achado no aparelho em 2026-11-16 20:38); o `passador-publico` passou a afirmar o `pathname`. Nota em `docs/HISTORICO.md`.
 
