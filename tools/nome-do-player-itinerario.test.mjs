@@ -15,7 +15,9 @@
 //     que não passa pelo `renderNowPlaying` de resto).
 //
 // Reversões medidas: tirar o `&& !midiaNoAr` derruba o 2; tirar a chamada em
-// `resetAfterEnd` derruba o 4.
+// `resetAfterEnd` derruba o 4. A espera do 3 é pelo RENDER pós-Parar (o nome de
+// volta a "Itinerário"), nunca só pela bandeira `midiaNoAr` — o Parar a escreve
+// antes do `persistCurrent` que separa o render (`#2639`): lê-se o nome antigo.
 //
 //   node tools/nome-do-player-itinerario.test.mjs
 // ============================================================================
@@ -94,7 +96,13 @@ try {
     '2 · com o itinerário no ar, a mídia tocada vence o NOME (como já vencia a barra): avançado, Modo Fácil e notificação', com);
 
   await pg.click('#stop');
-  await esperar(pg, () => !midiaNoAr, null, 5000).catch(() => {});
+  // A ESPERA É PELO DRENO NO DOM: `pararMidia` escreve `midiaNoAr = false` antes
+  // do `await persistCurrent()`, e quem vira o nome é o `renderNowPlaying()` do
+  // `stopClear` depois dele — entre os dois está a janela medida no CI (#2639),
+  // onde a leitura pega "Hino Longo" com `noAr:false`. Espera-se o estado
+  // pós-Parar RENDERIZADO (o nome de volta a "Itinerário") junto com a bandeira.
+  await esperar(pg, () => !midiaNoAr
+    && document.getElementById('npNameInner').textContent === 'Itinerário', null, 10000).catch(() => {});
   const parado = await ler();
   checar(parado.itin && !parado.noAr && parado.avancado === 'Itinerário' && parado.facil === 'Itinerário' && parado.notif === 'Itinerário',
     '3 · o Parar tira só a mídia (o cartão fica) e o nome VOLTA a ser "Itinerário"', parado);

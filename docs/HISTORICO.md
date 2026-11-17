@@ -891,6 +891,15 @@ aqui com cópia de ida e volta em `~/tmp`, e voltaram verdes com o lote.
 (com o louvor continuando com som) só se conferem no aparelho, e a linha está no
 `docs/RESIDUOS.md`.
 
+**PÓS-LOTE (só tools, sem número):** o `nome-do-player-itinerario` reprova
+intermitente no CI (run #2639, o re-run do mesmo commit passa) — a espera do
+Parar lia `midiaNoAr`, que `pararMidia` escreve ANTES do `persistCurrent` que
+separa o render pós-Parar (`stopClear` → `renderNowPlaying`), e a leitura pegava
+"Hino Longo" com `noAr:false`. Reproduzida com o escrever de estado atrasado
+(assinatura idêntica à do run), o conserto é a espera pelo DRENO no DOM (o nome
+de volta a "Itinerário" junto com `!midiaNoAr`); 40× verdes, a reversão com a
+espera antiga reprova e a nova fica verde com o MESMO atraso armado.
+
 ## v1.14.69 — o pop-up de volume da abertura pergunta em vez de agir, e a porta do tour
 
 **O PEDIDO DO OPERADOR** (Pacote 45 da fila, 2026-11-16/17), só web:
