@@ -450,3 +450,31 @@ as três coisas, e nenhuma delas inventa formato novo.
 
 **E o nome do arquivo importa:** `Culto 21-11 Sábado.avpkg` (o culto e a data)
 é o que faz o arquivo ser discernido na conversa enquanto a miniatura não vem.
+
+## 7 · A imagem e o pacote na MESMA ação de compartilhar
+
+**Pergunta do operador (17/11):** *"conseguimos compartilhar a imagem e o
+arquivo na mesma mensagem/compartilhamento? Se sim vai servir, pois é
+requisitar ficar indo e voltando no app para enviar as duas."*
+
+**Sim, no Android: uma ação, dois arquivos.** O `ACTION_SEND_MULTIPLE` com
+`type="*/*"` e uma lista de URIs entrega os dois ao WhatsApp de uma vez — o
+operador toca em "Compartilhar o culto" **uma vez** e escolhe o contato; nada
+de voltar ao app. O que NÃO se promete é o desenho da conversa: o WhatsApp
+costuma mostrar **duas bolhas** (a imagem e o documento) na mesma conversa, e
+isso é o desejável — a imagem primeiro, o arquivo logo abaixo.
+
+**O truque que parece resolver tudo e NÃO resolve:** um único PNG com o ZIP
+acrescentado depois do fim da imagem (a conversa mostraria a capa como
+miniatura de verdade, e o app acharia o pacote pelo marcador). Duas razões para
+descartar: **o WhatsApp RECOMPRIME foto**, e a recompressão destrói os bytes
+anexados — o pacote sumiria em silêncio, que é o pior defeito possível; e a
+galeria abriria a imagem, não o app.
+
+**A medição que fecha a decisão (no aparelho do operador):**
+1. `ACTION_SEND_MULTIPLE` misto (PNG + `.avpkg`) chega ao WhatsApp com os dois?
+2. vira duas bolhas na mesma conversa, ou ele recusa um deles?
+3. o `.avpkg` chega com o MESMO tamanho (o WhatsApp não mexe em documento)?
+
+Até essa medição, o desenho é: **uma ação com os dois arquivos**, e o
+`intent-filter` para o toque no pacote cair no app.
