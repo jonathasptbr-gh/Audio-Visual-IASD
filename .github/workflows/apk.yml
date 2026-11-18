@@ -1172,30 +1172,39 @@ jobs:
           # A GUARDA ANTI-REGRESSÃO PEGA A VERSÃO MENOR; faltava a IGUAL com
           # conteúdo diferente — o "segundo lote de web sem subir" (RESIDUOS,
           # 2026-11-14, Pacote 25): o aparelho compara VERSÕES, vê a mesma e
-          # ignora o bundle novo em silêncio, para sempre. O sha256 do zip que
-          # o canal já publica é o que separa "nada mudou" de "mudou e a versão
-          # não subiu". Igual com o MESMO sha é reenvio inofensivo: segue.
+          # ignora o bundle novo em silêncio, para sempre. A régua do conteúdo é
+          # a ÁRVORE do git da base web, que vai no manifesto como `webTree` —
+          # o sha256 do zip NÃO serve: o `zip` grava a data de cada arquivo, e
+          # um checkout novo muda todas, então o mesmo conteúdo daria outro sha.
+          # Igual com a MESMA árvore é reenvio inofensivo: segue.
           NO_AR_VER=""
-          NO_AR_SHA=""
+          NO_AR_TREE=""
           TMPV=$(mktemp -d)
           if gh release download web-latest -p version.json -D "$TMPV" >/dev/null 2>&1 \
              && [ -f "$TMPV/version.json" ]; then
             NO_AR_VER=$(python3 -c "import json;print(json.load(open('$TMPV/version.json')).get('version',''))" 2>/dev/null || true)
-            NO_AR_SHA=$(python3 -c "import json;print(json.load(open('$TMPV/version.json')).get('sha256',''))" 2>/dev/null || true)
+            NO_AR_TREE=$(python3 -c "import json;print(json.load(open('$TMPV/version.json')).get('webTree',''))" 2>/dev/null || true)
           fi
-          if [ -n "$NO_AR_VER" ] && [ "$NO_AR_VER" = "$VERSION" ] && [ "$NO_AR_SHA" != "$SHA" ]; then
-            echo "::error::a base web mudou e a versão continua v$VERSION (o canal já publica a v$NO_AR_VER com outro sha256) — o OTA ignora, em silêncio, o que não for MAIOR: suba as três casas (docs/BUILD.md, 'O rito de entrega')"
-            exit 1
+          ARVORE=$(git rev-parse "HEAD:app/src/main/assets/web" 2>/dev/null || true)
+          if [ -n "$NO_AR_VER" ] && [ "$NO_AR_VER" = "$VERSION" ]; then
+            if [ -z "$NO_AR_TREE" ]; then
+              echo "::warning::o manifesto no ar não traz \`webTree\` (é anterior a esta guarda) — a versão IGUAL não pôde ser comparada por conteúdo"
+            elif [ "$NO_AR_TREE" != "$ARVORE" ]; then
+              echo "::error::a base web mudou e a versão continua v$VERSION (o canal já publica a v$NO_AR_VER com outro conteúdo) — o OTA ignora, em silêncio, o que não for MAIOR: suba as três casas (docs/BUILD.md, 'O rito de entrega')"
+              exit 1
+            fi
           fi
 
-          python3 - "$SRC" "$META" "$SHA" "$GITHUB_REPOSITORY" "$(basename "$ZIP")" <<'PY'
+          ARVORE=$(git rev-parse "HEAD:app/src/main/assets/web" 2>/dev/null || true)
+          python3 - "$SRC" "$META" "$SHA" "$GITHUB_REPOSITORY" "$(basename "$ZIP")" "$ARVORE" <<'PY'
           import json, os, sys
-          src, out, sha, repo, nome = sys.argv[1:6]
+          src, out, sha, repo, nome, arvore = sys.argv[1:7]
           meta = json.load(open(src))
           saida = {
               "version": meta["version"],
               "minShell": int(meta["minShell"]),
               "sha256": sha,
+              "webTree": arvore,
               "assets": f"https://github.com/{repo}/releases/download/web-latest/{nome}",
           }
           # O BLOCO `shell` É O RECADO PARA O APARELHO: "esta base web vem com um

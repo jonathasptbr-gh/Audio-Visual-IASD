@@ -216,6 +216,13 @@ via da rede local foi confirmada como a única: **sem servidor**, o link vale na
 mesma Wi-Fi (ou no ponto de acesso do celular), nunca por 4G. O (a), o passador
 Bluetooth, foi RECUSADO por ele na mesma resposta e não volta a esta fila.
 
+**Estudo entregue (2026-11-17):** [`ESTUDO-CRONOGRAMA.md`](ESTUDO-CRONOGRAMA.md) — o
+compartilhamento e os MODELOS de cronograma como as duas faces da mesma moeda: as
+três rotas de entrega (arquivo pequeno, link do app, os dois aparelhos na Wi-Fi),
+os três modelos de culto (sábado de manhã, domingo à noite, quarta à noite) e as
+quatro decisões que o operador precisa tomar. **Nada foi autorizado:** a fila
+espera a resposta.
+
 ### 13.2 Transmissão ao vivo (câmera fixa → YouTube)
 
 Pedido (2026-10-31 11:53): um segundo celular dedicado é a CÂMERA (720p/30 na
