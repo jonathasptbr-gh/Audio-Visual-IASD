@@ -287,6 +287,36 @@ rota de LEITURA de arquivo). Fica assim:
 | **L3a · o app abre o link** | prévia, confirmação e importação da organização e das mídias re-baixáveis | site + manifesto ⇒ **Release** |
 | **L3b · a sala do organizador** | a mesma prévia puxa a mídia especializada do aparelho dele, numa interação | shell (o servidor das telas) ⇒ **Release** |
 
+## 3.2 · O organizador como fonte, mas PELA INTERNET — sim, e é assim que fica
+
+**Pergunta do operador (17/11):** *"podemos fazer pela internet ao invés de
+limitarmos ao wifi ou mesma rede? É possível?"* — **É possível, e a limitação
+não é o app: é a rede.** Um aparelho no 4G/5G quase nunca é alcançável por
+outro aparelho; quem resolve isso é uma peça de infraestrutura, e há quatro
+degraus:
+
+| degrau | como funciona | o que custa | quando falha |
+|---|---|---|---|
+| **1 · IPv6 público** | o celular tem endereço público e o app serve a sala nele; o link carrega o endereço | **nada** | operadora sem IPv6, firewall de entrada, endereço que muda — falha em SILÊNCIO |
+| **2 · P2P (WebRTC) + sinalização** | os dois aparelhos negociam por um serviço mínimo (WebSocket) e os BYTES vão direto | hospedagem de um serviço de KB; relay quando a rede não deixa | rede simétrica (comum no 4G) exige **relay**, e aí os bytes passam por um servidor |
+| **3 · uma "sala" em storage** | o organizador SOBE a mídia especializada; o link aponta para ela; o destinatário baixa quando quiser | free tier cobre um culto por semana com folga (ex.: R2 — 10 GB e saída gratuita) | precisa de conta e de um token curto: infraestrutura nossa |
+| **4 · Wi-Fi** | o que já existe | nada | os dois precisam estar juntos |
+
+**A recomendação, sem enfeite:** o **degrau 4 sai primeiro** (custo zero, e é o
+caso do sábado), e o **degrau 3 é o que compra o "de qualquer lugar"** — é o
+único em que o link funciona sozinho, dias depois, sem ninguém online. O 1 é
+sorte, não plano. O 2 é o mais elegante e o mais caro de manter (relay, cotas,
+depuração de NAT), e não vale antes de o 4 e o 3 estarem em uso.
+
+**O desenho que não muda com o degrau escolhido:** o app tenta, nesta ordem —
+**a sala publicada** (se o organizador publicou) → **o aparelho dele na rede**
+(se estiver) → **o que é re-baixável** (biblioteca e YouTube) — e a página diz,
+item por item, de onde cada mídia veio. A interação é a mesma, uma.
+
+**LGPD, uma linha:** no degrau 3 a mídia da igreja passa a morar num provedor
+de nuvem; o organizador precisa saber e consentir com isso na hora de
+publicar, e a sala se APAGA sozinha depois de N dias (o prazo é decisão dele).
+
 ## 4 · O que a primeira página precisa provar (L1)
 
 1. um link sem roteiro válido **não quebra**: mostra a página de erro do site
