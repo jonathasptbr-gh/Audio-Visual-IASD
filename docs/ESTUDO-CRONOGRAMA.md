@@ -325,3 +325,84 @@ publicar, e a sala se APAGA sozinha depois de N dias (o prazo é decisão dele).
   servidor (o roteiro vem no fragmento)
 4. o botão "Baixar o roteiro" entrega um `.avro` que o app vai saber abrir
 5. a leitura é **só leitura**: a página nunca importa nada sozinha
+
+---
+
+# Parte III — o pacote (decisão do operador, 17/11)
+
+**A pergunta foi:** *"e se abandonarmos o link e trabalharmos próximo do
+formato que já usamos para a exportação, onde se cria um arquivo com tudo
+junto?"* — **é a rota mais sólida das três**, e a que mais aproveita o que já
+existe. O link e a sala (Partes I e II) ficam como registro do estudo; esta
+parte os SUBSTITUI.
+
+## 1 · Por que ela ganha
+
+| o problema do link | como o pacote resolve |
+|---|---|
+| a mídia especializada precisa de uma fonte online | ela VIAJA dentro do arquivo |
+| servidor, conta, token, custo mensal | nenhum |
+| quem está online na hora | ninguém precisa estar |
+| o link pode expirar ou o endereço mudar | o arquivo é do destinatário, para sempre |
+| depender de App Links e Release | a exportação e a importação já são **JavaScript** (`controle/pacote.js`) ⇒ **só web / OTA** |
+
+**O que já existe e é reusado inteiro:** o `.avpkg` é criado no lado web, leva
+o acervo **e as preferências**, e a importação **só acrescenta**, com dedupe
+por conteúdo ([`PACOTE.md`](recursos/PACOTE.md)). O pacote do culto é esse
+mesmo arquivo com **duas coisas a mais na raiz**.
+
+## 2 · O formato — `.avpkg` v2, sem inventar outro
+
+```
+culto-2026-11-21.avpkg   (ZIP)
+├── manifesto.json    { "av": 2, "tipo": "culto"|"modelo", "versao": "1.14.x" }
+├── roteiro.json      a organização: momentos, horas, mídias por id, vagas
+├── capa.png          o card do culto (1080×1350) — a prévia que o app mostra
+└── midias/           SÓ a mídia especializada (foto, vídeo, PPTX), com o
+                      nome que o roteiro referencia
+```
+
+- **a mídia da biblioteca não entra**: hinário, Provai e Vede, Informativo, as
+  séries — o roteiro leva o **id** e o destinatário já tem; o pacote fica do
+  tamanho da mídia ESPECIALIZADA
+- **compatível para trás**: um app antigo ignora `roteiro.json` e `capa.png` e
+  importa o acervo como sempre; um app novo, diante de um pacote sem roteiro,
+  faz exatamente o que faz hoje
+- **determinístico**: a única data que entra é a do próprio culto, e o
+  `manifesto.json` não carrega relógio — o mesmo culto exportado duas vezes dá
+  o mesmo arquivo (é o que permite dedupe por hash entre aparelhos)
+- **nome do arquivo**: `culto-AAAA-MM-DD.avpkg` — é o que aparece na conversa
+
+## 3 · A entrega: WhatsApp, como documento
+
+O WhatsApp transporta documento até 2 GB; um culto com a mídia especializada
+fica na casa das dezenas de MB. **Uma interação nos dois lados:** o operador
+toca em "Exportar o culto" e escolhe o contato; o destinatário toca no arquivo
+e o app abre a **prévia** (a capa, os itens, o que já tem e o que vem junto) e
+confirma. *Importar só acrescenta* — a mesma regra de sempre.
+
+## 4 · A prévia antes de importar — o único ponto em que o pacote perde
+
+O arquivo não tem miniatura na conversa (o WhatsApp mostra o ícone de
+documento). Duas respostas, nesta ordem:
+
+1. **a prévia no app** (já resolve o essencial): o toque abre a capa e a lista
+   ANTES de importar, com o botão de confirmar. É uma interação, e nada entra
+   sem o "sim" de quem recebe.
+2. **a capa na conversa** (refinamento, se ele quiser): o app manda o
+   `capa.png` junto, como imagem — dois arquivos, um toque cada. Ou o pacote
+   vira **PDF com anexos**: o WhatsApp desenha a página 1 (a capa) como
+   miniatura, e o PDF carrega o `.avpkg` embutido. Custa um escritor de PDF com
+   anexos no web — fica para depois de o pacote estar em uso.
+
+## 5 · Os lotes (todos **só web**, sem Release)
+
+| lote | entrega | prova |
+|---|---|---|
+| **P1 · exportar o culto** | "Exportar o culto" na folha dos Cronogramas: monta o `.avpkg` v2 com roteiro + capa + mídia especializada | oráculo: o arquivo tem as quatro partes, e a mídia da biblioteca NÃO entra |
+| **P2 · importar com prévia** | a folha de prévia (capa, itens, "já tenho"/"vem junto") e a confirmação; importação guardada | oráculo: importa, não substitui, e um pacote sem roteiro se comporta como hoje |
+| **P3 · os modelos** | a chave `modelos`, os três de fábrica, "Novo a partir de um modelo" e o `tipo: "modelo"` no mesmo pacote | oráculo: o modelo gera um cronograma guardado e não toca no ativo |
+| **P4 · a capa na conversa** | (fase 2) o `capa.png` junto, ou o PDF com anexos | — |
+
+**A ordem de valor:** P3 (o culto nasce pronto) e P1 (o culto viaja) são as que
+mudam o sábado; P2 fecha o ciclo com o "sim" do destinatário; P4 é polimento.
