@@ -478,3 +478,84 @@ galeria abriria a imagem, não o app.
 
 Até essa medição, o desenho é: **uma ação com os dois arquivos**, e o
 `intent-filter` para o toque no pacote cair no app.
+
+---
+
+# Parte IV — o PLANO FINAL (para executar em 18/11)
+
+**A correção que muda tudo, medida na véspera:** o `.avpkg` **já leva a
+organização do culto**. Desde a v1.14.32 o itinerário viaja como o que ele é —
+os momentos são cues `momento` dentro do cronograma, e um cronograma GUARDADO
+leva os dele ([`PACOTE.md`](recursos/PACOTE.md), "O itinerário no pacote"). O
+pacote também já leva os cronogramas guardados, o import **só acrescenta** e a
+`pacoteConferir` já percorre os cabeçalhos ANTES de gravar.
+
+**Portanto: NÃO se cria formato novo.** Nada de `.avpkg` v2 com `roteiro.json`
+— isso seria um segundo formato para a mesma coisa, que é o defeito que o
+projeto mais evita. O que falta é pequeno e é de outra natureza: **a unidade
+"culto" na interface, a capa, a prévia e a porta de entrada.**
+
+## 1 · O que falta, em quatro peças
+
+| peça | o que é | já existe? |
+|---|---|---|
+| **A · exportar ESTE culto** | um modo do Transferir que leva UM cronograma guardado + as mídias dele (a especializada junto; a da biblioteca por id, como já é) | o Transferir existe por GRUPOS; falta o escopo "este culto" |
+| **B · a capa** | um registro novo no cabeçalho do pacote com o PNG do card (1080×1350) | não |
+| **C · a prévia do culto** | ao abrir o pacote: a capa, a lista dos itens, "já tenho" × "vem junto", e o CONFIRMAR | a `pacoteConferir` já sabe o que entra; falta a tela e o recorte por culto |
+| **D · a porta de entrada** | `intent-filter` de `ACTION_VIEW` para o `.avpkg` — o toque abre o app na prévia | não (hoje cai no gerenciador de arquivos) |
+
+## 2 · O formato (o mesmo, com duas decisões de compatibilidade)
+
+- **`av`** sobe de 1 para 2 no cabeçalho do pacote, e a capa entra como um
+  registro NOVO no começo. **Primeiro passo do P1: medir o que um app antigo
+  faz com um registro de tipo desconhecido** — se ele conta em `recusadas`, o
+  registro precisa nascer com um tipo que o import velho já ignore em silêncio.
+  Essa medição decide o desenho da capa e é o primeiro oráculo.
+- **O escopo "culto" viaja no cabeçalho** (um campo com o id do cronograma): é
+  o que permite ao import saber que aquilo é UM culto e mostrar a prévia dele,
+  em vez da lista de grupos do acervo.
+- **A mídia da biblioteca continua por id**; a especializada vai no corpo — é
+  o que o pacote já faz.
+- **A `state.itinerario` continua fora** (atraso, horários ocultos são deste
+  aparelho): é a regra da v1.14.32 e não muda.
+
+## 3 · Os lotes, na ordem de execução
+
+| lote | escopo | toca | a prova que fecha |
+|---|---|---|---|
+| **P1 · a capa, sozinha** | gerar o card (1080×1350) e gravá-lo no pacote como primeiro registro; medir o app antigo | **só web** | oráculo: o pacote com capa abre no import de hoje e o acervo entra igual; reversão (sem capa) provada |
+| **P2 · exportar este culto** | o modo "este culto" no Transferir: um cronograma guardado + as mídias dele | só web | oráculo: o pacote de um culto leva os momentos, o cronograma e só as mídias dele; o `pacote.test.mjs` continua verde |
+| **P3 · a prévia do culto** | a tela: capa, itens, "já tenho"/"vem junto", CONFIRMAR; importação guardada | só web | oráculo: não toca no ativo, não substitui, e um pacote sem capa se comporta como hoje |
+| **P4 · a porta de entrada** | `intent-filter` + a rota que abre a prévia com o pacote | **Kotlin ⇒ Release** | medição no aparelho: o toque no arquivo abre o app na prévia |
+| **P5 · os modelos** | a chave `modelos`, os três de fábrica, "Novo a partir de um modelo" | só web | oráculo: o modelo gera um cronograma GUARDADO e o ativo não muda |
+
+**Dependência:** P2 depende de P1 (a capa é o que a prévia mostra); P4 depende
+de P2 (não há o que abrir antes de o escopo existir); P5 é independente e pode
+entrar em qualquer ponto — é o menor lote dos cinco.
+
+## 4 · Medições no aparelho (dono: `medição`)
+
+1. **a mistura**: `ACTION_SEND_MULTIPLE` com o PNG + o `.avpkg` — chegam os
+   dois? duas bolhas na mesma conversa? o `.avpkg` mantém o tamanho? (o
+   operador já testou com foto + PDF e "parece funcionar"; o teste é com o
+   pacote real)
+2. **o app antigo diante do registro da capa** (o passo 1 do P1 manda rodar no
+   CI com o bundle anterior)
+3. **o toque no arquivo** depois do `intent-filter`, com o app instalado e com
+   ele matando o processo
+
+## 5 · Os riscos, e o que NÃO se faz
+
+- **não** criar segundo formato (o `roteiro.json` da Parte III morre aqui)
+- **não** tocar no cronograma ATIVO: a importação cria um GUARDADO
+- **não** deixar a capa quebrar app antigo — é a primeira medição do P1
+- **não** recomprimir imagem no caminho (o card vai como PNG cru)
+- **não** mexer na regra do `state.itinerario` (atraso é do aparelho)
+- o nome do arquivo leva o culto e a data: `Culto 21-11 Sábado.avpkg`
+
+## 6 · O que o operador faz (e o que decide depois)
+
+Nada até amanhã. Na volta, a ordem é **P1 → P2 → P3 → P4** e o **P5 em
+paralelo** (é o mais barato). A primeira sessão começa medindo o item 1 do P1
+— o que um app antigo faz com um registro novo —, porque é ele que decide o
+desenho da capa.

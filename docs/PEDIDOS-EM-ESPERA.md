@@ -312,6 +312,11 @@ decisão):
    o destinatário vê o que vai entrar e confirma antes. (É a mesma decisão de
    porta de ENTRADA que o 13.1 já levantou para o controle remoto de slides.)
 
+**Plano final (2026-11-17):** [`ESTUDO-CRONOGRAMA.md`](ESTUDO-CRONOGRAMA.md), "Parte IV" —
+o formato **não muda** (o `.avpkg` já leva a organização desde a v1.14.32); faltam a
+unidade "culto" no Transferir, a capa, a prévia e o `intent-filter`. A ordem de
+execução é P1 → P2 → P3 → P4, com P5 (os modelos) em paralelo.
+
 **A regra que este pacote herda e não pode esquecer:** *importar só acrescenta*
 (`PACOTE.md`); nada que já esteja no aparelho do sonoplasta é substituído.
 
