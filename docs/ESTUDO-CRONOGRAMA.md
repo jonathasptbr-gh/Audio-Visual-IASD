@@ -406,3 +406,47 @@ documento). Duas respostas, nesta ordem:
 
 **A ordem de valor:** P3 (o culto nasce pronto) e P1 (o culto viaja) são as que
 mudam o sábado; P2 fecha o ciclo com o "sim" do destinatário; P4 é polimento.
+
+## 6 · O envelope: miniatura na conversa e porta de entrada
+
+**O que o operador apontou (17/11):** *"o nosso `.avpkg` não tem uma miniatura
+que faça ele ser discernido, também não é uma porta de entrada — o usuário tem
+de abrir o app e depois reprocurar o arquivo"*. São duas propriedades
+diferentes, e elas puxam para lados opostos:
+
+| propriedade | o que ela exige | dá para ter com o pacote hoje? |
+|---|---|---|
+| **miniatura na conversa** | o arquivo tem de ser IMAGEM — o WhatsApp desenha miniatura de imagem e de vídeo; documento (PDF, PPTX, ZIP) sai com **ícone genérico + nome** | não |
+| **tocar e cair no app** | o app tem de se declarar DONO daquele tipo — `intent-filter` no manifesto | **não hoje; e é a peça que falta** |
+| **levar a mídia e ser lido pelo app** | ZIP | sim, é o que o `.avpkg` já é |
+
+**A porta de entrada é a peça mais barata e a mais valiosa.** O app já recebe
+"compartilhar para" (vídeo, link, arquivo), mas não se declara dono do
+`.avpkg`: por isso o toque no arquivo cai no gerenciador de arquivos e o
+caminho vira "abrir o app → importar → procurar". Um `intent-filter` de
+`ACTION_VIEW` para a extensão (com o MIME próprio) faz o toque abrir o app na
+**prévia** — um toque. É Kotlin ⇒ **Release**, e é pequeno.
+
+**A miniatura não se resolve com contêiner.** Testado o que os mensageiros
+fazem: PDF e PPTX também saem com ícone no WhatsApp (o PDF mostra a página 1
+em alguns aparelhos, não em todos). Quem quiser imagem na conversa precisa de
+uma IMAGEM — e aí há duas saídas honestas:
+
+- **A · o card como primeira bolha** (a que recomendo): o app manda o
+  `capa.png` e, na sequência, o `.avpkg`. O destinatário **vê o culto antes de
+  tocar** (é o que o operador pediu desde o começo), e a importação continua
+  sendo o toque no pacote. Não é "mídia solta": a capa é a prévia, e a mídia
+  continua toda dentro do pacote.
+- **B · o PDF-envelope** (fase 2, se ele quiser um único documento "de gente"):
+  um PDF com a página 1 = o card e o `.avpkg` **embutido** como anexo (PDF
+  Portfolio), mais o mesmo ZIP acrescentado depois do `%%EOF` como atalho de
+  leitura. Abre em qualquer leitor, é organizado — mas o leitor de PDF do
+  Android não é o nosso app, então a importação ainda precisa do passo do
+  `.avpkg`. Custa um escritor de PDF com anexos no web.
+
+**A combinação recomendada:** o `.avpkg` v2 (o payload) + o `intent-filter`
+(A: o toque abre o app) + o card como primeira bolha. É o mínimo que entrega
+as três coisas, e nenhuma delas inventa formato novo.
+
+**E o nome do arquivo importa:** `Culto 21-11 Sábado.avpkg` (o culto e a data)
+é o que faz o arquivo ser discernido na conversa enquanto a miniatura não vem.
