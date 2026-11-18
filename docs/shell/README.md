@@ -5,7 +5,7 @@ para a TV com `android.app.Presentation`.
 
 > **Este diretório é o irmão de [`../arquitetura/`](../arquitetura/).** Aquele
 > cobre a base web (`assets/web/`); este cobre o Kotlin
-> (`app/src/main/java/br/org/iasd/av/`, 32 arquivos). As regras que valem para
+> (`app/src/main/java/br/org/iasd/av/`, 33 arquivos). As regras que valem para
 > o app inteiro — invariantes, paleta, entrega, divergências web × nativo —
 > ficam em [`../../CLAUDE.md`](../../CLAUDE.md), que continua sendo a **leitura
 > obrigatória**; aqui está o detalhe que ela aponta.
@@ -25,7 +25,7 @@ para a TV com `android.app.Presentation`.
 > [`../BUILD.md`](../BUILD.md) (build, assinatura, backup) e no
 > [`../DIVERGENCIAS-WEB-NATIVO.md`](../DIVERGENCIAS-WEB-NATIVO.md), mais o KDoc dos arquivos.
 
-## Os 32 arquivos, e onde cada um é explicado
+## Os 33 arquivos, e onde cada um é explicado
 
 | arquivo | linhas | onde |
 |---|---|---|
@@ -52,10 +52,11 @@ para a TV com `android.app.Presentation`.
 | `MainActivity.kt` | 3.346 | [`../DIVERGENCIAS-WEB-NATIVO.md`](../DIVERGENCIAS-WEB-NATIVO.md) — voltar, volume, cast, saída de áudio, fullscreen |
 | `StagePresentation.kt` | 188 | [`../arquitetura/DISPLAY.md`](../arquitetura/DISPLAY.md) — "Reconexão e morte do renderer" (resumo no `CLAUDE.md`) |
 | `MicChromeClient.kt` | 81 | [`../DIVERGENCIAS-WEB-NATIVO.md`](../DIVERGENCIAS-WEB-NATIVO.md) — "O microfone ao vivo SAIU" (o `onPermissionRequest` segue armado para o dia em que a captura voltar; o `requestMic`/`requestMicPermission` e o `MicDiag` saíram na X1) |
-| `PacoteProvider.kt` | 39 | `CLAUDE.md` — "O pacote de transferência" (subclasse VAZIA do `FileProvider`, e ela É a correção do "0 KB": duas autoridades sobre a MESMA classe compartilham a instância — e a tabela de caminhos — da primeira, porque o `ActivityThread` as guarda por `ComponentName`. Oráculo: `manifest-provedores.test.mjs`) |
+| `PacoteProvider.kt` | 49 | `CLAUDE.md` — "O pacote de transferência" (subclasse do `FileProvider` — vazia salvo o `getType` do `.avpkg` de um culto, shell 90 —, e ela É a correção do "0 KB": duas autoridades sobre a MESMA classe compartilham a instância — e a tabela de caminhos — da primeira, porque o `ActivityThread` as guarda por `ComponentName`. Oráculo: `manifest-provedores.test.mjs`) |
+| `PacoteCulto.kt` | 73 | [`../recursos/PACOTE.md`](../recursos/PACOTE.md) — "O pacote de um culto" (shell 90: a parte PURA — nome do arquivo, pasta `culto/`, MIME próprio, tipo do envio, capa em base64 conferida como PNG; JUnit `PacoteCultoTest`) |
 | `PacoteCanal.kt` | 326 | `CLAUDE.md` — "O pacote de transferência" (o SEGUNDO canal de `ArrayBuffer` do shell; abrir e fechar o destino entram pela ponte, porque envolvem uma PESSOA) |
 | `MessageBus.kt` | 54 | `CLAUDE.md` — "Barramento de comandos" |
-| `ShareIntake.kt` | 164 | [`../DIVERGENCIAS-WEB-NATIVO.md`](../DIVERGENCIAS-WEB-NATIVO.md) — "Compartilhamento" |
+| `ShareIntake.kt` | 241 | [`../DIVERGENCIAS-WEB-NATIVO.md`](../DIVERGENCIAS-WEB-NATIVO.md) — "Compartilhamento" |
 | `SlideDeck.kt` | 455 | [`../arquitetura/DOCUMENTO-EM-CENA.md`](../arquitetura/DOCUMENTO-EM-CENA.md) |
 | `Farol.kt` | 258 | [`../MEDICAO-DE-ALCANCE.md`](../MEDICAO-DE-ALCANCE.md) — uma busca por dia, agregada, sem id nenhum |
 | `CifraFonte.kt` | 178 | `CLAUDE.md` — "A aba de cifra" (transporte só; quem lê o HTML é `controle/cifra.js`) |

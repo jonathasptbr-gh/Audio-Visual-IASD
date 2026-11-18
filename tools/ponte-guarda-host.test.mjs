@@ -14,7 +14,7 @@
 // um teste).
 //
 // **A conta medida em 2026-11-08 (revisão K2) e remedida na X1:** 70 métodos,
-// 44 com recusa explícita (`host == null` / `h == null`) e 26 sem ela (hoje 76:
+// 44 com recusa explícita (`host == null` / `h == null`) e 26 sem ela (hoje 79:
 // o volume do shell 86 e o `abrirGuia` do 87 entraram com recusa). Os 26 não são um
 // defeito — são papel-agnósticos ou usam chamada segura (`host?.`) —, mas
 // NADA no repositório dizia isso: um método novo nascia com ou sem guarda por
@@ -168,11 +168,11 @@ for (const m of metodos) {
 }
 
 // ===== as asserções =====
-checar(metodos.length === 76,
-  'a premissa: a varredura achou os 76 métodos `@JavascriptInterface` (a conta do `CLAUDE.md`)',
+checar(metodos.length === 79,
+  'a premissa: a varredura achou os 79 métodos `@JavascriptInterface` (a conta do `CLAUDE.md`)',
   metodos.length);
-checar(comGuarda.length === 76 - Object.keys(DECLARADOS).length,
-  `a conta: ${76 - Object.keys(DECLARADOS).length} métodos recusam sem \`host\` e ${Object.keys(DECLARADOS).length} têm motivo declarado (76 no total)`,
+checar(comGuarda.length === 79 - Object.keys(DECLARADOS).length,
+  `a conta: ${79 - Object.keys(DECLARADOS).length} métodos recusam sem \`host\` e ${Object.keys(DECLARADOS).length} têm motivo declarado (79 no total)`,
   `${comGuarda.length} com guarda · ${semGuarda.length} sem`);
 
 const faltandoNaLista = semGuarda.filter((n) => !DECLARADOS[n]);

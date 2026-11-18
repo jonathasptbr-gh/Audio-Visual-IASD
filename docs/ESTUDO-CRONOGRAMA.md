@@ -568,3 +568,8 @@ e a capa vai em registros `info` (um por página, `capa:'image/png'`), que todo
 app pula. P1+P2 saíram juntos; a capa é 1080×1920 (não 1080×1350) e pagina em
 até 6. O formato e a regra estão no [`PACOTE.md`](recursos/PACOTE.md).
 
+
+**P3 + P4 (18/11, v1.14.75, shell 90):** a prévia do culto (nada gravado antes do Importar), a porta
+de entrada (`ACTION_VIEW` por `application/octet-stream` + MIME próprio, pela fila dos shares), as
+capas JUNTO no envio (`ACTION_SEND_MULTIPLE`) e o pronto próprio do culto. As medições 1 e 3 da §4
+continuam do aparelho. O formato e a regra: [`PACOTE.md`](recursos/PACOTE.md).

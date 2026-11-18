@@ -79,7 +79,7 @@ const PONTE = `(function () {
     shellVersion: () => 63,
     role: () => 'controle',
     appVersion: () => '9.99-teste',
-    takeShare: (id) => R(id, ''),
+    takeShare: (id) => R(id, (window.__shares && window.__shares.shift()) || ''),
     busPost: () => {},
     bgProgress: () => {},
     otaConfirm: () => {},
@@ -90,8 +90,8 @@ const PONTE = `(function () {
     pacoteCriarLocal: (id, nome) => { window.__chamadas.push('criarLocal:' + nome); R(id, nome); },
     pacoteFechar: (id) => { window.__chamadas.push('fechar'); R(id, total()); },
     pacoteCompartilhar: (id) => { window.__chamadas.push('compartilhar'); R(id, total()); },
-    pacoteProntoEstado: (id) => R(id, null),
-    pacoteConsumirOrigem: (id) => R(id, ''),
+    pacoteProntoEstado: (id) => R(id, window.__prontoNoShell || null),
+    pacoteConsumirOrigem: (id) => { window.__chamadas.push('consumir'); R(id, ''); },
     pickDoc: (id) => {
       const tam = window.__tamEntrada;
       R(id, typeof tam === 'number'
@@ -169,18 +169,54 @@ const txt = (u8) => new TextDecoder().decode(u8);
 const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 const ehPng = (u8) => u8.length > 8 && PNG.every((b, i) => u8[i] === b);
 
-async function importar(pg, bytes) {
+async function importar(pg, bytes, opts) {
   pacoteServido = bytes;
   await pg.evaluate(() => { window.__fim = importarPacote(); });
-  const abriu = await esperar(pg, () => {
-    const d = document.getElementById('appDialog');
-    return !!d && d.classList.contains('open');
-  }, null, 60000);
+  return seguir(pg, opts);
+}
+const dialogoAberto = (pg) => esperar(pg, () => {
+  const d = document.getElementById('appDialog');
+  return !!d && d.classList.contains('open');
+}, null, 60000);
+// O QUE A PRÉVIA MOSTRA, e o que o banco tem ENQUANTO ela está aberta (nada gravado ainda).
+const lerPrevia = (pg) => pg.evaluate(async () => {
+  const imgs = [...document.querySelectorAll('#appDialogCapasTrilho img')];
+  await Promise.all(imgs.map((i) => i.decode().catch(() => {})));
+  const t = (id) => (document.getElementById(id) || {}).textContent || '';
+  const c = await AVDB.getState('cronogramas');
+  return {
+    titulo: t('appDialogTitle'), msg: t('appDialogMsg'), ok: t('appDialogOk'), cancel: t('appDialogCancel'),
+    cancelVisivel: !document.getElementById('appDialogCancel').hidden,
+    capas: imgs.map((i) => [i.naturalWidth, i.naturalHeight]),
+    conta: document.getElementById('appDialogCapasConta').hidden ? '' : t('appDialogCapasConta'),
+    guardados: c ? c.itens.length : 0, imports: (await AVDB.listIds('imports')).length,
+    midA: !!(await AVDB.getMediaCru('mid-a')),
+  };
+});
+const ehPrevia = (pg) => pg.evaluate(() => document.querySelector('#appDialog .dialog-card').classList.contains('previa-culto'));
+// Segue uma importação em curso: a PRÉVIA (se vier) e o relatório. `cancelar` toca Cancelar na prévia.
+async function seguir(pg, opts) {
+  const o = opts || {};
+  let abriu = await dialogoAberto(pg);
+  let previa = null;
+  if (abriu === true && await ehPrevia(pg)) {
+    previa = await lerPrevia(pg);
+    if (o.antesDeTocar) await o.antesDeTocar(pg);
+    await pg.click(o.cancelar ? '#appDialogCancel' : '#appDialogOk');
+    if (o.cancelar) {
+      await pg.evaluate(() => window.__fim).catch(() => {});
+      return { abriu, previa, cancelado: true };
+    }
+    abriu = await esperar(pg, () => {
+      const d = document.getElementById('appDialog');
+      return d.classList.contains('open') && !d.querySelector('.dialog-card').classList.contains('previa-culto');
+    }, null, 60000);
+  }
   const msg = await pg.evaluate(() => (document.getElementById('appDialogMsg') || {}).textContent || '');
   const titulo = await pg.evaluate(() => (document.getElementById('appDialogTitle') || {}).textContent || '');
   if (abriu === true) await pg.click('#appDialogOk');
   await pg.evaluate(() => window.__fim).catch(() => {});
-  return { abriu, msg, titulo };
+  return { abriu, msg, titulo, previa };
 }
 const estadoCronos = (pg) => pg.evaluate(async () => ({
   lido: await AVDB.getState('cronogramas'),
@@ -188,6 +224,7 @@ const estadoCronos = (pg) => pg.evaluate(async () => ({
   imports: await AVDB.listIds('imports'),
 }));
 
+const fotos360 = [];
 try {
   // =========================================================================
   // O APARELHO DE ORIGEM: "Culto Sábado" (ativo) com um momento, uma mídia, um hino
@@ -275,7 +312,7 @@ try {
     li.querySelector('.crono-enviar').click();
   });
   const enviou = await esperar(A.pg, () => window.__chamadas.includes('compartilhar'), null, 60000);
-  checar(enviou === true, 'B · o toque no enviar escreve o pacote e ABRE O COMPARTILHAR', String(enviou));
+  checar(enviou === true, 'B · (APK velho, sem os métodos do shell 90) o toque no enviar escreve o pacote e ABRE O COMPARTILHAR de um arquivo', String(enviou));
   const cham = await A.pg.evaluate(() => window.__chamadas.slice());
   const hoje = new Date();
   const dd = String(hoje.getDate()).padStart(2, '0') + '-' + String(hoje.getMonth() + 1).padStart(2, '0');
@@ -327,6 +364,7 @@ try {
 
   // ===== B · VÁRIAS PÁGINAS: um stub que devolve 3 PNG de tamanhos distintos =====
   const pngsDoStub = async (pg, so) => pg.evaluate((soDesenhar) => {
+    window.__capaReal = window.__capaReal || window.AVCapa;
     window.__saida = []; window.__chamadas = [];
     const png = (w) => new Promise((r) => {
       const c = document.createElement('canvas'); c.width = w; c.height = 7;
@@ -379,6 +417,73 @@ try {
     && A.pg.avisos.some((t) => /capa/.test(t)),
   'B · com o AVCapa falhando o pacote sai com UM `info` só, inteiro, compartilhado — e a falha vai ao console',
   JSON.stringify({ tipos: regs2.slice(0, 3).map((r) => r.cab.t), cham2 }));
+
+  // ===== G · SHELL 90: o culto num arquivo PRÓPRIO e as capas AO LADO (ACTION_SEND_MULTIPLE) =====
+  // A ponte ganha os três métodos opcionais NA HORA (o `native.js` pergunta `typeof` a cada
+  // chamada). As 3 páginas são do AVCapa REAL (1080×1920) — o pacote serve também às fotos.
+  await A.pg.evaluate(() => {
+    window.__saida = []; window.__chamadas = []; window.__capasAoLado = {};
+    const R = (id, v) => setTimeout(() => window.__avResolve(id, v), 0);
+    const total = () => { let t = 0; for (const p of window.__saida) t += p.length; return t; };
+    Object.assign(window.__AVBridge, {
+      pacoteCriarCulto: (id, nome) => { window.__chamadas.push('criarCulto:' + nome); R(id, nome); },
+      pacoteCapa: (id, pagina, b64) => {
+        const bin = atob(b64);
+        window.__capasAoLado[pagina] = { tam: bin.length, png: bin.charCodeAt(0) === 0x89 && bin.slice(1, 4) === 'PNG' };
+        window.__chamadas.push('capa:' + pagina);
+        R(id, bin.length);
+      },
+      pacoteCompartilharCulto: (id) => { window.__chamadas.push('compartilharCulto'); R(id, total()); },
+    });
+    const real = window.__capaReal;
+    window.__tamanhos = null;
+    window.AVCapa = { desenharPaginas: async (d) => {
+      const bs = [await real.desenhar(d), await real.desenhar(Object.assign({}, d, { nome: d.nome + ' — 2' })),
+        await real.desenhar(Object.assign({}, d, { nome: d.nome + ' — 3' }))];
+      window.__tamanhos = bs.map((b) => b.size);
+      return bs;
+    } };
+    // UM ACERVO PRONTO no shell: com o culto à parte ele NÃO é perguntado nem apagado.
+    pacotePronto = { nome: 'acervo-av-20261118-1530.avpkg', bytes: 99 };
+  });
+  await A.pg.evaluate(() => { window.__fimG = exportarCulto('cr-a'); });
+  const foiG = await esperar(A.pg, () => window.__chamadas.includes('compartilharCulto')
+    || document.getElementById('appDialog').classList.contains('open'), null, 60000);
+  await A.pg.evaluate(() => window.__fimG);
+  const g = await A.pg.evaluate(() => ({ cham: window.__chamadas.slice(), aoLado: window.__capasAoLado,
+    tam: window.__tamanhos, pronto: pacotePronto,
+    dialogo: document.getElementById('appDialog').classList.contains('open') }));
+  checar(foiG === true && !g.dialogo && g.cham.find((c) => /^criar/.test(c)) === 'criarCulto:Culto Sábado ' + dd + '.avpkg'
+    && !g.cham.some((c) => /^criarLocal|^compartilhar$/.test(c))
+    && JSON.stringify(g.cham.filter((c) => /^capa:|^compartilharCulto|^fechar/.test(c)))
+      === '["fechar","capa:1","capa:2","capa:3","compartilharCulto"]',
+  'G · com o shell 90: pacoteCriarCulto (sem perguntar pelo acervo pronto), fechar, as 3 páginas AO LADO '
+  + 'em ordem e o compartilhar do culto — nunca o criarLocal/compartilhar de um arquivo', JSON.stringify(g));
+  checar(g.tam && [1, 2, 3].every((i) => g.aoLado[i] && g.aoLado[i].png && g.aoLado[i].tam === g.tam[i - 1]),
+    'G · cada capa chega ao shell com os MESMOS bytes do Blob (PNG cru, sem recomprimir)', JSON.stringify(g));
+  checar(g.pronto && g.pronto.nome === 'acervo-av-20261118-1530.avpkg',
+    'G · o pronto do ACERVO continua de pé (o culto não o leva na porta)', JSON.stringify(g.pronto));
+  const tresReais = await saidaDe(A.pg);
+  checar(capasDe(registros(tresReais)).length === 3, 'G · o pacote leva as 3 capas reais dentro também');
+
+  // ===== H · O CANCELAR do envio: o MESMO botão, enquanto prepara =====
+  const h = await A.pg.evaluate(async () => {
+    window.__saida = []; window.__chamadas = [];
+    const btn = () => [...document.querySelectorAll('#cronoLista .crono-item')]
+      .find((x) => x.querySelector('.crono-item-nome').textContent === 'Culto Sábado').querySelector('.crono-enviar');
+    const p = exportarCulto('cr-a');
+    const b = btn();
+    const durante = { title: b.title, disabled: b.disabled, x: !!b.querySelector('.msym') };
+    b.click();
+    await p;
+    return { durante, cham: window.__chamadas.slice(), depois: btn().title,
+      dialogo: document.getElementById('appDialog').classList.contains('open') };
+  });
+  checar(h.durante.title === 'Cancelar o envio de “Culto Sábado”' && !h.durante.disabled && h.durante.x
+    && h.cham.includes('cancelar') && !h.cham.includes('compartilharCulto') && !h.cham.includes('fechar')
+    && !h.dialogo && h.depois === 'Enviar “Culto Sábado”',
+  'H · enquanto prepara, o enviar vira o ✕ "Cancelar o envio": o toque apaga o parcial (pacoteCancelar), '
+  + 'não fecha nem compartilha, e não abre diálogo de erro', JSON.stringify(h));
   await A.ctx.close();
 
   // ===== E · pacoteLerCapa =====
@@ -425,6 +530,14 @@ try {
     lyricsFont: await AVDB.getState('lyricsFont'), bible: await AVDB.getState('bibleVersion'),
     gaveta: [...document.querySelectorAll('#cronoLista .crono-item-nome')].map((x) => x.textContent),
   }));
+  const pv = impB.previa || {};
+  checar(pv.titulo === 'Culto Sábado' && /^4 itens · /.test(pv.msg) && /4 vêm junto · 0 já no aparelho/.test(pv.msg)
+    && pv.ok === 'Importar' && pv.cancel === 'Cancelar' && pv.cancelVisivel
+    && pv.capas.length === pags.length && pv.capas.every((c) => c[0] === 1080 && c[1] === 1920),
+  'P · a PRÉVIA abre antes de gravar: a capa (1080×1920), o nome, "4 itens · X" e "4 vêm junto · 0 já no '
+  + 'aparelho", com Importar (primário) e Cancelar', JSON.stringify(pv));
+  checar(pv.imports === 0 && !pv.midA && pv.guardados === (antesB.lido ? antesB.lido.itens.length : 0),
+  'P · com a prévia aberta NADA foi gravado (nem cronograma, nem lista, nem mídia)', JSON.stringify({ pv, antesB }));
   checar(impB.abriu === true && /Culto importado/.test(impB.titulo) && /entrou como um cronograma guardado/.test(impB.msg),
     'C · aparelho limpo: o Importar de hoje aceita o pacote do culto e diz que entrou como guardado',
     JSON.stringify(impB));
@@ -474,12 +587,114 @@ try {
   'C · o ativo "Meu culto" e o conteúdo dele INTOCADOS, o guardado de mesmo nome também: nada substituído',
   JSON.stringify({ antesC, depoisC }));
   // Importar o MESMO arquivo de novo não duplica.
-  await importar(C.pg, comCapa);
+  const deNovoImp = await importar(C.pg, comCapa);
   const deNovo = await estadoCronos(C.pg);
+  checar(deNovoImp.previa && /0 vêm junto · 4 já no aparelho/.test(deNovoImp.previa.msg),
+    'P · de novo: a prévia conta "0 vêm junto · 4 já no aparelho"', JSON.stringify(deNovoImp.previa));
   checar(deNovo.lido.itens.length === 3 && JSON.stringify(deNovo.imports) === '["c-item"]',
     'C · importar o MESMO arquivo de novo não cria outro guardado nem toca no ativo',
     JSON.stringify(deNovo.lido.itens.map((x) => x.nome)));
   await C.ctx.close();
+
+  // ===== P · A PRÉVIA COM 3 CAPAS (as fotos), o CANCELAR, e a ENTREGA POR VIEW =====
+  const Pv = await aparelho(tresReais);
+  await Pv.pg.setViewportSize({ width: 360, height: 640 });
+  pacoteServido = tresReais;
+  await Pv.pg.evaluate(() => { window.__fim = importarPacote(); });
+  const fotos = await seguir(Pv.pg, { cancelar: true, antesDeTocar: async (pg) => {
+    await pg.waitForTimeout(400);
+    await pg.screenshot({ path: path.join(process.env.HOME, 'tmp', 'previa-360.png') });
+    const geo360 = await pg.evaluate(() => {
+      const c = document.querySelector('#appDialog .dialog-card').getBoundingClientRect();
+      const b = document.getElementById('appDialogOk').getBoundingClientRect();
+      return { cartao: c.height, ok: b.bottom <= innerHeight && b.top >= 0 };
+    });
+    await pg.setViewportSize({ width: 430, height: 900 });
+    await pg.waitForTimeout(400);
+    await pg.screenshot({ path: path.join(process.env.HOME, 'tmp', 'previa-430.png') });
+    const tr = '#appDialogCapasTrilho';
+    await pg.evaluate((s) => { const t = document.querySelector(s); t.scrollLeft = t.clientWidth; }, tr);
+    await pg.waitForTimeout(250);
+    const conta2 = await pg.evaluate(() => document.getElementById('appDialogCapasConta').textContent);
+    await pg.evaluate((s) => { document.querySelector(s).scrollLeft = 0; }, tr);
+    fotos360.push(geo360, conta2);
+  } });
+  checar(fotos.previa && fotos.previa.capas.length === 3 && fotos.previa.capas.every((c) => c[0] === 1080 && c[1] === 1920)
+    && fotos.previa.conta === '1 de 3' && fotos360[1] === '2 de 3' && fotos360[0].ok,
+  'P · 3 capas reais na prévia, "1 de 3" → rolando, "2 de 3"; a 360×640 o Importar fica na tela',
+  JSON.stringify({ previa: fotos.previa, fotos360 }));
+  const posCancel = await Pv.pg.evaluate(async () => ({ c: await AVDB.getState('cronogramas'),
+    imports: await AVDB.listIds('imports'), mid: !!(await AVDB.getMediaCru('mid-a')),
+    cham: window.__chamadas.slice(), emCurso: pacoteEmCurso,
+    dialogo: document.getElementById('appDialog').classList.contains('open') }));
+  checar(fotos.cancelado && !posCancel.mid && posCancel.imports.length === 0
+    && (!posCancel.c || posCancel.c.itens.every((x) => x.nome !== 'Culto Sábado'))
+    && !posCancel.cham.includes('consumir') && !posCancel.emCurso && !posCancel.dialogo,
+  'P · CANCELAR na prévia não grava nada, não consome o arquivo, não abre diálogo e solta o Transferir',
+  JSON.stringify(posCancel));
+
+  // A ENTREGA POR VIEW: o que o shell faz ao tocar no arquivo — a fila dos shares com `pacote`, e o
+  // empurrão `__avShareArrived`. Com um ACERVO pronto no shell: pela porta, ele não barra.
+  await Pv.pg.evaluate((tam) => {
+    window.__chamadas = [];
+    pacotePronto = { nome: 'acervo-av-20261118-1530.avpkg', bytes: 99 };
+    window.__shares = [{ files: [], url: null, title: null, ts: 1,
+      pacote: { url: '/pacote-de-teste', name: 'Culto Sábado 18-11.avpkg', size: tam } }];
+    window.__avShareArrived();
+  }, tresReais.length);
+  const porView = await seguir(Pv.pg);
+  const posView = await Pv.pg.evaluate(async () => ({ c: await AVDB.getState('cronogramas'),
+    mid: !!(await AVDB.getMediaCru('mid-a')), cham: window.__chamadas.slice() }));
+  checar(porView.previa && porView.previa.titulo === 'Culto Sábado' && porView.previa.capas.length === 3
+    && /Culto importado/.test(porView.titulo) && posView.mid
+    && posView.c && posView.c.itens.some((x) => x.nome === 'Culto Sábado' && x.ids.length === 4)
+    && !posView.cham.includes('consumir'),
+  'P · pela PORTA (VIEW → takeShare { pacote }): a prévia abre mesmo com um acervo pronto, o Importar grava '
+  + 'como hoje, e o arquivo da conversa NÃO é consumido', JSON.stringify({ porView, posView }));
+  // O PRONTO DE UM CULTO (APK velho) não vira o pronto do acervo — não bloqueia o Importar.
+  const prontos = await Pv.pg.evaluate(async () => {
+    const r = [];
+    for (const nome of ['Culto Sábado 18-11.avpkg', 'Culto_S_bado_18-11.avpkg', 'acervo-av-20261118-1530.avpkg']) {
+      pacotePronto = null;
+      window.__prontoNoShell = { nome, bytes: 500 };
+      await lerPacotePronto();
+      r.push(pacotePronto ? pacotePronto.nome : null);
+    }
+    pacotePronto = null; window.__prontoNoShell = null;
+    return r;
+  });
+  checar(JSON.stringify(prontos) === '[null,null,"acervo-av-20261118-1530.avpkg"]',
+    'P · lerPacotePronto ignora o pronto com nome de CULTO (os dois saneamentos) e adota o do acervo',
+    JSON.stringify(prontos));
+  await Pv.ctx.close();
+
+  // ===== Q · PACOTE SEM ESCOPO DE CULTO: o import de hoje, sem prévia =====
+  const semEscopo = (() => {
+    const partes = [P.assinatura()];
+    registros(comCapa).forEach((r, i) => {
+      if (r.cab.t === 'info' && r.cab.capa) return;
+      let corpo = r.corpo;
+      let cab = r.cab;
+      if (i === 0) {
+        const inf = JSON.parse(txt(corpo));
+        delete inf.escopo; delete inf.culto; delete inf.capas;
+        corpo = new TextEncoder().encode(JSON.stringify(inf));
+        cab = Object.assign({}, cab, { bytes: corpo.length });
+      }
+      partes.push(P.cabecalhoParaBytes(cab), corpo);
+    });
+    const n = partes.reduce((t, u) => t + u.length, 0);
+    const out = new Uint8Array(n);
+    let o = 0;
+    for (const u of partes) { out.set(u, o); o += u.length; }
+    return out;
+  })();
+  const Qv = await aparelho(semEscopo);
+  const impQ = await importar(Qv.pg, semEscopo);
+  checar(impQ.abriu === true && !impQ.previa && /Acervo importado/.test(impQ.titulo),
+    'Q · um pacote SEM `escopo: culto` não tem prévia: o Importar de hoje vai direto ao relatório',
+    JSON.stringify(impQ));
+  await Qv.ctx.close();
 
   // ===== D · COMPATIBILIDADE: o caminho CRU de um importador de hoje =====
   for (const [rotulo, bytes] of [['a capa do AVCapa real', comCapa], ['TRÊS páginas de capa', tres]]) {

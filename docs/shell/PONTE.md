@@ -267,7 +267,7 @@ isso mudança de ponte é um lote **APK + web publicado JUNTO**, com `shellTag` 
 `version.json`.
 
 **A exceção declarada: método OPCIONAL** (o volume do shell 86, o `abrirGuia` do
-87 e o Não perturbe do 89). O `native.js` pergunta `typeof B.<nome> === 'function'` e, sem ele, devolve o
+87, o Não perturbe do 89 e o pacote do culto do 90). O `native.js` pergunta `typeof B.<nome> === 'function'` e, sem ele, devolve o
 desfecho de "não há" (`null`/`false`) NA HORA — sem esperar 60 s — e quem chama
 tem um caminho para isso (o guia cai no `openExternal`). É capacidade, não versão:
 o piso (`minShell`) não sobe por um método opcional.
@@ -632,7 +632,7 @@ nove coisas lá, e **nenhuma é API para o app**:
 | `shellVersion()`, `role()`, `appVersion()` | viram as globais |
 | `busPost()` | o relay nativo do barramento de comandos |
 | `otaConfirm()` | o watchdog de boot do OTA |
-| `takeShare()` | o consumo do share pendente, que alimenta o `onShare` |
+| `takeShare()` | o consumo do share pendente, que alimenta o `onShare` — e, desde o shell 90, do `.avpkg` TOCADO fora do app (`ACTION_VIEW`): `{ files: [], url: null, pacote: { url, name, size } }`, que o `controle.js` leva à prévia (`pacoteDaPorta`) |
 
 ---
 
@@ -1034,6 +1034,20 @@ window.AVNative = {
                        //   causas e o web não separa nenhuma — três rodadas de
                        //   campo se gastaram nisso. Irmão do `otaDiag` e do
                        //   `ytDiag`, com o mesmo consumidor: quem lê o Registro
+  pacoteCultoProprio(), // (shell 90, síncrono) `true` se o APK tem os três abaixo — o
+                       //   `exportarCulto` escolhe por ele; `false` = o caminho de UM
+                       //   arquivo (`pacoteCriarLocal` + `pacoteCompartilhar`)
+  pacoteCriarCulto(nome), // (shell 90) → o nome ou '': abre o `.avpkg` do culto em
+                       //   `files/pacote/culto/`; o `pacoteFechar` o promove ao pronto
+                       //   do CULTO (o `pacoteProntoEstado` nunca o mostra) e a porta
+                       //   leva só o culto e as capas anteriores, nunca o acervo
+  pacoteCapa(pagina, base64), // (shell 90) → bytes ou -1: grava a página 1..6 da
+                       //   capa (PNG cru em base64, conferido pela assinatura; nada
+                       //   recomprimido) ao lado do culto. Fila `io`
+  pacoteCompartilharCulto(), // (shell 90) → bytes do `.avpkg` ou -1: o seletor com
+                       //   as capas + o pacote (`ACTION_SEND_MULTIPLE`, `*` `/` `*`,
+                       //   sem `ClipData` à mão — o sistema migra); sem capa, o
+                       //   `ACTION_SEND` de um arquivo
   pacoteConsumirOrigem(url), // → '' (apagou) ou a FRASE do motivo: APAGA o
                        //   arquivo do SAF que uma `/saf/<token>` serve — o
                        //   `.avpkg` que a importação acabou de ler. Um pacote é

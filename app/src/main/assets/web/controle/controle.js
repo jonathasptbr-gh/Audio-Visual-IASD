@@ -493,7 +493,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.74';
+const WEB_VERSION = '1.14.75';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -21581,14 +21581,21 @@ function renderCronoGaveta() {
     env.className = 'row-btn crono-enviar';
     const temItens = !!(ativo ? libItems.length : c.qtd);
     const enviando = cultoEnviando === c.id;
+    // ENQUANTO PREPARA, O MESMO BOTÃO É O CANCELAR (o ✕, como o tile ocioso do Transferir): o
+    // escritor lê `pacoteCancelar` a cada bloco e o parcial sai pelo caminho de toda falha.
     env.hidden = !window.__NATIVE__;
-    env.disabled = !temItens || !!cultoEnviando;
+    env.disabled = !temItens || (!!cultoEnviando && !enviando);
     env.classList.toggle('trabalhando', enviando);
     env.title = !temItens ? 'O cronograma está vazio'
-      : enviando ? 'Preparando “' + c.nome + '”…' : 'Enviar “' + c.nome + '”';
+      : enviando ? 'Cancelar o envio de “' + c.nome + '”' : 'Enviar “' + c.nome + '”';
     env.setAttribute('aria-label', env.title);
-    env.innerHTML = icoSprite('icoCompartilhar');
-    env.addEventListener('click', (e) => { e.stopPropagation(); exportarCulto(c.id); });
+    if (enviando) env.appendChild(msym(ICON.close));
+    else env.innerHTML = icoSprite('icoCompartilhar');
+    env.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (cultoEnviando === c.id) { pacoteCancelar = true; return; }
+      exportarCulto(c.id);
+    });
 
     li.append(ren, troca, env, exc);
     cronoListaEl.appendChild(li);
@@ -36851,12 +36858,24 @@ async function cultoCapas(nome, ids) {
   }
 }
 
+/** O PNG da capa em base64 CRU (sem o prefixo `data:`), para o `AVNative.pacoteCapa`. */
+function cultoBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(String(fr.result || '').replace(/^data:[^,]*,/, ''));
+    fr.onerror = () => reject(fr.error || new Error('capa ilegível'));
+    fr.readAsDataURL(blob);
+  });
+}
+
 async function exportarCulto(id) {
   const c = pacoteCanal();
   if (!c || pacoteEmCurso) return;
-  // O SHELL TEM UM PRONTO SÓ, e criar outro arquivo leva o anterior na porta (a faxina de
+  // O SHELL 90 GUARDA O CULTO À PARTE (`pacoteCultoProprio`): o pronto do acervo fica. Num APK
+  // velho o pronto é UM só, e criar outro arquivo leva o anterior na porta (a faxina de
   // `pacoteCriarLocal`): com um acervo pronto, quem decide é o operador.
-  if (pacotePronto && !(await appConfirm({
+  const proprio = AVNative.pacoteCultoProprio();
+  if (pacotePronto && !proprio && !(await appConfirm({
     title: 'Descartar o pacote pronto',
     message: 'Há um pacote do acervo pronto para enviar (' + fmtBytes(pacotePronto.bytes)
       + '). Enviar este culto o apaga.',
@@ -36875,6 +36894,8 @@ async function exportarCulto(id) {
   let gravados = -1;
   let nome = '';
   let cabeLocal = false;
+  let cancelou = false;
+  let capasAoLado = 0;
   try {
     const culto = await cultoDoCronograma(id);
     if (!culto || !culto.ids.length) throw new Error('Este cronograma está vazio.');
@@ -36894,11 +36915,12 @@ async function exportarCulto(id) {
     const espaco = await AVNative.pacoteEspaco();
     cabeLocal = espaco > 0 && espaco - total > PACOTE_FOLGA_BYTES;
     const arq = AVPacote.nomeDoCulto(culto.nome, new Date());
-    nome = cabeLocal ? await AVNative.pacoteCriarLocal(arq) : await AVNative.pacoteCriar(arq);
+    nome = !cabeLocal ? await AVNative.pacoteCriar(arq)
+      : proprio ? await AVNative.pacoteCriarCulto(arq) : await AVNative.pacoteCriarLocal(arq);
     if (!nome) return;   // desistiu no seletor: nada foi criado
     criado = true;
-    // O pronto que havia foi levado pela porta do shell.
-    pacotePronto = null;
+    // Num APK velho o pronto que havia foi levado pela porta do shell.
+    if (cabeLocal && !proprio) pacotePronto = null;
     await withBgWork(async () => {
       const tarefa = bgTaskStart('Enviando o culto', 1, 'enviar');
       bgItemOnly(tarefa, culto.nome);
@@ -36921,8 +36943,21 @@ async function exportarCulto(id) {
     });
     gravados = await AVNative.pacoteFechar();
     if (gravados < 0) erro = 'O arquivo não pôde ser fechado — pode ter faltado espaço.';
+    // AS CAPAS VÃO AO LADO, para a conversa mostrar a imagem (shell 90): o PNG cru, em base64.
+    // Uma página que não grava não derruba o envio — o pacote já leva a capa dentro.
+    else if (cabeLocal && proprio) {
+      for (let i = 0; i < capas.length; i++) {
+        let n = -1;
+        try { n = await AVNative.pacoteCapa(i + 1, await cultoBase64(capas[i])); } catch (_) { n = -1; }
+        if (n > 0) capasAoLado++;
+        else console.warn('[culto] a página ' + (i + 1) + ' da capa não foi ao lado do pacote');
+      }
+    }
   } catch (e) {
-    erro = (e && e.message) || 'O envio do culto falhou.';
+    // PARAR NÃO É FALHAR: o toque no próprio botão (`pacoteCancelar`) desfaz o parcial calado.
+    cancelou = pacoteCancelar;
+    erro = cancelou ? '' : ((e && e.message) || 'O envio do culto falhou.');
+    if (cancelou && criado) { try { AVNative.pacoteCancelar(); } catch (_) { /* ponte */ } }
   } finally {
     if (erro && criado) { try { AVNative.pacoteCancelar(); } catch (_) { /* ponte */ } }
     pacoteEmCurso = false;
@@ -36931,6 +36966,7 @@ async function exportarCulto(id) {
     pacoteRenderTiles();
     renderCronoGaveta();
   }
+  if (cancelou) { pacoteAnotar('preparou', 'culto: cancelado pelo operador'); return; }
   if (erro) {
     await openAppDialog({ title: 'Não deu para enviar o culto', message: erro, okText: 'Entendi', cancelText: null });
     return;
@@ -36944,9 +36980,10 @@ async function exportarCulto(id) {
       okText: 'OK', cancelText: null });
     return;
   }
-  const enviados = await AVNative.pacoteCompartilhar();
+  // COM AS CAPAS JUNTO (shell 90): uma ação, a imagem e o pacote. Num APK velho, só o pacote.
+  const enviados = proprio ? await AVNative.pacoteCompartilharCulto() : await AVNative.pacoteCompartilhar();
   pacoteAnotar('enviou', enviados < 0 ? 'culto: o shell recusou o envio (-1)'
-    : 'culto: seletor aberto com ' + fmtBytes(enviados));
+    : 'culto: seletor aberto com ' + fmtBytes(enviados) + (proprio ? ' e ' + capasAoLado + ' capa(s) ao lado' : ''));
   if (enviados < 0) {
     await openAppDialog({ title: 'Não deu para enviar o culto',
       message: 'O arquivo do culto não pôde ser compartilhado. Toque em enviar de novo.',
@@ -37165,6 +37202,77 @@ async function pacoteLerCapa(fonte) {
     console.warn('[pacote] capa:', (e && e.message) || e);
   }
   return out;
+}
+
+/**
+ * OS ITENS DO CULTO, sem ler corpo de mídia: o valor de `cronogramas` (o 1º `state`, logo depois
+ * do `info` e das capas — ordem do `pacoteEscreverRegistros`) diz os ids. `{ ids: [] }` quando não
+ * acha; nunca lança.
+ */
+async function cultoResumoDoPacote(fonte) {
+  const out = { ids: [] };
+  try {
+    const cursor = pacoteCursor(fonte);
+    for (let i = 0; i < CULTO_CAPAS_MAX + 4; i++) {
+      const r = await cursor.proximo((cab) => cab.t === 'state' && cab.chave === 'cronogramas');
+      if (!r || (r.cab.t !== 'info' && r.cab.t !== 'state' && r.cab.t !== 'state-blob')) break;
+      if (r.cab.t !== 'state' || r.cab.chave !== 'cronogramas' || !r.corpo) continue;
+      const v = JSON.parse(await r.corpo.text());
+      const item = v && Array.isArray(v.itens) ? v.itens[0] : null;
+      if (item && Array.isArray(item.ids)) out.ids = item.ids.map(String);
+      break;
+    }
+  } catch (e) {
+    console.warn('[pacote] resumo do culto:', (e && e.message) || e);
+  }
+  return out;
+}
+
+/**
+ * A PRÉVIA DO CULTO — o consentimento (pedido do operador, P3): a capa ("1 de N"), o nome, a conta
+ * ("N itens · X MB") e quantos já estão no aparelho × vêm junto. `true` = Importar; `false` =
+ * Cancelar, Esc ou voltar, e aí NADA foi gravado (até aqui só se leram cabeçalhos).
+ */
+async function cultoPrevia(fonte, sobre, nome) {
+  const { ids } = await cultoResumoDoPacote(fonte);
+  let aqui = 0;
+  for (const id of ids) {
+    let tem = null;
+    try { tem = (await AVDB.getMediaCru(id)) || (await AVDB.fileGet(id)); } catch (_) { tem = null; }
+    if (tem) aqui++;
+  }
+  const bytes = sobre.info && Number(sobre.info.bytes) > 0 ? Number(sobre.info.bytes) : fonte.size;
+  const conta = (ids.length ? (ids.length === 1 ? '1 item' : ids.length + ' itens') + ' · ' : '')
+    + fmtBytes(bytes);
+  const vem = ids.length - aqui;
+  const partes = ids.length
+    ? [vem === 1 ? '1 vem junto' : vem + ' vêm junto', aqui === 1 ? '1 já está no aparelho' : aqui + ' já no aparelho']
+    : [];
+  return openAppDialog({
+    title: nome,
+    message: conta + (partes.length ? '\n' + partes.join(' · ') : ''),
+    rodape: 'Entra como um cronograma guardado; nada do que já está no aparelho é substituído.',
+    capas: sobre.capas,
+    okText: 'Importar',
+    cancelText: 'Cancelar',
+    fixo: true,
+    classe: 'previa-culto',
+  });
+}
+
+/**
+ * O TOQUE NUM `.avpkg` (shell 90): o `ACTION_VIEW` chega pela fila dos shares como
+ * `{ pacote: { url, size, name } }` e segue o Importar de hoje, com a prévia na frente.
+ */
+async function pacoteDaPorta(p) {
+  if (pacoteEmCurso) {
+    await openAppDialog({ title: 'Há um pacote em andamento',
+      message: 'Espere o envio ou a importação terminar e toque no arquivo de novo.',
+      okText: 'Entendi', cancelText: null });
+    return;
+  }
+  await importarPacote({ url: String(p.url || ''), size: typeof p.size === 'number' ? p.size : -1,
+    name: String(p.name || '') });
 }
 
 /**
@@ -38084,11 +38192,19 @@ async function lerPacotePronto() {
   let r = null;
   try { r = await AVNative.pacoteProntoEstado(); } catch (_) { return; }
   if (!r || !r.bytes || pacotePronto) return;
+  // O CULTO NÃO É O PRONTO DO ACERVO: o shell 90 nem o devolve; um APK velho, que guarda o culto
+  // no mesmo pronto, devolveria — e ele viraria "Descartar" no lugar do Importar.
+  if (AVPacote.ehNomeDeCulto(r.nome)) return;
   pacotePronto = { nome: r.nome, bytes: r.bytes };
   pacoteRenderTiles();
 }
 
-async function importarPacote() {
+// `entrada` = a fonte que CHEGOU DE FORA — o toque num `.avpkg` (`pacoteDaPorta`, shell 90), na
+// forma do `pickDoc` (`{ url, size, name }`). Sem ela, o seletor de sempre. Pela porta não há
+// tile tocado: o pronto do acervo não barra, as marcas da janela não filtram, e o arquivo (que é
+// do app de onde veio, o WhatsApp) não é consumido se for um culto.
+async function importarPacote(entrada) {
+  const daPorta = !!(entrada && entrada.url);
   // `pacotePronto` ENTRA NA GUARDA, e sem ele um toque faria DUAS
   // coisas. O tile de importar tem um ouvinte PERMANENTE (`addEventListener`,
   // no fim deste arquivo) e, no estado "pronto para enviar", `pacoteIrmaoCancela`
@@ -38104,11 +38220,11 @@ async function importarPacote() {
   //
   // A guarda é a leitura literal do desenho: com um pacote pronto na mão,
   // aquele botão NÃO é o importador — ele é a saída para fazer outro.
-  if (!window.__NATIVE__ || pacoteEmCurso || pacotePronto) return;
+  if (!window.__NATIVE__ || pacoteEmCurso || (pacotePronto && !daPorta)) return;
   // A SELEÇÃO É LIDA ANTES DO SELETOR: é o que estava marcado quando o operador
   // tocou em Importar (ver `pacoteFiltroDeImportacao`).
-  let filtro = pacoteFiltroDeImportacao();
-  const escolhidos = await AVNative.pickDoc(['*/*']);
+  let filtro = daPorta ? null : pacoteFiltroDeImportacao();
+  const escolhidos = daPorta ? [entrada] : await AVNative.pickDoc(['*/*']);
   const alvo = (escolhidos && escolhidos[0]) || null;
   if (!alvo || !alvo.url) return;
   pacoteEmCurso = true;
@@ -38145,6 +38261,19 @@ async function importarPacote() {
     if (sobre.info && sobre.info.escopo === 'culto') {
       filtro = null;
       contagem.culto = (sobre.info.culto && String(sobre.info.culto.nome || '')) || 'Culto';
+      // A PRÉVIA, ANTES DE QUALQUER GRAVAÇÃO: a capa, o nome, a conta — e só o Importar segue.
+      pacoteCalar(pacoteImportarTileEl);
+      if (!(await cultoPrevia(fonte, sobre, contagem.culto))) return;   // o `finally` devolve o tile; nada foi gravado
+      pacoteFalar(pacoteImportarTileEl, 'Conferindo…', 0);
+    } else if (daPorta) {
+      // UM ACERVO PELA PORTA: ninguém tocou no Importar, então a pergunta é a do consentimento.
+      const grupos = sobre.info && Array.isArray(sobre.info.grupos) ? sobre.info.grupos.filter(Boolean) : [];
+      pacoteCalar(pacoteImportarTileEl);
+      if (!(await appConfirm({ title: 'Importar este pacote',
+        message: (grupos.length ? grupos.slice(0, 6).join(' · ') + '\n' : '') + fmtBytes(fonte.size),
+        rodape: 'Importar só acrescenta: nada do que já está no aparelho é substituído.',
+        okText: 'Importar', fixo: true }))) return;
+      pacoteFalar(pacoteImportarTileEl, 'Conferindo…', 0);
     }
     // A CONFERÊNCIA RODA DENTRO DA PROTEÇÃO DE SEGUNDO PLANO: ela percorre o
     // arquivo INTEIRO pelos cabeçalhos — minutos num acervo grande —, e é
@@ -38249,17 +38378,21 @@ async function importarPacote() {
   // O DESFECHO É DITO no relatório, nos dois sentidos — "não deu para apagar" é
   // a resposta que o operador precisa ter para ir apagar à mão.
   let consumo = '';
-  try {
-    const motivo = await AVNative.pacoteConsumirOrigem(alvo.url);
-    consumo = motivo
-      ? 'O arquivo do pacote continua no aparelho: ' + motivo + '.'
-      : (filtro
-        ? 'O arquivo do pacote foi apagado — com o que não estava marcado.'
-        : contagem.culto
-          ? 'O arquivo do pacote foi apagado — o culto agora está na gaveta dos cronogramas.'
-          : 'O arquivo do pacote foi apagado — o acervo agora está na biblioteca.');
-  } catch (_) {
-    consumo = 'O arquivo do pacote continua no aparelho.';
+  // O CULTO QUE VEIO PELA PORTA FICA ONDE ESTAVA: o arquivo é da conversa (WhatsApp), é pequeno,
+  // e o provedor de lá não deixa apagar — a frase seria um aviso sobre nada.
+  if (!(daPorta && contagem.culto)) {
+    try {
+      const motivo = await AVNative.pacoteConsumirOrigem(alvo.url);
+      consumo = motivo
+        ? 'O arquivo do pacote continua no aparelho: ' + motivo + '.'
+        : (filtro
+          ? 'O arquivo do pacote foi apagado — com o que não estava marcado.'
+          : contagem.culto
+            ? 'O arquivo do pacote foi apagado — o culto agora está na gaveta dos cronogramas.'
+            : 'O arquivo do pacote foi apagado — o acervo agora está na biblioteca.');
+    } catch (_) {
+      consumo = 'O arquivo do pacote continua no aparelho.';
+    }
   }
 
   pacotePulsar(pacoteImportarTileEl, 'ok');
@@ -40818,6 +40951,11 @@ function registrarShareNativo() {
   // entrega o conteúdo direto, sem depender de um POST interceptado.
   if (!window.__NATIVE__) return;
   AVNative.onShare((share) => {
+    // O `.avpkg` tocado fora do app (shell 90) não é item de mídia: é a PRÉVIA do pacote.
+    if (share && share.pacote && share.pacote.url) {
+      pacoteDaPorta(share.pacote).catch((e) => diagC('pacote pela porta falhou: ' + ((e && e.message) || e)));
+      return;
+    }
     importShare(share).catch((e) => {
       // O intent já foi CONSUMIDO no Kotlin: não existe segunda entrega. Sem
       // este catch a rejeição virava unhandled rejection no console e o
@@ -41648,10 +41786,49 @@ let appDialogResolve = null;
 // `fixo`: o toque no fundo NÃO cancela (a atualização: um toque por acidente valia "Deixar para
 // depois" e calava a pergunta pela sessão). A recusa DELIBERADA — o botão e o Esc/voltar — continua.
 let appDialogFixo = false;
+// AS CAPAS (a prévia do culto): `capas: Blob[]` vira um trilho que rola de lado, uma página por
+// vez, com "1 de N". As URLs dos Blobs morrem com o diálogo.
+const appDialogCardEl = appDialogEl.querySelector('.dialog-card');
+const appDialogCapasEl = document.getElementById('appDialogCapas');
+const appDialogCapasTrilhoEl = document.getElementById('appDialogCapasTrilho');
+const appDialogCapasContaEl = document.getElementById('appDialogCapasConta');
+let appDialogCapasUrls = [];
+let appDialogClasse = '';
+
+function appDialogCapas(capas) {
+  for (const u of appDialogCapasUrls) URL.revokeObjectURL(u);
+  appDialogCapasUrls = [];
+  appDialogCapasTrilhoEl.replaceChildren();
+  const lista = (Array.isArray(capas) ? capas : []).filter((b) => b instanceof Blob && b.size);
+  appDialogCapasEl.hidden = !lista.length;
+  appDialogCapasContaEl.hidden = lista.length < 2;
+  lista.forEach((b, i) => {
+    const u = URL.createObjectURL(b);
+    appDialogCapasUrls.push(u);
+    const fig = document.createElement('div');
+    fig.className = 'dialog-capa';
+    const img = document.createElement('img');
+    img.src = u;
+    img.alt = 'Capa, página ' + (i + 1) + ' de ' + lista.length;
+    img.decoding = 'async';
+    fig.appendChild(img);
+    appDialogCapasTrilhoEl.appendChild(fig);
+  });
+  appDialogCapasContaEl.textContent = '1 de ' + lista.length;
+  appDialogCapasTrilhoEl.scrollLeft = 0;
+}
+appDialogCapasTrilhoEl.addEventListener('scroll', () => {
+  const n = appDialogCapasTrilhoEl.children.length;
+  const w = appDialogCapasTrilhoEl.clientWidth || 1;
+  const i = Math.min(n, Math.max(1, Math.round(appDialogCapasTrilhoEl.scrollLeft / w) + 1));
+  appDialogCapasContaEl.textContent = i + ' de ' + n;
+}, { passive: true });
 
 function closeAppDialog(result) {
   document.removeEventListener('keydown', onAppDialogKey);
   appDialogEl.classList.remove('open');
+  appDialogCapas(null);
+  if (appDialogClasse) { appDialogCardEl.classList.remove(appDialogClasse); appDialogClasse = ''; }
   const r = appDialogResolve; appDialogResolve = null;
   if (r) r(result);
 }
@@ -41663,12 +41840,15 @@ function onAppDialogKey(e) {
   closeAppDialog(appDialogInputEl.hidden ? false : null);
 }
 function openAppDialog(opts) {
-  const { title, message, okText, cancelText, input, value, placeholder, fixo, itens, rodape, perigo } = opts || {};
+  const { title, message, okText, cancelText, input, value, placeholder, fixo, itens, rodape, perigo,
+    capas, classe } = opts || {};
   return new Promise((resolve) => {
     // Se já houver um diálogo aberto, resolve o anterior como cancelado.
     if (appDialogResolve) closeAppDialog(input ? null : false);
     appDialogResolve = resolve;
     appDialogFixo = !!fixo;
+    appDialogCapas(capas);
+    if (classe) { appDialogClasse = String(classe); appDialogCardEl.classList.add(appDialogClasse); }
     appDialogTitleEl.textContent = title || '';
     appDialogTitleEl.hidden = !title;
     appDialogMsgEl.textContent = message || '';

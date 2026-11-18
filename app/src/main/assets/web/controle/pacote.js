@@ -419,6 +419,15 @@
     return base + ' ' + p(q.getDate()) + '-' + p(q.getMonth() + 1) + '.avpkg';
   }
 
+  /**
+   * O NOME é o de um culto (`nomeDoCulto`, ou ele saneado pelo shell velho: espaço → `_`)? A
+   * pergunta do `lerPacotePronto` num APK sem o pronto próprio do culto (shell < 90): o nome do
+   * acervo (`nomeDoArquivo`) termina em `-HHMM.avpkg`, o do culto em ` DD-MM.avpkg`.
+   */
+  function ehNomeDeCulto(nome) {
+    return /[ _]\d\d-\d\d\.avpkg$/i.test(String(nome || ''));
+  }
+
   global.AVPacote = {
     VERSAO,
     ASSINATURA_BYTES,
@@ -443,5 +452,6 @@
     pastasDoAparelho,
     nomeDoArquivo,
     nomeDoCulto,
+    ehNomeDeCulto,
   };
 })(this);

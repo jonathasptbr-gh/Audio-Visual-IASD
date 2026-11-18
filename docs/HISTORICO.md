@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.75** — o Pacote 16, lotes P3+P4: a prévia do culto recebido, a porta de entrada (`ACTION_VIEW`) e as capas junto no compartilhar (shell mudou: `SHELL_VERSION` 90, Release v1.14.75).
 - **v1.14.74** — o Pacote 16, lotes P1+P2: "Enviar" um culto da gaveta dos cronogramas, com a capa em páginas dentro do `.avpkg` (só web, sem `shellTag`).
 - **v1.14.73** — o operador conferiu os 50 pontos de medição e nada estava quebrado: as 55 linhas que dependiam dele saem fechadas, a `Faixa` do YouTube perde os cinco campos sem leitor, e a publicação do OTA passa a REPROVAR versão igual com conteúdo diferente (shell mudou, Release v1.14.73).
 - **v1.14.72** — o lote de higienização: as oito linhas de dono "higienização" fecham num lote só (só web e `tools/`, sem `shellTag`) — o `!important` do `.cast-url`, o portão de 120 do `notas.json`, a sonda vendo pseudo-elemento, o aviso de Release no `estado.sh`, o `:not(#plBtn)`, o deck refeito medido e os dois flaky esperando o FATO.
@@ -807,6 +808,41 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.75 — o Pacote 16, lotes P3+P4: a prévia do culto recebido, a porta de entrada (`ACTION_VIEW`) e as capas junto no compartilhar
+
+**Autorizado pelo operador em 18/11** ("pode prosseguir para as etapas que
+precisam de release e APK"); a prévia foi aprovada na foto.
+
+**P3 · a prévia** (web): um pacote com `escopo:'culto'` abre, ANTES de gravar,
+o diálogo `openAppDialog({capas})` (`appDialogCapas`, `#appDialogCapas`): as
+capas paginadas ("1 de 3"), o nome, "N itens · X KB" e "N vêm junto · M já no
+aparelho" (`cultoResumoDoPacote`, pelos ids do `cronogramas`, sem ler corpo de
+mídia), **Importar**/**Cancelar** — nada é gravado sem o Importar. Pacote de
+acervo: o import de sempre. O envio ganhou CANCELAR: o botão da gaveta vira ✕
+enquanto prepara (`pacoteCancelar`).
+
+**P4 · a porta e o envio** (shell 90): dois `intent-filter` `ACTION_VIEW` só
+`content:` (sem BROWSABLE: pacote não se abre por link, e a categoria exporia a
+porta a sites) — `application/octet-stream` + `application/vnd.iasd.avpkg`, e
+`*/*` com `pathPattern` `.avpkg`. O custo, documentado: o app aparece no "abrir
+com" de binário desconhecido, e a assinatura recusa com a frase de sempre. O
+VIEW entra pela MESMA fila dos SEND (`ShareIntake.pacoteAberto` → `takeShare`
+com `pacote:{url,name,size}`) e chega a `importarPacote(entrada)` com a prévia
+na frente. Envio: `pacoteCriarCulto` (arquivo em `files/pacote/culto/`),
+`pacoteCapa` (PNG em base64, conferido pela assinatura, nunca recomprimido) e
+`pacoteCompartilharCulto` — `ACTION_SEND_MULTIPLE` `*/*` com as capas e o
+`.avpkg` por último, SEM `ClipData` à mão (a v1.8.21 mediu que ele desliga a
+migração e o seletor não abre). O pronto do culto (`pacoteCultoPronto`) nunca é
+o "pacote pronto" do Transferir; o web também ignora nome de culto no
+`lerPacotePronto` (`AVPacote.ehNomeDeCulto`), o que vale com APK velho.
+
+**APK velho + web novo:** `pacoteCultoProprio()` falso ⇒ o caminho de UM arquivo
+da v1.14.74; sem porta. Os métodos novos são opcionais: `minShell` fica 83.
+
+**Oráculos:** `pacote-culto` (blocos P prévia, Q acervo sem prévia, G envio
+com capas pelo shell 90, H cancelar, B APK velho), `ponte-guarda-host` (79
+métodos), JUnit `PacoteCultoTest` (roda no CI; aqui não há SDK).
 
 ## v1.14.74 — o Pacote 16, lotes P1+P2: "Enviar" um culto da gaveta dos cronogramas, com a capa em páginas dentro do `.avpkg`
 

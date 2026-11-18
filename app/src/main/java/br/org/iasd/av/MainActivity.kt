@@ -373,6 +373,10 @@ class MainActivity : ComponentActivity(), BridgeHost {
         try { limparPacotesLocais(pastaDoPacote(), pouparRecentes = true) } catch (e: Exception) {
             Log.w(TAG, "faxina do pacote não rodou", e)
         }
+        // E o culto com as capas (shell 90), que mora numa subpasta — a de cima só leva arquivos.
+        try { limparPacotesLocais(pastaDoCulto(), pouparRecentes = true) } catch (e: Exception) {
+            Log.w(TAG, "faxina do culto não rodou", e)
+        }
 
         root = FrameLayout(this)
         // A raiz é o que se vê no INTERVALO entre a janela existir e o WebView
@@ -520,8 +524,13 @@ class MainActivity : ComponentActivity(), BridgeHost {
      */
     private fun consumeShareIntent() {
         val i = intent ?: return
-        if (i.action != Intent.ACTION_SEND && i.action != Intent.ACTION_SEND_MULTIPLE) return
+        if (i.action != Intent.ACTION_SEND && i.action != Intent.ACTION_SEND_MULTIPLE &&
+            i.action != Intent.ACTION_VIEW
+        ) return
         i.action = Intent.ACTION_MAIN
+        // O `.avpkg` aberto (shell 90) mora no `data`, não nos extras: sem apagá-lo, uma
+        // recriação reabriria a PRÉVIA do mesmo arquivo. `data = null` limpa o tipo junto.
+        i.data = null
         i.removeExtra(Intent.EXTRA_STREAM)
         i.removeExtra(Intent.EXTRA_TEXT)
         i.removeExtra(Intent.EXTRA_SUBJECT)
@@ -1117,6 +1126,8 @@ class MainActivity : ComponentActivity(), BridgeHost {
             val doc = pacoteCanal.uriEmCurso()
             val local = pacoteLocal
             pacoteLocal = null
+            val doCulto = pacoteLocalCulto
+            pacoteLocalCulto = false
             // O FECHO SAI DA MAIN (v1.8.72). `close()` de um `content://` é
             // onde um provedor FUSE ou de nuvem finaliza gigabytes, e a main
             // presa nele por mais de 5 s é ANR — no processo que hospeda os
@@ -1165,8 +1176,12 @@ class MainActivity : ComponentActivity(), BridgeHost {
                     onResult(-1L)
                     return@fecharDepois
                 }
-                pacotePronto = local
-                pacoteUltimoFecho = "pronto: " + noDisco + " byte(s) em " + local.name
+                // O CULTO NÃO É O PRONTO DO ACERVO (shell 90): ele tem o pronto dele, que o
+                // `pacoteProntoEstado` não mostra — senão o Transferir o ofereceria como acervo e
+                // o Importar viraria "Descartar".
+                if (doCulto) pacoteCultoPronto = local else pacotePronto = local
+                pacoteUltimoFecho = (if (doCulto) "culto pronto: " else "pronto: ") +
+                    noDisco + " byte(s) em " + local.name
                 onResult(noDisco)
             }
         }
@@ -1205,6 +1220,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
                 limparPacotesLocais(pasta)
                 val alvo = File(pasta, nomeDeArquivoSeguro(nome))
                 pacoteLocal = alvo
+                pacoteLocalCulto = false
                 pacoteCanal.adotar(FileOutputStream(alvo), Uri.fromFile(alvo))
                 onResult(alvo.name)
             } catch (e: Exception) {
@@ -1370,7 +1386,12 @@ class MainActivity : ComponentActivity(), BridgeHost {
             uri == null -> " · uri: FALHOU (" + nomeDaFalha(pacoteFalhaDeUri) + ")"
             else -> " · uri: " + uri
         }
-        return onde + prov + servidoPeloProvedor(uri) +
+        val culto = pacoteCultoPronto
+        val linhaCulto = if (culto == null) "" else {
+            val tam = try { culto.length() } catch (e: Exception) { -1L }
+            "\n  culto: " + culto.name + " · " + tam + " byte(s)"
+        }
+        return onde + prov + servidoPeloProvedor(uri) + linhaCulto +
             "\n  fecho: " + pacoteUltimoFecho.ifBlank { "nenhum nesta sessão" } +
             "\n  envio: " + pacoteUltimoEnvio.ifBlank { "nenhum nesta sessão" } +
             "\n  consumo do importado: " + pacoteUltimoConsumo.ifBlank { "nenhum nesta sessão" }
@@ -1433,6 +1454,102 @@ class MainActivity : ComponentActivity(), BridgeHost {
      * APK: uma raiz por assunto, e nada mais legível por engano.
      */
     private fun pastaDoPacote(): File = File(filesDir, "pacote").also { it.mkdirs() }
+
+    // ---------- O PACOTE DE UM CULTO, COM AS CAPAS (shell 90) ----------
+    //
+    // | método | o quê |
+    // |---|---|
+    // | [pacoteCreateCulto] | abre o `.avpkg` do culto em `files/pacote/culto/` (a faxina da porta leva só o culto e as capas ANTERIORES — o pronto do acervo fica) |
+    // | [pacoteFinish] | com [pacoteLocalCulto], promove a [pacoteCultoPronto], nunca a `pacotePronto` |
+    // | [pacoteCapaGravar] | grava a página `n` da capa (PNG cru, sem recomprimir) ao lado |
+    // | [pacoteShareCulto] | `ACTION_SEND_MULTIPLE` com as capas e o pacote; sem capa, o `ACTION_SEND` de um arquivo |
+
+    /** `files/pacote/culto/` — coberta pelo `pacote_paths.xml` (`path="pacote/"`) e pelo backup excluído. */
+    private fun pastaDoCulto(): File = File(pastaDoPacote(), PacoteCulto.PASTA).also { it.mkdirs() }
+
+    /** O pacote LOCAL em curso é o de um culto? (Lido e zerado pelo [pacoteFinish].) */
+    private var pacoteLocalCulto = false
+
+    override fun pacoteCreateCulto(nome: String, onResult: (String) -> Unit) {
+        runOnUiThread {
+            pendingPacoteCreate?.invoke("")
+            pendingPacoteCreate = null
+            try {
+                val pasta = pastaDoCulto()
+                limparPacotesLocais(pasta)
+                pacoteCultoPronto = null
+                val alvo = File(pasta, PacoteCulto.nomeDoArquivo(nome))
+                pacoteLocal = alvo
+                pacoteLocalCulto = true
+                pacoteCanal.adotar(FileOutputStream(alvo), Uri.fromFile(alvo))
+                onResult(alvo.name)
+            } catch (e: Exception) {
+                Log.w(TAG, "não consegui abrir o pacote do culto", e)
+                pacoteLocal = null
+                pacoteLocalCulto = false
+                onResult("")
+            }
+        }
+    }
+
+    override fun pacoteCapaGravar(pagina: Int, base64: String): Long {
+        if (!PacoteCulto.paginaValida(pagina)) return -1L
+        val bytes = PacoteCulto.bytesDaCapa(base64) ?: return -1L
+        return try {
+            val f = File(pastaDoCulto(), PacoteCulto.nomeDaCapa(pagina))
+            FileOutputStream(f).use { it.write(bytes) }
+            f.length()
+        } catch (e: Exception) {
+            Log.w(TAG, "a capa " + pagina + " não foi gravada", e)
+            -1L
+        }
+    }
+
+    override fun pacoteShareCulto(onResult: (Long) -> Unit) {
+        runOnUiThread {
+            val alvo = pacoteCultoPronto
+            val noDisco = try { alvo?.length() ?: 0L } catch (e: Exception) { 0L }
+            if (alvo == null || noDisco <= 0L) {
+                pacoteUltimoEnvio = "culto: nao ha pacote do culto pronto no disco"
+                pacoteCultoPronto = null
+                onResult(-1L); return@runOnUiThread
+            }
+            // AS CAPAS EM ORDEM DE PÁGINA, e só as que existem no disco agora (a faxina de um
+            // lançamento pode ter levado). O pacote vai POR ÚLTIMO: na conversa, a imagem primeiro.
+            val capas = (1..PacoteCulto.CAPAS_MAX)
+                .map { File(alvo.parentFile ?: pastaDoCulto(), PacoteCulto.nomeDaCapa(it)) }
+                .filter { f -> try { f.isFile && f.length() > 0L } catch (e: Exception) { false } }
+            try {
+                val autoridade = "$packageName.pacote"
+                val uriPacote = FileProvider.getUriForFile(this, autoridade, alvo)
+                // SEM `ClipData` À MÃO e sem `FLAG_ACTIVITY_NEW_TASK`, como no [pacoteShare]: o
+                // `migrateExtraStreamToClipData` do sistema monta o `ClipData` com TODAS as URIs de
+                // um `ACTION_SEND_MULTIPLE` e leva a concessão ao chooser — e desiste se ele já existir.
+                val envio = if (capas.isEmpty()) {
+                    Intent(Intent.ACTION_SEND)
+                        .setType(PacoteCulto.tipoDoEnvio(0))
+                        .putExtra(Intent.EXTRA_STREAM, uriPacote)
+                } else {
+                    val uris = ArrayList<Uri>()
+                    for (c in capas) uris.add(FileProvider.getUriForFile(this, autoridade, c))
+                    uris.add(uriPacote)
+                    Intent(Intent.ACTION_SEND_MULTIPLE)
+                        .setType(PacoteCulto.tipoDoEnvio(capas.size))
+                        .putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                }
+                envio.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                startActivity(Intent.createChooser(envio, getString(R.string.pacote_share_titulo)))
+            } catch (e: Exception) {
+                Log.w(TAG, "nada recebeu o culto compartilhado", e)
+                pacoteUltimoEnvio = "culto: o seletor recusou: " + nomeDaFalha(e)
+                onResult(-1L)
+                return@runOnUiThread
+            }
+            pacoteUltimoEnvio = "culto: seletor aberto com " + noDisco + " byte(s) e " +
+                capas.size + " capa(s)"
+            onResult(noDisco)
+        }
+    }
 
     /**
      * Apaga o que sobrou de uma exportação anterior.
@@ -1510,6 +1627,7 @@ class MainActivity : ComponentActivity(), BridgeHost {
         val alvo = pacoteCanal.uriEmCurso()
         val local = pacoteLocal
         pacoteLocal = null
+        pacoteLocalCulto = false
         // O SÍNCRONO É SÓ PARA A DERRUBADA (v1.8.85). `fechar()` faz
         // `flush`/`close` de um `content://`, que é onde um provedor FUSE ou de
         // nuvem finaliza gigabytes; e o `deleteDocument` logo abaixo é outro
@@ -3352,6 +3470,10 @@ class MainActivity : ComponentActivity(), BridgeHost {
          */
         @Volatile
         var pacotePronto: File? = null
+
+        /** O pronto de um CULTO (shell 90): o irmão de [pacotePronto], que só o
+         *  [pacoteShareCulto] envia — e que o `pacoteProntoEstado` NÃO mostra. */
+        var pacoteCultoPronto: File? = null
 
         /** O desfecho do último fecho e do último envio, para o [pacoteDiag].
          *  No companion junto do [pacotePronto], porque descrevem o mesmo

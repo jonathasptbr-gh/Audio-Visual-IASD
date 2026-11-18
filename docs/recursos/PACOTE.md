@@ -808,7 +808,10 @@ Decisão do operador: cada linha da gaveta (`renderCronoGaveta`) tem um **enviar
 o excluir (`.crono-enviar`, sprite `#icoCompartilhar`; some fora do app nativo, como o Exportar;
 apagado com o cronograma vazio). Ele exporta ESTE culto (`exportarCulto`): um `.avpkg` pequeno,
 nome `<cronograma> DD-MM.avpkg` (`AVPacote.nomeDoCulto`), e abre o compartilhar
-(`pacoteCriarLocal` + `pacoteCompartilhar`; sem espaço, o SAF de sempre).
+(no shell 90, `pacoteCriarCulto` + `pacoteCapa` + `pacoteCompartilharCulto`, com as capas JUNTO;
+num APK velho, `pacoteCriarLocal` + `pacoteCompartilhar`; sem espaço, o SAF de sempre). **Enquanto
+prepara, o MESMO botão é o CANCELAR** (o ✕, `pacoteCancelar` lido pelo escritor a cada bloco; o
+parcial sai calado, sem diálogo de erro).
 
 **O FORMATO NÃO MUDA, e a regra é esta: enquanto houver app velho na frota, o que é novo vai como
 CAMPO de `info`, nunca como tipo novo nem `VERSAO` maior.** MEDIDO: o app de hoje recusa o
@@ -836,11 +839,66 @@ pacote INTEIRO diante de um `t` desconhecido (`cabecalhoDeBytes`) e de `VERSAO >
   com `escopo: 'culto'`, ignora as marcas do Transferir (`filtro = null`) — elas escolhem grupos
   do ACERVO, e filtrado o culto chegaria oco. O relatório e o fim dizem "Culto importado".
 - **`pacoteLerCapa(fonte)` → `{ info, capas: Blob[] }`** lê só o `info` e as páginas logo depois
-  (até 1 + 6 registros) e nunca lança: é a pergunta da PRÉVIA (a tela é o próximo lote).
-- **O pronto do shell é um só**: com um acervo pronto, enviar um culto PERGUNTA antes
-  (`appConfirm`, perigo), porque `pacoteCriarLocal` leva o anterior na porta.
+  (até 1 + 6 registros) e nunca lança: é a pergunta da PRÉVIA.
 
-Oráculo: **`pacote-culto.test.mjs`** (o que viaja e o que não; o `info` e a capa PNG — uma página
+### A prévia do culto (v1.14.75)
+
+**NADA É GRAVADO ANTES DO "IMPORTAR"** — é o consentimento de quem recebe. Com `escopo: 'culto'`, o
+`importarPacote` abre a prévia (`cultoPrevia`) logo depois da `pacoteLerCapa`, antes da conferência e
+de qualquer escrita; Cancelar (ou Esc/voltar) devolve o tile e não consome o arquivo.
+
+| na prévia | de onde |
+|---|---|
+| as capas, uma por vez de lado, "1 de N" | `openAppDialog({ capas })` — o `#appDialog` de sempre, com o trilho `#appDialogCapas` (`scroll-snap`); sem capa, só o texto |
+| o título | `info.culto.nome` |
+| "N itens · X" | os ids do `cronogramas` do pacote (`cultoResumoDoPacote`: o 1º `state`, logo depois do `info` e das capas — sem ler corpo de mídia) e `info.bytes` |
+| "N vêm junto · M já no aparelho" | cada id: `getMediaCru` ou `fileGet` daqui |
+
+Pacote SEM `escopo` (o acervo) pelo Importar: o de hoje, sem prévia. Pela PORTA (abaixo), um acervo
+ganha um `appConfirm` simples — ninguém tocou no Importar.
+
+### A porta de entrada — o toque no `.avpkg` (shell 90)
+
+`intent-filter` de `ACTION_VIEW` (só `content`, sem `BROWSABLE`): `application/octet-stream` e
+`application/vnd.iasd.avpkg` (o WhatsApp e os gerenciadores entregam `content://` sem extensão, com o
+tipo genérico), mais `pathPattern` `.*\\.avpkg` (três variantes) com qualquer tipo. **O custo:** o
+app aparece no "abrir com" de TODO binário desconhecido; a assinatura de oito bytes recusa o que não
+for pacote com a frase de sempre.
+
+- **A entrega é a FILA DOS SHARES**, não uma fila nova: `ShareIntake.pacoteAberto` põe `{ files: [],
+  url: null, pacote: { url, name, size } }` no `pendingShare` (onCreate com `savedInstanceState ==
+  null`, e onNewIntent), o `consumeShareIntent` neutraliza também o VIEW (apaga o `data`), e o web
+  bebe no `takeShare` quando estiver pronto — processo morto, app vivo ou minimizado. `size` é `-1`
+  quando o provedor não diz (a forma do `pickDoc`). Um bundle antigo lê `files` vazio e não faz nada.
+- O web (`pacoteDaPorta` → `importarPacote(entrada)`) segue o caminho de hoje com a prévia na
+  frente: pela porta o pronto do acervo NÃO barra, as marcas da janela não filtram, e **o culto não é
+  consumido** (o arquivo é da conversa; o provedor de lá não deixa apagar). Com algo em curso, um
+  aviso pede para tocar de novo depois.
+
+### As capas junto no envio, e o pronto PRÓPRIO do culto (shell 90)
+
+- **O culto mora em `files/pacote/culto/`** (coberta pelo `pacote_paths.xml` e pelo backup
+  excluído): `pacoteCriarCulto` limpa só ESSA pasta na porta, e o `pacoteFechar` o promove a
+  `pacoteCultoPronto` — o `pacoteProntoEstado` (a semente do Transferir) nunca o mostra, e o
+  Importar nunca vira "Descartar" por causa dele. O nome guarda acento e espaço
+  (`PacoteCulto.nomeDoArquivo`, com JUnit). A faxina do lançamento passa também nessa pasta.
+- **As capas vão AO LADO, em base64** (`pacoteCapa(pagina, b64)`, `capa-N.png`): o PNG do `AVCapa`,
+  conferido pela assinatura e NUNCA recomprimido. O canal do pacote não serve: ele é de UM destino
+  aberto, e o `.avpkg` já fechou quando a capa vem.
+- **`pacoteCompartilharCulto`**: `ACTION_SEND_MULTIPLE`, tipo `*/*`, `EXTRA_STREAM` com as capas em
+  ordem e o pacote POR ÚLTIMO, `FLAG_GRANT_READ_URI_PERMISSION` — **sem `ClipData` à mão**, pela
+  regra da v1.8.21 acima: o `migrateExtraStreamToClipData` monta o `ClipData` de TODAS as URIs de um
+  `SEND_MULTIPLE` e leva a concessão ao chooser. Sem capa, o `ACTION_SEND` de um arquivo. O
+  `PacoteProvider.getType` serve o `.avpkg` de `culto/` como `application/vnd.iasd.avpkg`.
+- **APK velho** (sem os três métodos, `pacoteCultoProprio()` falso): o de um arquivo, com a pergunta
+  do pronto do acervo de antes (o pronto é um só lá); e o `lerPacotePronto` ignora um pronto com nome
+  de culto (`AVPacote.ehNomeDeCulto`), que um shell velho devolveria.
+
+Oráculo: **`pacote-culto.test.mjs`** (P: a prévia com as capas e a conta, nada gravado antes do
+Importar, Cancelar não grava nem consome, "já no aparelho" na segunda vez, 3 capas "1 de 3" → "2 de 3",
+a entrega por VIEW com um acervo pronto, o pronto com nome de culto ignorado; Q: acervo sem prévia;
+G: shell 90 — criar à parte, capas ao lado com os mesmos bytes, compartilhar do culto, o pronto do
+acervo intacto; H: o cancelar do envio; o `info` e a capa PNG — uma página
 e três, em ordem, e a queda para `desenhar`; sem capa com o `AVCapa` quebrado; a importação num aparelho limpo e num com outro ativo + marcas
 tiradas; o caminho cru `pacoteConferir` + `pacoteAplicarFluxo` com uma e com três páginas; `pacoteLerCapa`; o
 botão a 360 px). Reversão medida: sem o `filtro = null` do culto, o bloco C reprova (7 itens

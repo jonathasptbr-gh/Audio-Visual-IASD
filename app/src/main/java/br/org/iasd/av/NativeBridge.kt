@@ -367,6 +367,16 @@ interface BridgeHost {
      * mais conhecido).
      */
     fun pacoteConsumirOrigem(url: String, onResult: (String) -> Unit)
+
+    /** Abre o `.avpkg` de UM CULTO em `files/pacote/culto/` (shell 90). O fecho o promove ao
+     *  pronto do CULTO, nunca ao do acervo. Devolve o nome gravado, ou `""`. */
+    fun pacoteCreateCulto(nome: String, onResult: (String) -> Unit)
+
+    /** Grava a página `pagina` (1..6) da capa, PNG em base64, ao lado do culto. Bytes ou `-1`. */
+    fun pacoteCapaGravar(pagina: Int, base64: String): Long
+
+    /** Oferece o culto pronto + as capas (`ACTION_SEND_MULTIPLE`). Bytes do `.avpkg`, ou `-1`. */
+    fun pacoteShareCulto(onResult: (Long) -> Unit)
 }
 
 /**
@@ -415,7 +425,7 @@ class NativeBridge(
          * A regra inteira está no `docs/shell/PONTE.md` (seção do
          * `SHELL_VERSION`); a tabela dos degraus, no `docs/HISTORICO.md`.
          */
-        const val SHELL_VERSION = 89
+        const val SHELL_VERSION = 90
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -2384,6 +2394,42 @@ class NativeBridge(
             val o = try { h.pacoteProntoEstado() } catch (e: Exception) { null }
             resolve(callId, o?.toString() ?: "null")
         }
+    }
+
+    // ---------- O PACOTE DE UM CULTO, COM AS CAPAS (shell 90; OPCIONAIS) ----------
+    //
+    // O `native.js` pergunta `typeof` e, sem eles (APK velho), o `exportarCulto` segue o caminho
+    // de um arquivo só (`pacoteCriarLocal` + `pacoteCompartilhar`). Ver `MainActivity`.
+
+    /** Abre o culto num arquivo próprio — a forma do [pacoteCriarLocal] (o nome, ou `""`). */
+    @JavascriptInterface
+    fun pacoteCriarCulto(callId: String, nome: String) {
+        val h = host
+        if (h == null) { resolve(callId, JSONObject.quote("")); return }
+        h.pacoteCreateCulto(nome) { salvo -> resolve(callId, JSONObject.quote(salvo)) }
+    }
+
+    /**
+     * Grava uma página da capa. Os bytes atravessam em BASE64 (um PNG de centenas de kB, até seis
+     * vezes): o canal do pacote é de UM destino aberto, e ele já fechou o `.avpkg` quando a capa
+     * vem. FILA `io`: decodificar e gravar um arquivo pequeno é milissegundos.
+     */
+    @JavascriptInterface
+    fun pacoteCapa(callId: String, pagina: Int, base64: String) {
+        val h = host
+        if (h == null) { resolve(callId, "-1"); return }
+        io.execute {
+            val n = try { h.pacoteCapaGravar(pagina, base64) } catch (e: Exception) { -1L }
+            resolve(callId, n.toString())
+        }
+    }
+
+    /** Abre o seletor com as capas + o culto pronto. Bytes do `.avpkg`, ou `-1`. */
+    @JavascriptInterface
+    fun pacoteCompartilharCulto(callId: String) {
+        val h = host
+        if (h == null) { resolve(callId, "-1"); return }
+        h.pacoteShareCulto { bytes -> resolve(callId, bytes.toString()) }
     }
 
     /**

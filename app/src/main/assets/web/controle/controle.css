@@ -12501,6 +12501,36 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    escuro por construção, existe para receber `--on-live` por cima (R2). */
 .dialog-btn.perigo { background: var(--btn-danger); color: var(--danger-strong); }
 
+/* ---------- AS CAPAS DA PRÉVIA DO CULTO (P3) ----------
+   A capa é 9:16 (1080×1920); a altura do trilho é o teto (`min(44vh, 340px)`), e a página cabe
+   inteira nela — a 360×640 o cartão continua abaixo dos 88vh com título, conta e botões. Uma
+   página por vez, de lado (`scroll-snap`), e o "1 de N" embaixo. O fundo é `--surface-2`, o mesmo
+   dos botões neutros: a imagem traz a cor dela. */
+.dialog-capas { display: flex; flex-direction: column; align-items: center; gap: var(--sp-3); }
+.dialog-capas[hidden] { display: none; }
+.dialog-capas-trilho {
+  width: 100%; height: min(44vh, 340px);
+  display: flex; overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory; scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.dialog-capas-trilho::-webkit-scrollbar { display: none; }
+.dialog-capa {
+  flex: 0 0 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  scroll-snap-align: center;
+}
+.dialog-capa img {
+  height: 100%; width: auto; max-width: 100%; object-fit: contain;
+  aspect-ratio: 9 / 16;
+  border-radius: var(--radius-btn); background: var(--surface-2);
+}
+.dialog-capas-conta {
+  font-size: var(--fs-md); color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.dialog-capas-conta[hidden] { display: none; }
+
 /* ---------- Modos de uso (simplificado × sonoplasta completo) ---------- */
 /* O app atende duas pessoas diferentes: quem só precisa conectar a tela e
    tocar um louvor, e o sonoplasta que opera o culto inteiro. Abre SEMPRE no

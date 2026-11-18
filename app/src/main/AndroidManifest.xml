@@ -262,6 +262,41 @@
                 <data android:mimeType="application/pdf" />
                 <data android:mimeType="application/vnd.openxmlformats-officedocument.presentationml.presentation" />
             </intent-filter>
+
+            <!-- A PORTA DE ENTRADA DO PACOTE (shell 90): o toque num `.avpkg` abre o app na
+                 PRÉVIA (`ShareIntake.pacoteAberto` → a fila dos shares → `importarPacote`).
+
+                 O WhatsApp e os gerenciadores entregam `content://` SEM extensão no caminho e
+                 com `application/octet-stream` — daí o primeiro filtro aceitar esse MIME. O
+                 CUSTO, dito: o app aparece no "abrir com" de TODO binário desconhecido, e quem
+                 decide é a assinatura de oito bytes no web, que recusa o que não for pacote com
+                 a frase de sempre ("não é um pacote do Áudio Visual IASD"). O MIME próprio é o
+                 que o envio do culto anuncia (`PacoteProvider.getType`).
+
+                 O segundo filtro pega o caminho que TEM a extensão, com qualquer tipo; as três
+                 variantes do `pathPattern` existem porque o `PatternMatcher` do Android não
+                 volta atrás: `.*\\.avpkg` falha num nome com outro ponto antes.
+
+                 Só `content` (o `ShareIntake` recusa `file://` e a autoridade do próprio app) e
+                 SEM `BROWSABLE`: ninguém precisa abrir o pacote a partir de um link de página,
+                 e a categoria deixaria qualquer site disparar esta porta. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="application/vnd.iasd.avpkg" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:host="*" />
+                <data android:mimeType="*/*" />
+                <data android:pathPattern=".*\\.avpkg" />
+                <data android:pathPattern=".*\\..*\\.avpkg" />
+                <data android:pathPattern=".*\\..*\\..*\\.avpkg" />
+            </intent-filter>
         </activity>
 
         <service

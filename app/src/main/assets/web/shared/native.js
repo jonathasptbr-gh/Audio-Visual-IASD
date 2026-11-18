@@ -570,6 +570,24 @@
     pacoteDiag: () => call((id) => B.pacoteDiag(id), CALL_TIMEOUT_MS)
       .then((r) => String(r || '')),
 
+    // ---- O PACOTE DE UM CULTO, COM AS CAPAS (shell 90; OPCIONAIS) ----
+    // O culto num arquivo PRÓPRIO do shell (não é o pronto do acervo) e o envio com as capas
+    // junto (`ACTION_SEND_MULTIPLE`). Num APK sem eles: `pacoteCultoProprio()` é `false` e o
+    // `exportarCulto` usa o caminho de um arquivo (`pacoteCriarLocal` + `pacoteCompartilhar`).
+    pacoteCultoProprio: () => typeof B.pacoteCriarCulto === 'function'
+      && typeof B.pacoteCapa === 'function' && typeof B.pacoteCompartilharCulto === 'function',
+    // → o nome gravado, ou `''` (a forma do `pacoteCriarLocal`).
+    pacoteCriarCulto: (nome) => (typeof B.pacoteCriarCulto !== 'function' ? Promise.resolve('')
+      : call((id) => B.pacoteCriarCulto(id, String(nome)), CALL_TIMEOUT_MS).then((r) => String(r || ''))),
+    // → bytes gravados da página `pagina` (1..6), ou `-1`. `base64` é o PNG cru: nada é recomprimido.
+    pacoteCapa: (pagina, base64) => (typeof B.pacoteCapa !== 'function' ? Promise.resolve(-1)
+      : call((id) => B.pacoteCapa(id, pagina | 0, String(base64 || '')), CALL_TIMEOUT_MS)
+        .then((r) => (typeof r === 'number' ? r : -1))),
+    // → bytes do `.avpkg` do culto, ou `-1` (não há pronto do culto, ou o seletor recusou).
+    pacoteCompartilharCulto: () => (typeof B.pacoteCompartilharCulto !== 'function' ? Promise.resolve(-1)
+      : call((id) => B.pacoteCompartilharCulto(id), CALL_TIMEOUT_MS)
+        .then((r) => (typeof r === 'number' ? r : -1))),
+
     // ---- CIFRA — ver `controle/cifra.js` ----
     // TRANSPORTE, e só. Devolve `{ status, html }` com o corpo CRU da página:
     // quem sabe ler aquele HTML é o `cifra.js`, do lado web (invariante 5), e

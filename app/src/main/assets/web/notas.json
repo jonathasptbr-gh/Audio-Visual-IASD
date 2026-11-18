@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.14.75",
+    "itens": [
+      "Instale o APK novo: é ele que traz as novidades abaixo.",
+      "Ao receber um culto, o app mostra as capas e o que vai entrar; nada é gravado sem tocar em Importar.",
+      "Tocar no arquivo do culto (no WhatsApp, por exemplo) abre o app direto nessa prévia.",
+      "Enviar um culto manda as capas e o arquivo juntos, numa mensagem só.",
+      "Enviar um culto não bloqueia mais o Importar; enquanto prepara, o botão vira ✕ para cancelar."
+    ]
+  },
+  {
     "versao": "1.14.74",
     "itens": [
       "Na lista de cronogramas, cada culto ganhou o botão Enviar: manda só aquele culto, com as mídias dele.",

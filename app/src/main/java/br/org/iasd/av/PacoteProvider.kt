@@ -1,5 +1,6 @@
 package br.org.iasd.av
 
+import android.net.Uri
 import androidx.core.content.FileProvider
 
 /**
@@ -35,5 +36,14 @@ import androidx.core.content.FileProvider
  * **Autoridade nova = classe nova.** O oráculo `manifest-provedores.test.mjs`
  * cobra isso, porque nada no build detecta a colisão e ela não aparece em
  * teste de comportamento nenhum deste lado.
+ *
+ * **A ÚNICA linha própria é o tipo do `.avpkg` de um CULTO** (shell 90): o
+ * `getType` da base responde `application/octet-stream` para uma extensão que
+ * ela não conhece, e o culto viaja com o MIME próprio ([PacoteCulto.MIME]) para
+ * o toque no arquivo, do outro lado, cair no `intent-filter` do app. O `.avpkg`
+ * do ACERVO (fora de `culto/`) e as capas seguem com o tipo da base.
  */
-class PacoteProvider : FileProvider()
+class PacoteProvider : FileProvider() {
+    override fun getType(uri: Uri): String? =
+        if (PacoteCulto.ehPacoteDoCulto(uri.path)) PacoteCulto.MIME else super.getType(uri)
+}

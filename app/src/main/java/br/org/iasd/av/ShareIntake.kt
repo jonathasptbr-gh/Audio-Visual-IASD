@@ -56,6 +56,7 @@ object ShareIntake {
     private fun interpretar(ctx: Context, intent: Intent?): JSONObject? {
         if (intent == null) return null
         val action = intent.action ?: return null
+        if (action == Intent.ACTION_VIEW) return pacoteAberto(ctx, intent)
 
         // O fallback para o `clipData` só vale para as DUAS ações de share: um
         // intent já consumido (a ação vira ACTION_MAIN, mas o clipData fica no
@@ -106,6 +107,50 @@ object ShareIntake {
         // shell mais velho do que ele, e a ausência continua sendo "nenhum".
         if (ignorados.length() > 0) payload.put("ignorados", ignorados)
         return payload
+    }
+
+    /**
+     * O TOQUE NUM `.avpkg` (shell 90): o `ACTION_VIEW` que o `intent-filter` do pacote recebe —
+     * do WhatsApp, de um gerenciador de arquivos, de um download.
+     *
+     * Vai pela MESMA fila dos shares ([MainActivity.pendingShare] → `takeShare`) e na mesma forma
+     * de fonte que o `pickDoc` entrega ao `importarPacote` (`url` servível + `size`), num campo
+     * PRÓPRIO: `{ files: [], url: null, pacote: { url, name, size } }`. Um bundle antigo lê
+     * `files` vazio e `url` nula e não faz nada; o novo abre a PRÉVIA. Quem confere se o arquivo
+     * é pacote é o web (a assinatura de oito bytes), nunca o rótulo — o filtro aceita
+     * `application/octet-stream`, e o que não for pacote ouve a frase de sempre.
+     *
+     * `size` = `-1` quando o provedor não o diz (ao contrário do [describe] dos shares, que põe 0):
+     * é a forma do `pickDoc`, e o leitor por janelas precisa saber onde o arquivo acaba.
+     */
+    private fun pacoteAberto(ctx: Context, intent: Intent): JSONObject? {
+        val uri = intent.data ?: return null
+        if (!aceitavel(ctx, uri)) return null
+        var name: String? = null
+        var size = -1L
+        try {
+            val projecao = arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE)
+            ctx.contentResolver.query(uri, projecao, null, null, null)?.use { c ->
+                if (c.moveToFirst()) {
+                    val iName = c.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    val iSize = c.getColumnIndex(OpenableColumns.SIZE)
+                    if (iName >= 0 && !c.isNull(iName)) name = c.getString(iName)
+                    if (iSize >= 0 && !c.isNull(iSize)) size = c.getLong(iSize)
+                }
+            }
+        } catch (_: Exception) {
+            // Sem metro o web recusa com a frase do tamanho, como no `pickDoc`.
+        }
+        val pacote = JSONObject()
+            .put("url", SafRegistry.urlFor(uri))
+            .put("name", name ?: (uri.lastPathSegment ?: "pacote.avpkg"))
+            .put("size", size)
+        return JSONObject()
+            .put("files", JSONArray())
+            .put("url", JSONObject.NULL)
+            .put("title", JSONObject.NULL)
+            .put("ts", System.currentTimeMillis())
+            .put("pacote", pacote)
     }
 
     /**

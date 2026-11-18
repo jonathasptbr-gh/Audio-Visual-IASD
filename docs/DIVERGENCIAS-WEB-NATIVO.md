@@ -74,7 +74,8 @@ que ela é desenvolvida e testada fora do aparelho.
    `targetSdk` antigo podia mandar `file:///data/data/br.org.iasd.av/shared_prefs/…`
    e o conteúdo virava item projetável na TV. A autoridade do próprio app também
    cai fora.
-2. **O intent é CONSUMIDO depois de lido** (`consumeShareIntent`) e o parse só
+2. **O intent é CONSUMIDO depois de lido** (`consumeShareIntent` — também o `ACTION_VIEW` do
+   `.avpkg` tocado, shell 90, cujo `data` é apagado) e o parse só
    roda com `savedInstanceState == null`. A única saída do app é
    `moveTaskToBack`, então a Activity nunca é finalizada e `getIntent()`
    devolveria o mesmo `ACTION_SEND` para sempre — qualquer recriação (tamanho de

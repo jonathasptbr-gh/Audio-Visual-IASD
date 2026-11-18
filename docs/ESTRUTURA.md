@@ -117,7 +117,10 @@ app/src/main/
 │   ├── SlideDeck.kt             # apresentação (PDF/Google) → uma imagem por página
 │   ├── MicChromeClient.kt       # onPermissionRequest: microfone no WebView do telão
 │   │                            #   (o pedido de permissão e o MicDiag saíram na X1)
-│   ├── PacoteProvider.kt        # o FileProvider do PACOTE — subclasse VAZIA, e
+│   ├── PacoteCulto.kt           # o pacote de UM culto (shell 90), a parte PURA:
+│   │                            #   pasta culto/, nome, MIME próprio, capa em base64
+│   ├── PacoteProvider.kt        # o FileProvider do PACOTE — subclasse VAZIA (salvo
+│   │                            #   o getType do culto), e
 │   │                            #   ela É a correção do "0 KB": duas autoridades
 │   │                            #   sobre a MESMA classe compartilham a instância
 │   │                            #   (e a tabela de caminhos) da primeira
@@ -248,7 +251,7 @@ docs/
     └── REVISAO-2026-11-14.md    #   o dossiê da revisão das diretrizes (o Pacote 27 saiu dele)
 ```
 
-**32 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
+**33 arquivos Kotlin, uma dependência de terceiros no shell** — o resto é
 AndroidX oficial (`core-ktx`, `activity-ktx`, `webkit`). O que sustenta essa
 proporção Kotlin × JavaScript é a invariante 5; ela é o argumento contra
 Capacitor/Cordova, que arrastariam npm e um build system inteiro e ainda assim

@@ -167,9 +167,11 @@ regras abaixo por extenso estão em [`docs/shell/PONTE.md`](shell/PONTE.md).**
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **89**, e o **PISO** é 83: o bundle declara `minShell: 83`; os métodos
-do 86 (volume), do 87 (`abrirGuia`, o guia num WebView sem ponte) e do 89
-(Não perturbe) são OPCIONAIS —
+Hoje vale **90**, e o **PISO** é 83: o bundle declara `minShell: 83`; os métodos
+do 86 (volume), do 87 (`abrirGuia`, o guia num WebView sem ponte), do 89
+(Não perturbe) e do 90 (o pacote do culto: `pacoteCriarCulto`, `pacoteCapa`,
+`pacoteCompartilharCulto`; e o `takeShare` passa a trazer o `.avpkg` tocado,
+`{ pacote }`) são OPCIONAIS —
 o `native.js` pergunta `typeof` e degrada (ver `shell/PONTE.md`) — e **não há
 guarda de versão no lado web** — o que separa navegador
 de app é `if (!window.__NATIVE__)`, e nada mais. "Superfície" inclui **forma de
@@ -469,6 +471,13 @@ O que vale sem abrir o capítulo:
   nenhum **e porque o caminho `/saf/` tem teto de 2 GB** — acima disso o web
   recebe o arquivo CORTADO, sem erro nenhum (a invariante 8, pelo lado de
   dentro).
+- **O PACOTE DE UM CULTO TEM PRÉVIA E PORTA** (shell 90): nada é gravado antes
+  do "Importar" da prévia (capa, nome, conta); o toque num `.avpkg` fora do app
+  (`ACTION_VIEW`, filtrado por `application/octet-stream` — o app aparece no
+  "abrir com" de binários desconhecidos, e a assinatura recusa o que não for
+  pacote) chega pela FILA DOS SHARES (`takeShare` → `{ pacote }`), não por uma
+  fila nova; e o culto tem pronto PRÓPRIO (`files/pacote/culto/`), que nunca
+  vira o pronto do acervo.
 
 ---
 
