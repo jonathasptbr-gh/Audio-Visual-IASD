@@ -170,3 +170,93 @@ Os modelos abaixo são a **nossa** sugestão de partida, editável item a item.
 de sábado pela manhã poupa ao sonoplasta montar os quinze itens do zero todo
 sábado. A etapa 2 é o que o operador descreveu como "um simples link"; a 1 é o
 que faz o culto nascer pronto. Juntas, são a mesma moeda.
+
+---
+
+# Parte II — o plano decidido (2026-11-17)
+
+**Decisão do operador:** a rota é o **LINK**, feita do jeito mais completo e
+bonito — com os **modelos** dentro —, e o destinatário tem de poder **VER o
+itinerário antes de importar**, por uma imagem/PDF que acompanha o link no
+WhatsApp. As respostas das quatro decisões da Parte I:
+
+| pergunta | resposta |
+|---|---|
+| servidor | **não** |
+| rota | **link** (o `.avro` fica como o arquivo que o link carrega) |
+| modelo vazio ou com sugestão | nasce **vazio**, com as vagas nomeadas; sugestão é passo 2 |
+| quem edita o recebido | quem recebe edita a CÓPIA; o original nunca muda |
+
+**A chave que ele deu, e que simplifica tudo:** a maior parte da mídia **já é
+nativa da biblioteca** (hinário, Provai e Vede, Informativo, as séries). Então o
+roteiro carrega essas como **referência** (id + nome) e só a mídia
+ESPECIALIZADA viaja como "vem junto" (nome + tamanho). O link fica pequeno de
+verdade, e a prévia pode dizer, item por item: **"já na sua biblioteca"** ou
+**"vem junto"**.
+
+## 1 · O formato do roteiro (o mesmo para culto e para modelo)
+
+```jsonc
+{ "av": 1, "tipo": "culto" | "modelo", "nome": "Culto de sábado",
+  "igreja": "IASD Central", "quando": "2026-11-21T11:00",
+  "itens": [
+    { "m": "momento", "nome": "Escola Sabatina", "hora": "09:00" },
+    { "m": "midia", "origem": "biblioteca", "id": "hino-140", "nome": "Hino 140" },
+    { "m": "midia", "origem": "youtube", "id": "abc123", "nome": "Provai e Vede" },
+    { "m": "vaga", "espera": "video", "nome": "Vídeo do programa", "min": 6 },
+    { "m": "midia", "origem": "propria", "nome": "batismo.mp4", "bytes": 84000000 } ] }
+```
+
+**O link:** `https://audiovisualiasd.com.br/crono#r=<base64url do JSON
+comprimido>`. O roteiro vai no **fragmento** (`#`), que **não chega ao
+servidor** — a privacidade do culto não depende de ninguém. Sem servidor, sem
+banco, sem id de sessão: o link É o dado.
+
+## 2 · A página (a cara do culto antes de importar)
+
+Mesma família visual de `site/passador/`: uma coluna, o cartão do culto no topo
+(nome, igreja, data, duração total), a lista dos itens com a hora, o selo de
+cada mídia (**já na biblioteca** / **vem junto** / **falta**), e o botão
+"Abrir no app". O que o WhatsApp mostra é o cartão OG do site; o que o
+destinatário vê antes de tocar é a **imagem** (abaixo).
+
+```
+┌──────────────────────────────┐   ┌──────────────────────────────┐
+│  CRONOGRAMA · IASD Central   │   │  o CARD (PNG 1080×1350)      │
+│  Sábado, 21/11 · 9h–12h10    │   │  — gerado pelo APP e enviado │
+│ ──────────────────────────── │   │    junto com o link          │
+│ 09:00  Escola Sabatina       │   │  — o itinerário inteiro,     │
+│ 09:05  Hino 140   ✔ na bibl. │   │    legível no WhatsApp       │
+│ 09:15  Recapitulação         │   │  — a mesma cara da página    │
+│ 11:28  Sermão                │   └──────────────────────────────┘
+│ 11:15  Vídeo  ⇩ vem junto    │
+│ 12:00  Hino final ✔          │
+│ ┌──────────┐ ┌────────────┐  │
+│ │Abrir no  │ │Baixar o    │  │
+│ │app       │ │roteiro     │  │
+│ └──────────┘ └────────────┘  │
+└──────────────────────────────┘
+```
+
+## 3 · Os quatro lotes, nesta ordem
+
+| lote | o que entrega | toca | o que se vê no fim |
+|---|---|---|---|
+| **L1 · a página** | `site/cronograma/` lendo o fragmento e desenhando o cartão | **só site** | um link já MOSTRA o culto, mesmo sem app |
+| **L2 · o gerador e o card** | "Compartilhar o culto" na folha dos Cronogramas: gera o link, o PNG do card e a mensagem | **só web** | o operador manda no WhatsApp: imagem + link |
+| **L3 · o app abre o link** | Digital Asset Links + `intent-filter` + o parser: prévia, "já na biblioteca" × "vem junto", confirmação e importação guardada | site + manifesto ⇒ **Release** | o toque abre o app e importa |
+| **L4 · os modelos** | a chave `modelos`, os três de fábrica, "Novo a partir de um modelo" e "Salvar como modelo" — e o link pode carregar `tipo: "modelo"` | **só web** | o culto nasce pronto |
+
+**O que fica de fora, declarado:** a mídia especializada **não** viaja por
+Wi-Fi neste plano (era a etapa 3 da Parte I). Nos L1–L3 ela aparece como
+**"falta"**, com nome e tamanho, e o organizador a manda como arquivo solto —
+o WhatsApp já transporta vídeo e foto. A sala na Wi-Fi é lote próprio, depois.
+
+## 4 · O que a primeira página precisa provar (L1)
+
+1. um link sem roteiro válido **não quebra**: mostra a página de erro do site
+2. o cartão mostra hora, nome e o selo de cada mídia, sem cortar
+3. a página funciona **sem JavaScript de terceiros** e sem pedir nada a nenhum
+  servidor (o roteiro vem no fragmento)
+4. o botão "Baixar o roteiro" entrega um `.avro` que o app vai saber abrir
+5. a leitura é **só leitura**: a página nunca importa nada sozinha
