@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.73** — o operador conferiu os 50 pontos de medição e nada estava quebrado: as 55 linhas que dependiam dele saem fechadas, a `Faixa` do YouTube perde os cinco campos sem leitor, e a publicação do OTA passa a REPROVAR versão igual com conteúdo diferente (shell mudou, Release v1.14.73).
 - **v1.14.72** — o lote de higienização: as oito linhas de dono "higienização" fecham num lote só (só web e `tools/`, sem `shellTag`) — o `!important` do `.cast-url`, o portão de 120 do `notas.json`, a sonda vendo pseudo-elemento, o aviso de Release no `estado.sh`, o `:not(#plBtn)`, o deck refeito medido e os dois flaky esperando o FATO.
 - **v1.14.71** — Pacote 47: o pop-up de volume da abertura SAI, e nasce a seção "Inicialização" em Configurações — modo, Não perturbe e volume na abertura, as duas últimas desligadas por padrão e a barra guardando o número quando a chave desliga (só web); na carona, o número do passador fica centralizado na caixa.
 - **v1.14.69** — Pacote 45: o aviso de volume da abertura vira um cartão na BASE com véu, fonte maior e os botões do app — não sobe o som nem fecha sozinho —, entra na fila `POPUPS` (o tour espera o OK) e o tour ganha a janela "Fazer o tour / Agora não" antes de abrir; na carona, a caixa do número do passador encolhe (só web).
@@ -803,6 +804,58 @@ apagada da que a criou.
 - **v5.154** — é METADE OTA e METADE APK, e a divisão importa para quem for testar em aparelho.
 - **v5.155** — é OTA PURO
 - **v5.156** — é METADE OTA e METADE APK, de novo.
+
+---
+
+## v1.14.73 — os resíduos declarados fecham: a conferência do operador, e o conserto de CI que faltava
+
+**O OPERADOR CONFERIU E NADA ESTAVA QUEBRADO.** Ele olhou os pontos que só o
+aparelho dele podia medir — a faixa do Itinerário, o cartão e a página do
+passador, a abertura e o volume, os Favoritos, as Ferramentas, as roletas, a
+notificação, o Modo Fácil em tela cheia, o guia impresso e as capturas do site
+— e a resposta foi *"a princípio em nenhum desses pontos há algo quebrado"*.
+As **50 linhas de dono `medição`** descem para o "Fechado/decidido" com essa
+proveniência, uma por uma.
+
+**TRÊS LINHAS DE DONO `operador` JÁ ESTAVAM RESOLVIDAS** e só tinham ficado
+para trás: a segunda linha da mensagem do passador saiu inteira na v1.14.66 (a
+mensagem passou a ser SÓ o link); o Timer em 0:00 fechou na v1.14.31 (Pacote
+30, e o editor vazio ficou como está por decisão dele); e as capturas do site
+viraram o Pacote 29 da fila. As duas primeiras fecham com o motivo e a versão;
+a terceira sai da tabela pela regra 6.
+
+**O CÓDIGO MORTO DA `Faixa` SAIU** (`YoutubeGrab.kt`): `initIni`, `initFim`,
+`idxIni`, `idxFim` e `codec` eram escritos e nunca lidos desde que o `dash`
+saiu — cinco campos, o KDoc que os explicava e o `getCodec()`. O Kotlin não
+compila nesta máquina; quem prova é o Gradle, no CI (`apk`).
+
+**A PUBLICAÇÃO DO OTA GANHOU A TRAVA QUE FALTAVA.** A guarda anti-regressão
+recusava versão MENOR; a IGUAL com conteúdo diferente passava — o "segundo lote
+de web sem subir" registrado no `RESIDUOS` em 14/11. Agora o passo que empacota
+compara o **sha256 do zip** com o do manifesto que está no ar: se o conteúdo
+mudou e a versão não subiu, o run REPROVA em vez de publicar um bundle que o
+aparelho descartaria em silêncio. Igual com o MESMO sha segue (reenvio
+inofensivo), e a válvula `permitir_regressao` continua só no disparo manual.
+
+**A LINHA DO `slideMode`/`slideLabel` SAI COMO REFUTADA**: os dois campos são
+contrato da ponte (`ponte.test.mjs` afirma a ida e a volta, `PONTE.md` publica
+a forma do JSON, `SESSAO-DE-MIDIA.md` já diz que eles viajam vazios desde a
+v1.14.23) — não é código morto, e apagá-los custaria a superfície e cinco
+capítulos para tirar três linhas de um `if`.
+
+**SHELL MUDOU** (`java/YoutubeGrab.kt`): `shellTag` = `v1.14.73`, e a Release
+sai depois do push. Degrau CORREÇÃO, número **1.14.73**; as três casas batem.
+
+**AS DUAS LINHAS DE FONTE DO RUNNER FECHARAM POR MEDIÇÃO, E UMA ERA OUTRO
+DEFEITO.** O `D3`, o `V` e o `A5` já passam verdes aqui — a DejaVu Sans do
+runner foi instalada nesta máquina na v1.14.65, e os três medem a métrica viva
+da página. O `sorteio-tela` **O** era vermelho de verdade, e não por número de
+fonte: ele media a COBERTURA do degradê no pé onde a tinta é transparente
+(alfa ≈0,014), então o pixel lia o CONTEÚDO da linha e a última faixa dava
+`mudou:0` (d=21). Passou a medir a pegada da tira com uma FOTO OPACA da mesma
+caixa, e o escurecimento só nas linhas onde o alfa lido da página é mensurável;
+a reversão foi provada (tinta de 12px reprova em d=13/17/21). O `RESIDUOS.md`
+fecha **sem nenhuma linha aberta** — 58 fechadas neste lote.
 
 ---
 

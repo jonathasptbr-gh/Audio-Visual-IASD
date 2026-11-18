@@ -1223,27 +1223,8 @@ object YoutubeGrab {
         val bitrate: Int,
         itag: Int,
         val cliente: String,
-        /**
-         * Os byte-ranges do DASH, quando o YouTube os informa: o segmento de
-         * INICIALIZAÇÃO (`ftyp`+`moov`, o cabeçalho que descreve a faixa) e o
-         * ÍNDICE (`sidx`, o mapa de tempo → posição de cada fragmento).
-         *
-         * São eles que tornam a transmissão direta possível: com os dois, o
-         * player do lado web monta a linha do tempo inteira lendo alguns
-         * kilobytes, e daí em diante pede só os pedaços de que precisa. Sem
-         * eles, "tocar" significaria baixar o arquivo todo primeiro — que é
-         * exatamente o que se quer evitar.
-         *
-         * Zerados quando a faixa não é adaptativa (o progressivo não tem sidx).
-         */
-        val initIni: Int = 0,
-        val initFim: Int = 0,
-        val idxIni: Int = 0,
-        val idxFim: Int = 0,
         /** O tamanho total da faixa, para o player saber onde ela acaba. */
         val tamanho: Long = 0,
-        /** `avc1.640028`, `mp4a.40.2` — o que o `MediaSource` exige saber. */
-        val codec: String = "",
         /**
          * A TRILHA DE ÁUDIO desta faixa, quando o vídeo tem mais de uma
          * (`"pt-BR"`, `"en"`) e o tipo que o YouTube carimbou nela
@@ -1300,12 +1281,7 @@ object YoutubeGrab {
             bitrate = a?.averageBitrate ?: 0,
             itag = itagDe(url),
             cliente = clienteDe(url),
-            initIni = it?.getInitStart() ?: 0,
-            initFim = it?.getInitEnd() ?: 0,
-            idxIni = it?.getIndexStart() ?: 0,
-            idxFim = it?.getIndexEnd() ?: 0,
             tamanho = it?.getContentLength() ?: 0L,
-            codec = it?.getCodec().orEmpty(),
             // Do `Locale`, e não do `audioTrackId` cru (`"pt-BR.4"`): quem sabe
             // separar o idioma do sufixo é a biblioteca, que já o fez.
             idioma = a?.getAudioLocale()?.toLanguageTag().orEmpty(),

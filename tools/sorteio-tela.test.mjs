@@ -1826,6 +1826,10 @@ try {
         raio: parseFloat(cs.borderTopLeftRadius) || 0 },
       acima: res.classList.contains('tem-acima'), semVeu: res.classList.contains('sem-veu'),
       veuH: parseFloat(getComputedStyle(res, '::before').height) || null,
+      // O ALFA DO TOPO do degradê, LIDO da página: é ele que diz em que linha da
+      // tira a tinta ainda é mensurável (ver o bloco O).
+      veuAlfa: parseFloat((/rgba?\(\s*0,\s*0,\s*0,\s*([\d.]+)\)/
+        .exec(getComputedStyle(res, '::before').backgroundImage) || [])[1]) || null,
       transborda: res.scrollHeight - res.clientHeight,
     };
   });
@@ -1839,13 +1843,33 @@ try {
   });
   const semTira = lerPng(await pg.screenshot());
   await pg.evaluate(() => { const s = document.getElementById('semTinta'); if (s) s.remove(); });
+  // A TERCEIRA FOTO: A MESMA CAIXA DA TIRA, COM TINTA SÓLIDA. O pé do degradê
+  // (`rgba(0,0,0,.30)` → transparente em 22px) chega ao último pixel com alfa
+  // ≈0,014 — menos de UM nível de 8 bits sobre o poço da gaveta (11,18,25), e
+  // zero sobre qualquer superfície preta. Uma cobertura medida com a tinta real
+  // mede, ali, a COR DO CONTEÚDO embaixo, e o conteúdo da lista muda com a fonte
+  // (a linha que cai na fronteira depende da altura das linhas): o mesmo oráculo
+  // reprovava aqui e passava no runner só por isso. A pegada da tira — onde ela
+  // pinta e onde para — é um fato da CAIXA, e se mede com a caixa opaca: a tinta
+  // trocada por um magenta sólido, sem mover nada (nada de `display: none`, que
+  // tiraria o item do fluxo). Quem prova o ESCURECIMENTO continua sendo a tinta
+  // real, na foto de cima.
+  await pg.evaluate(() => {
+    const s = document.createElement('style');
+    s.id = 'tintaCheia';
+    s.textContent = '#sorteioList .sorteio-res::before,#sorteioList .sorteio-res::after'
+      + '{background:#f0f!important;background-image:none!important}';
+    document.head.appendChild(s);
+  });
+  const cheia = lerPng(await pg.screenshot());
+  await pg.evaluate(() => { const s = document.getElementById('tintaCheia'); if (s) s.remove(); });
   // A LINHA VARRIDA de borda a borda, e o veredito por linha: quantos pixels
-  // mudaram, e o quanto a tira escureceu o mais escurecido deles (luminância da
-  // WCAG, a mesma régua do `sombra-de-rolagem`).
-  const varrer = (y, esq, dir) => {
+  // mudaram entre duas fotos, e o quanto a tinta escureceu o mais escurecido
+  // deles (luminância da WCAG, a mesma régua do `sombra-de-rolagem`).
+  const varrer = (img, ref, y, esq, dir) => {
     let mudou = 0, maxd = 0, total = 0;
     for (let x = Math.ceil(esq) + 1; x <= Math.floor(dir) - 1; x++) {
-      const a = pixel(comTira, x, y); const b = pixel(semTira, x, y);
+      const a = pixel(img, x, y); const b = pixel(ref, x, y);
       if (!a || !b) continue;
       total++;
       if (a.join() !== b.join()) mudou++;
@@ -1856,28 +1880,36 @@ try {
   };
   const naContagem = [];
   for (let y = Math.floor(foto.cab.topo); y <= Math.ceil(foto.cab.base); y++) {
-    naContagem.push(varrer(y, foto.cab.esq, foto.cab.dir));
+    naContagem.push(varrer(comTira, semTira, y, foto.cab.esq, foto.cab.dir));
   }
-  const naFronteira = [1, 5, 9, 13, 17, 21].map((d) => varrer(Math.round(foto.res.topo) + d,
-    foto.res.esq + foto.res.raio, foto.res.dir - foto.res.raio));
-  const abaixoDaTira = [24, 30].map((d) => varrer(Math.round(foto.res.topo) + d,
-    foto.res.esq, foto.res.dir));
+  // A PEGADA: as seis linhas da tira (1 a 21 dos 22px), com a caixa opaca.
+  const LINHAS = [1, 5, 9, 13, 17, 21];
+  const naFronteira = LINHAS.map((d) => varrer(cheia, semTira,
+    Math.round(foto.res.topo) + d, foto.res.esq + foto.res.raio, foto.res.dir - foto.res.raio));
+  const abaixoDaTira = [24, 30].map((d) => varrer(cheia, semTira,
+    Math.round(foto.res.topo) + d, foto.res.esq, foto.res.dir));
+  // O ESCURECIMENTO, com a tinta REAL, nas mesmas linhas da fronteira.
+  const comTintaReal = LINHAS.map((d) => varrer(comTira, semTira,
+    Math.round(foto.res.topo) + d, foto.res.esq + foto.res.raio, foto.res.dir - foto.res.raio));
   checar(foto.acima && !foto.semVeu && foto.veuH === 22 && foto.transborda > 100
     && foto.cab.base <= foto.res.topo,
     'O · a PREMISSA da medição: a lista está ROLADA (tira de cima ligada, '
     + foto.transborda + 'px escondidos) e a contagem fica ACIMA do scroller — sem '
     + 'a tira no ar, "não pinta na contagem" passaria por vácuo', foto);
-  // O ESCURECIMENTO É LIDO NO MÁXIMO DA FAIXA, e não linha a linha: o degradê vai
-  // de `rgba(0,0,0,.30)` a transparente, e o que ele muda em LUMINÂNCIA depende
-  // do que está embaixo — MEDIDO, a mesma tira dá 0,0376 sobre o texto de uma
-  // linha e 0,0022 sobre o vão entre duas. Por LINHA a régua mediria o conteúdo
-  // da lista; o que é dela, e vale nas 22, é a COBERTURA de borda a borda.
-  const tinge = Math.max(...naFronteira.map((l) => l.maxd));
-  checar(naFronteira.every((l) => l.mudou === l.total) && tinge >= 0.02
-    && abaixoDaTira.every((l) => l.mudou === 0),
+  // O ESCURECIMENTO É MEDIDO SÓ ONDE ELE EXISTE: o alfa do degradê em cada linha
+  // é `veuAlfa × (1 − (d + 0,5) / veuH)` — LIDO da página, não tabelado. Abaixo de
+  // 0,05 de alfa a tinta muda menos de um nível de 8 bits sobre o poço da gaveta,
+  // e o que o pixel mostraria ali é o CONTEÚDO da linha (que muda com a fonte),
+  // não a sombra. A cobertura da tira INTEIRA é a da foto com a caixa opaca, logo
+  // acima; estas linhas são a prova de que a tinta real escurece de borda a borda.
+  const filaComTinta = comTintaReal.filter((l, i) => foto.veuAlfa
+    && foto.veuAlfa * (1 - (LINHAS[i] + 0.5) / foto.veuH) >= 0.05);
+  checar(filaComTinta.length === 5 && naFronteira.every((l) => l.mudou === l.total)
+    && abaixoDaTira.every((l) => l.mudou === 0)
+    && filaComTinta.every((l) => l.mudou === l.total),
     'O · e a tira PINTA na fronteira do scroller, de borda a borda, nas 22 linhas '
     + 'dela e em nenhum pixel abaixo — é o corte de verdade que ela passou a '
-    + 'marcar', JSON.stringify({ tinge, naFronteira, abaixoDaTira }));
+    + 'marcar', JSON.stringify({ veuAlfa: foto.veuAlfa, naFronteira, filaComTinta, abaixoDaTira }));
   checar(naContagem.every((l) => l.mudou === 0 && l.maxd === 0),
     'O · e NENHUM pixel da faixa da contagem muda com a tira ligada: fora do '
     + 'scroller ela não é mais coberta pela sombra dele — dentro, a tira de '

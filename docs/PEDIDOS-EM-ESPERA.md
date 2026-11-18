@@ -156,7 +156,6 @@ ordem; a fila é dele.
 | 13.3 | layout de paisagem (o app no Windows saiu) | | 3 | 1 | 3 | estudo |
 | **16** | **O cronograma pronto: o organizador entrega o culto** | pedido | 4 | 2 | **8** | planejamento |
 | **29** | **Guia do site: a captura da lista de Ferramentas e do Cronograma** | resíduo | 2 | 1 | **2** | site |
-| **45** | **Pop-up de volume na abertura, e a porta do tour** | pedido | 3 | 3 | **9** | web + shell |
 
 ---
 
