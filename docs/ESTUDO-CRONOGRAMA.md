@@ -247,10 +247,45 @@ destinatário vê antes de tocar é a **imagem** (abaixo).
 | **L3 · o app abre o link** | Digital Asset Links + `intent-filter` + o parser: prévia, "já na biblioteca" × "vem junto", confirmação e importação guardada | site + manifesto ⇒ **Release** | o toque abre o app e importa |
 | **L4 · os modelos** | a chave `modelos`, os três de fábrica, "Novo a partir de um modelo" e "Salvar como modelo" — e o link pode carregar `tipo: "modelo"` | **só web** | o culto nasce pronto |
 
-**O que fica de fora, declarado:** a mídia especializada **não** viaja por
-Wi-Fi neste plano (era a etapa 3 da Parte I). Nos L1–L3 ela aparece como
-**"falta"**, com nome e tamanho, e o organizador a manda como arquivo solto —
-o WhatsApp já transporta vídeo e foto. A sala na Wi-Fi é lote próprio, depois.
+## 3.1 · O pacote COMPLETO — uma interação, e de onde vêm os bytes
+
+**Decisão do operador (17/11, em cima desta Parte II): arquivo solto NÃO.** O
+que ele quer é *"um link, uma interação, cronograma completo"*. Isso muda o
+desenho, e a resposta honesta tem duas metades:
+
+**O LINK sempre funciona para o ROTEIRO.** Ele vai no fragmento, mora no
+próprio endereço e não depende de ninguém estar online: a página abre, mostra
+o culto inteiro e o app importa a organização, os momentos e tudo o que é
+re-baixável (biblioteca, YouTube). Isso é o que o L1/L2 entregam.
+
+**A MÍDIA ESPECIALIZADA só tem dois caminhos para viajar — e nenhum é mágica:**
+
+| caminho | como o link a entrega | preço |
+|---|---|---|
+| **A · o organizador é o servidor** | o MESMO link aponta para uma "sala" no aparelho dele (o servidor das telas já faz isso na Wi-Fi); a página baixa os arquivos de lá ao tocar em "Importar o culto" — um toque, o pacote inteiro | **os dois precisam estar online na mesma rede no momento** (Wi-Fi da igreja ou o ponto de acesso do celular). Zero custo recorrente |
+| **B · um servidor nosso** | o link funciona sempre: a mídia fica guardada e o destinatário baixa quando quiser, dias depois | **custo recorrente** (hospedagem + armazenamento + segurança), e o site hoje é estático — é infraestrutura nova |
+
+**Recomendação: A, com o B declarado como a saída para o caso assíncrono.** A
+igreja já tem o encontro — o organizador e o sonoplasta estão no mesmo lugar
+no sábado de manhã. O caminho A usa o que já existe (o pareamento das telas da
+rede e o `.avpkg`, que já leva o acervo inteiro e *importar só acrescenta*) e
+não custa nada por mês. O B só se paga se o culto for montado num dia e aberto
+noutro lugar.
+
+**A interação continua UMA:** abrir o link → ver o culto → **"Importar o
+culto"** → o app busca o que falta no aparelho do organizador e mostra o
+progresso. Se ele não estiver online, a página diz o que falta, com nome e
+tamanho, e oferece "pedir ao organizador" — nunca um arquivo solto no meio do
+WhatsApp.
+
+**O que isso muda nos lotes:** o **L3** cresce — o app abre o link E é capaz de
+puxar a mídia da sala do organizador (é o mesmo servidor das telas, com uma
+rota de LEITURA de arquivo). Fica assim:
+
+| lote | entrega | toca |
+|---|---|---|
+| **L3a · o app abre o link** | prévia, confirmação e importação da organização e das mídias re-baixáveis | site + manifesto ⇒ **Release** |
+| **L3b · a sala do organizador** | a mesma prévia puxa a mídia especializada do aparelho dele, numa interação | shell (o servidor das telas) ⇒ **Release** |
 
 ## 4 · O que a primeira página precisa provar (L1)
 
