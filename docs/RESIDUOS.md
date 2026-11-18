@@ -43,10 +43,14 @@ medição em aparelho não é fino.**
 `operador` (decisão de desenho ou de custo), `CI` (só o runner prova) ou
 `medição` (precisa de aparelho).
 
-**Nenhuma linha aberta.** A tabela esvaziou em 2026-11-17 (v1.14.73): as 58
-linhas de então fecharam — 50 pela conferência do operador no aparelho, três que
-já estavam resolvidas por lotes anteriores, duas de CI consertadas no lote e as
-duas de fonte do runner medidas aqui. Linha nova entra pela regra do topo.
+| quando · lote | onde | o que ficou | dono | por que não foi agora |
+|---|---|---|---|---|
+| 2026-11-17 · v1.14.73 (`03811685`) | `tools/sorteio-simples.test.mjs` | o `verificar` do CI REPROVOU só ele (154/155) num push que não tocou na base web; o re-run passou e DUAS rodadas locais passaram. É intermitente, e o vermelho não ficou à mão: o log do job só diz "REPROVOU", sem a asserção | CI | um intermitente só se fecha com a reprodução armada antes do conserto; não havia o caso à mão no momento |
+
+**As 58 linhas anteriores** fecharam em 2026-11-17 (v1.14.73): 50 pela
+conferência do operador no aparelho, três que já estavam resolvidas por lotes
+anteriores, duas de CI consertadas no lote e as duas de fonte do runner medidas
+aqui.
 
 ## Fechado/decidido
 
