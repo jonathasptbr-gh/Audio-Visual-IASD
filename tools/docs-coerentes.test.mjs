@@ -113,6 +113,11 @@ const docs = [];
     ['sw.js', 'o service worker saiu do bundle (v5.48); os docs explicam a ausência'],
     ['manifest.json', 'idem — o WebAPK não existe num WebView'],
     ['server.js', 'idem — o servidor de desenvolvimento do modelo de dois PWAs'],
+    // Os nomes do PACOTE DO CULTO (estudo de 17/11, `ESTUDO-CRONOGRAMA.md`): o
+    // desenho do `.avpkg` v2 os nomeia antes de o código existir — o estudo é o
+    // registro da decisão, não a entrega.
+    ['roteiro.json', 'o pacote do culto (estudo de 17/11): nome desenhado, ainda não escrito'],
+    ['manifesto.json', 'idem — a raiz do `.avpkg` v2'],
     // O ESPELHO DE PIXELS, removido na v5.187.
     ['cliente.js', 'o espelho de pixels saiu na v5.187'],
     ['fmp4.js', 'idem'],
