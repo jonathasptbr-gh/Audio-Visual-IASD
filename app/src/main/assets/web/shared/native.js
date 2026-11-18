@@ -48,9 +48,9 @@
   //      outro, validando um bundle cujo Controle nunca rodou.
   //   2. `AVDB` (db.js) e `createStage` (stage.js) — os dois módulos
   //      compartilhados, cada um publicando seu global no fim do arquivo.
-  //   3. os onze módulos do Controle (`Louvorja`, `Bible`, `AVSerie`,
+  //   3. os módulos do Controle (`Louvorja`, `Bible`, `AVSerie`,
   //      `AVSorteio`, `AVCifra`, `AVHinario`, `AVColetanea`, `AVPptxZip`,
-  //      `AVDeck`, `AVPacote`, `AVProgresso`) — todo uso deles no `controle.js`
+  //      `AVDeck`, `AVPacote`, `AVCapa`, `AVProgresso`, `AVTour`) — todo uso deles no `controle.js`
   //      está DENTRO de função, então um erro de topo num deles NÃO aborta o
   //      `controle.js`: sem esta condição o app sobe, o watchdog confirma e o
   //      recurso daquele arquivo fica morto (ver docs/shell/OTA.md).
@@ -98,6 +98,7 @@
     if (!global.AVColetanea) return false;
     if (!global.AVPptxZip) return false;
     if (!global.AVPacote) return false;
+    if (!global.AVCapa) return false;
     if (!global.AVProgresso) return false;
     if (!global.AVTour) return false;
     if (typeof global.__avBack !== 'function') return false;

@@ -327,6 +327,7 @@ jobs:
           node tools/faxina-online.test.mjs
           node tools/pptxzip.test.mjs
           node tools/pacote.test.mjs
+          node tools/capa.test.mjs
           node tools/glifos.test.mjs
           node tools/cifra.test.mjs
           node tools/louvorja-url.test.mjs
@@ -660,6 +661,7 @@ jobs:
           rodar tools/pacote-ida-e-volta.test.mjs
           rodar tools/pacote-por-grupos.test.mjs
           rodar tools/pacote-compartilhar.test.mjs
+          rodar tools/pacote-culto.test.mjs
           rodar tools/configuracoes-sem-subtitulo.test.mjs
           rodar tools/configuracoes-janelas.test.mjs
           rodar tools/previa-recolhida.test.mjs

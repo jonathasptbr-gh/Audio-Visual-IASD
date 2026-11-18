@@ -493,7 +493,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.73';
+const WEB_VERSION = '1.14.74';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -21575,7 +21575,22 @@ function renderCronoGaveta() {
     exc.appendChild(msym(ICON.del));
     exc.addEventListener('click', (e) => { e.stopPropagation(); excluirCronograma(c.id); });
 
-    li.append(ren, troca, exc);
+    // ENVIAR ESTE CULTO (`exportarCulto`): o desenho do compartilhar do app. Fora do app
+    // nativo ele some, como o Exportar do Transferir (não há canal para escrever o pacote).
+    const env = document.createElement('button');
+    env.className = 'row-btn crono-enviar';
+    const temItens = !!(ativo ? libItems.length : c.qtd);
+    const enviando = cultoEnviando === c.id;
+    env.hidden = !window.__NATIVE__;
+    env.disabled = !temItens || !!cultoEnviando;
+    env.classList.toggle('trabalhando', enviando);
+    env.title = !temItens ? 'O cronograma está vazio'
+      : enviando ? 'Preparando “' + c.nome + '”…' : 'Enviar “' + c.nome + '”';
+    env.setAttribute('aria-label', env.title);
+    env.innerHTML = icoSprite('icoCompartilhar');
+    env.addEventListener('click', (e) => { e.stopPropagation(); exportarCulto(c.id); });
+
+    li.append(ren, troca, env, exc);
     cronoListaEl.appendChild(li);
   }
   const li = document.createElement('li');
@@ -32396,7 +32411,8 @@ const TESTES = [
         ['shared/tokens.css', 'as cores'], ['shared/native.js', 'a ponte'],
         ['controle/coletanea.js', 'as coletâneas'], ['controle/serie.js', 'as séries'],
         ['controle/sorteio.js', 'a playlist automática'], ['controle/cifra.js', 'a cifra'],
-        ['controle/pacote.js', 'o pacote'], ['controle/deck.js', 'a apresentação'],
+        ['controle/pacote.js', 'o pacote'], ['controle/capa.js', 'a capa do culto'],
+        ['controle/deck.js', 'a apresentação'],
         ['controle/pptxzip.js', 'o PowerPoint'], ['controle/hinario.js', 'as seções do hinário'],
         ['controle/progresso.js', 'a barra de progresso'],
         ['controle/louvorja.js', 'a fonte das músicas'], ['controle/bible.js', 'a Bíblia'],
@@ -35412,6 +35428,8 @@ async function pacoteBases(plano, sel) {
   const lista = [];
   for (const id of origens) {
     if (idsMidia.has(id)) continue;
+    // Num culto, o original que é faixa de coleção do PRÓPRIO cronograma já viaja como `arquivo`.
+    if (plano.escopo && plano.escopo.arquivos.some((a) => a.id === id)) continue;
     let rec = null;
     try { rec = await AVDB.getMediaCru(id); } catch (_) { rec = null; }
     if (!rec || rec.edicao) continue;
@@ -35432,7 +35450,58 @@ async function pacoteBases(plano, sel) {
   return lista;
 }
 
-async function pacotePlano(aoAndar) {
+/**
+ * O PLANO DE UM CULTO — `pacotePlano(aoAndar, escopo)` com `escopo = { ids, cronogramas,
+ * grupo }`: a MESMA forma de plano, para o MESMO escritor (`pacoteEscreverRegistros`), com
+ * dois grupos fixos e marcados — `midia` (os registros de `media` dos `ids`) e `escopo.grupo`
+ * (os arquivos de coleção/pasta que eles apontam: o catálogo e os bytes, inclusive as imagens
+ * de fundo da letra — `pacoteCaminhosDoArquivo`). Da `state` viaja SÓ `cronogramas` (o valor
+ * que `exportarCulto` montou): nem preferência, nem Bíblia, nem índice de coleção — o item do
+ * cronograma abre pelo registro (`getMedia` cai em `fileGet`), e o guardado novo é o detentor
+ * dele no destino (`lerDetentores`). Os originais dos editados vêm pelo `pacoteBases`.
+ */
+async function pacotePlanoDoCulto(escopo, aoAndar) {
+  const ids = new Set(escopo.ids);
+  const bytes = new TextEncoder().encode(JSON.stringify(escopo.cronogramas));
+  const estado = [{ chave: 'cronogramas', bytes }];
+  const midia = (await AVDB.mediaResumo()).filter((m) => ids.has(m.id));
+  if (aoAndar) aoAndar(0.5);
+  const naMidia = new Set(midia.map((m) => m.id));
+  const midiaBytes = new Map(midia.map((m) => [m.id, m.bytes || 0]));
+  const arquivos = [];
+  const doDisco = [];
+  const vistos = new Set();
+  for (const id of escopo.ids) {
+    if (naMidia.has(id)) continue;
+    let rec = null;
+    try { rec = await AVDB.fileGet(id); } catch (_) { rec = null; }
+    if (!rec || arquivos.some((a) => a.id === id)) continue;
+    arquivos.push(rec);
+    for (const caminho of pacoteCaminhosDoArquivo(rec)) {
+      if (vistos.has(caminho) || AVDB.ehCaminhoDeBase(caminho)) continue;
+      vistos.add(caminho);
+      let f = null;
+      try { f = await AVDB.opfsGetFile(caminho); } catch (_) { f = null; }
+      if (f) doDisco.push({ caminho, tamanho: f.size });
+    }
+  }
+  const bytesDoDisco = doDisco.reduce((t, a) => t + a.tamanho, 0);
+  const porGrupo = new Map([[escopo.grupo, { arquivos: doDisco, bytes: bytesDoDisco }]]);
+  const grupos = [
+    { chave: 'midia', rotulo: escopo.rotulo, bytes: 0, vazio: !midia.length },
+    { chave: escopo.grupo, rotulo: escopo.rotulo, bytes: bytesDoDisco, vazio: !doDisco.length },
+  ];
+  if (aoAndar) aoAndar(1);
+  return {
+    estado, midia, porGrupo, nomes: new Map(), ids: new Set(allCollections().map((c) => c.id)),
+    caminhoViaja: () => true, grupos, folha: null,
+    midiaPorGrupo: new Map([['midia', naMidia]]), midiaBytes, seriesIds: new Set(),
+    escopo: { arquivos },
+  };
+}
+
+async function pacotePlano(aoAndar, escopo) {
+  if (escopo) return pacotePlanoDoCulto(escopo, aoAndar);
   // OS PASSOS DA MEDIÇÃO. Ela não tem progresso interno de granularidade fina —
   // cada um destes é uma varredura inteira —, e são eles que fazem os primeiros
   // por cento da barra ANDAREM em vez de ficarem parados numa palavra.
@@ -36306,6 +36375,162 @@ function pacoteAnotar(campo, texto) {
   pacoteDiario[campo] = h + ' · ' + texto;
 }
 
+/**
+ * OS REGISTROS DE UM PACOTE, da assinatura ao `fim` — o MESMO laço para o acervo
+ * (`exportarPacote`) e para um culto (`exportarCulto`, com `plano.escopo`). `extra.info` são
+ * campos a mais no primeiro `info`; `extra.capa`, o PNG que vai num SEGUNDO `info` (ver
+ * `AVPacote.TIPOS`: campo novo mora em `info`, nunca em tipo novo).
+ */
+async function pacoteEscreverRegistros(esc, plano, sel, bases, total, tarefa, extra) {
+  let etapa = '';
+  await esc.bytes(AVPacote.assinatura());
+  // O CABEÇALHO HUMANO. Ele não é lido para decidir nada — quem decide é
+  // a assinatura —, e existe para o pacote poder ser inspecionado por
+  // fora e para a tela de importação dizer de onde ele veio. Ele diz
+  // também QUE GRUPOS este arquivo traz: um pacote parcial é o caso
+  // normal, e "o que tem aqui dentro?" é uma pergunta com resposta.
+  const escolhidos = plano.grupos.filter((g) => sel.has(g.chave));
+  const info = new Blob([JSON.stringify(Object.assign({
+    app: 'audio-visual-iasd',
+    web: WEB_VERSION,
+    criadoEm: Date.now(),
+    grupos: escolhidos.filter((g) => !g.vazio).map((g) => g.rotulo),
+    bytes: total,
+  }, (extra && extra.info) || {}))], { type: 'application/json' });
+  await esc.registro({ t: 'info', bytes: info.size }, info);
+  // A CAPA, logo depois: um `info` POR PÁGINA, em ordem (`pagina` 1-based, `paginas` = n) —
+  // `pacoteLerCapa` lê só estes primeiros registros.
+  const capas = ((extra && extra.capas) || []).filter((b) => b && b.size);
+  for (let i = 0; i < capas.length; i++) {
+    const tipo = capas[i].type || 'image/png';
+    await esc.registro({ t: 'info', capa: tipo, tipo, pagina: i + 1, paginas: capas.length,
+      bytes: capas[i].size }, capas[i]);
+  }
+
+  // AS PREFERÊNCIAS E OS CATÁLOGOS, já lidos e codificados pelo plano. Um
+  // Blob (o wallpaper) sai por um tipo PRÓPRIO em vez de virar um JSON
+  // impossível: `JSON.stringify` de um Blob devolve `{}`, e o destino
+  // gravaria um wallpaper vazio por cima do padrão — o modo de falhar
+  // mudo que este arquivo inteiro evita.
+  etapa = 'Ajustes e catálogos';
+  bgItemOnly(tarefa, etapa);
+  for (const e of plano.estado) {
+    if (e.blob) {
+      await esc.registro({
+        t: 'state-blob', chave: e.chave, tipo: e.blob.type || '', bytes: e.blob.size,
+      }, e.blob);
+      continue;
+    }
+    await esc.registro({ t: 'state', chave: e.chave, bytes: e.bytes.length }, e.bytes);
+  }
+
+  // O ACERVO. A ordem — registro, miniatura, páginas — é CONTRATO com o
+  // importador: ele monta o item enquanto lê, e por isso a miniatura e as
+  // páginas de um item vêm coladas nele.
+  // A UNIÃO DOS GRUPOS MARCADOS, e não `sel.has('midia')`: a store de
+  // mídia é vários grupos que se sobrepõem, e o item viaja se QUALQUER um
+  // deles estiver marcado.
+  const idsMidia = pacoteMidiaSelecionada(plano, sel);
+  if (idsMidia.size) {
+    etapa = 'Itens importados e vídeos';
+    bgItemOnly(tarefa, etapa);
+    for (const m of plano.midia) {
+      if (!idsMidia.has(m.id)) continue;
+      let rec = null;
+      // CRU: um item editado viaja como o registro que ele é (sem os bytes do original,
+      // que a leitura resolvida traria junto). O original vai pelo `pacoteBases`.
+      try { rec = await AVDB.getMediaCru(m.id); } catch (_) { continue; }
+      if (!rec) continue;
+      const corpo = rec.blob || null;
+      // `grupos`: de QUE grupos da folha este item é — é o que deixa a IMPORTAÇÃO por
+      // marcas decidir sobre ele (um vídeo de série não está em lista nenhuma do
+      // `state`, e só o grupo da série o nomeia). Um leitor antigo ignora o campo.
+      const grupos = [];
+      if (plano.midiaPorGrupo) {
+        for (const [chave, conj] of plano.midiaPorGrupo) if (conj.has(m.id)) grupos.push(chave);
+      }
+      await esc.registro({
+        t: 'media', rec: AVPacote.sanearMedia(rec), bytes: corpo ? corpo.size : 0, grupos,
+      }, corpo);
+      if (rec.thumb) await esc.registro({ t: 'media-thumb', bytes: rec.thumb.size }, rec.thumb);
+      if (Array.isArray(rec.pages)) {
+        for (let i = 0; i < rec.pages.length; i++) {
+          const pg = rec.pages[i];
+          if (!pg) continue;
+          await esc.registro({ t: 'media-pagina', i, tipo: pg.type || '', bytes: pg.size }, pg);
+        }
+      }
+    }
+  }
+
+  // OS ORIGINAIS ESCONDIDOS dos itens editados (ver `pacoteBases`): `base: true` no
+  // cabeçalho é o que deixa a importação por marcas decidir — entram só se o editado
+  // entrou.
+  if (bases.length) {
+    etapa = 'Originais dos itens editados';
+    bgItemOnly(tarefa, etapa);
+    for (const b of bases) {
+      await esc.registro({
+        t: 'media', rec: AVPacote.sanearMedia(b.rec), bytes: b.corpo ? b.corpo.size : 0,
+        grupos: [], base: true,
+      }, b.corpo || null);
+      if (b.rec.thumb) await esc.registro({ t: 'media-thumb', bytes: b.rec.thumb.size }, b.rec.thumb);
+    }
+  }
+
+  // O CATÁLOGO DO OPFS. Os registros vêm ANTES dos bytes de propósito:
+  // eles são pequenos, e um pacote cortado no meio deixa o destino com
+  // catálogo sem arquivo — que o app já sabe tratar (a faixa não toca) —,
+  // em vez de arquivo sem catálogo, que é espaço ocupado que nada aponta.
+  // (Cortado, aliás, ele não importa: falta o registro `fim`.)
+  //
+  // O CORTE É O MESMO DOS BYTES, e ele passa pela MESMA função: um
+  // registro de catálogo cujo arquivo não viaja é uma faixa que não toca
+  // do outro lado.
+  etapa = 'Catálogo';
+  bgItemOnly(tarefa, etapa);
+  // UM CULTO leva só os registros que o cronograma dele aponta (`plano.escopo.arquivos`, já
+  // escolhidos pelo plano): o corte por grupo não se aplica.
+  for (const rec of (plano.escopo ? plano.escopo.arquivos : await AVDB.filesAll())) {
+    if (!rec || !rec.id) continue;
+    if (!plano.escopo) {
+      if (rec.opfsPath && !plano.caminhoViaja(rec.opfsPath)) continue;
+      const gDoArquivo = rec.opfsPath ? AVPacote.grupoDoCaminho(rec.opfsPath, plano.ids) : '';
+      if (rec.opfsPath && !sel.has(gDoArquivo)) continue;
+      // O catálogo de uma pasta de SÉRIE não viaja: os bytes dela também não.
+      if (gDoArquivo && plano.seriesIds && plano.seriesIds.has(AVPacote.colecaoDoGrupo(gDoArquivo))) continue;
+    }
+    await esc.registro({ t: 'arquivo', rec: AVPacote.sanearArquivo(rec), bytes: 0 });
+    if (rec.thumb) await esc.registro({ t: 'arquivo-thumb', bytes: rec.thumb.size }, rec.thumb);
+  }
+
+  // OS BYTES DO OPFS — a maior parte do pacote, e a parte que a folha de
+  // escolha corta. GRUPO A GRUPO, e não numa varredura só: é o nome do
+  // grupo que a etapa mostra, e é isso que faz uma exportação de dez
+  // minutos dizer o que está acontecendo em vez de contar bytes.
+  for (const g of plano.grupos) {
+    // OS GRUPOS DE MÍDIA JÁ FORAM ESCRITOS acima, pela união: eles não
+    // têm arquivos no OPFS. O `porGrupo` não os conhece, então o `continue`
+    // abaixo bastaria — a guarda é explícita porque eles são VÁRIOS, e
+    // "o `midia` é a exceção" não é verdade.
+    if (g.fixo || !sel.has(g.chave)) continue;
+    if (plano.midiaPorGrupo && plano.midiaPorGrupo.has(g.chave)) continue;
+    const pacote = plano.porGrupo.get(g.chave);
+    if (!pacote) continue;
+    etapa = g.rotulo;
+    bgItemOnly(tarefa, etapa);
+    for (const a of pacote.arquivos) {
+      let f = null;
+      try { f = await AVDB.opfsGetFile(a.caminho); } catch (_) { continue; }
+      await esc.registro({
+        t: 'opfs', caminho: a.caminho, tipo: f.type || '', bytes: f.size,
+      }, f);
+    }
+  }
+
+  await esc.registro({ t: 'fim', bytes: 0 });
+}
+
 async function exportarPacote() {
   const c = pacoteCanal();
   if (!c || pacoteEmCurso) return;
@@ -36438,7 +36663,6 @@ async function exportarPacote() {
       const tarefa = bgTaskStart('Exportando o acervo', 1, 'enviar');
       bgItemOnly(tarefa, nome);
       let feitos = 0;
-      let etapa = '';
       // O NÚMERO VAI NO RÓTULO DO BOTÃO, e é a única coisa que cabe
       // lá: o tile tem uma linha de texto, e a ETAPA — o nome do grupo que está
       // sendo escrito — é longa demais para ela. A etapa continua indo para a
@@ -36466,140 +36690,7 @@ async function exportarPacote() {
       };
       const esc = pacoteEscritor((ab) => pacoteBloco(c, ab), andou, () => pacoteCancelar);
       try {
-        await esc.bytes(AVPacote.assinatura());
-        // O CABEÇALHO HUMANO. Ele não é lido para decidir nada — quem decide é
-        // a assinatura —, e existe para o pacote poder ser inspecionado por
-        // fora e para a tela de importação dizer de onde ele veio. Ele diz
-        // também QUE GRUPOS este arquivo traz: um pacote parcial é o caso
-        // normal, e "o que tem aqui dentro?" é uma pergunta com resposta.
-        const escolhidos = plano.grupos.filter((g) => sel.has(g.chave));
-        const info = new Blob([JSON.stringify({
-          app: 'audio-visual-iasd',
-          web: WEB_VERSION,
-          criadoEm: Date.now(),
-          grupos: escolhidos.filter((g) => !g.vazio).map((g) => g.rotulo),
-          bytes: total,
-        })], { type: 'application/json' });
-        await esc.registro({ t: 'info', bytes: info.size }, info);
-
-        // AS PREFERÊNCIAS E OS CATÁLOGOS, já lidos e codificados pelo plano. Um
-        // Blob (o wallpaper) sai por um tipo PRÓPRIO em vez de virar um JSON
-        // impossível: `JSON.stringify` de um Blob devolve `{}`, e o destino
-        // gravaria um wallpaper vazio por cima do padrão — o modo de falhar
-        // mudo que este arquivo inteiro evita.
-        etapa = 'Ajustes e catálogos';
-        bgItemOnly(tarefa, etapa);
-        for (const e of plano.estado) {
-          if (e.blob) {
-            await esc.registro({
-              t: 'state-blob', chave: e.chave, tipo: e.blob.type || '', bytes: e.blob.size,
-            }, e.blob);
-            continue;
-          }
-          await esc.registro({ t: 'state', chave: e.chave, bytes: e.bytes.length }, e.bytes);
-        }
-
-        // O ACERVO. A ordem — registro, miniatura, páginas — é CONTRATO com o
-        // importador: ele monta o item enquanto lê, e por isso a miniatura e as
-        // páginas de um item vêm coladas nele.
-        // A UNIÃO DOS GRUPOS MARCADOS, e não `sel.has('midia')`: a store de
-        // mídia é vários grupos que se sobrepõem, e o item viaja se QUALQUER um
-        // deles estiver marcado.
-        const idsMidia = pacoteMidiaSelecionada(plano, sel);
-        if (idsMidia.size) {
-          etapa = 'Itens importados e vídeos';
-          bgItemOnly(tarefa, etapa);
-          for (const m of plano.midia) {
-            if (!idsMidia.has(m.id)) continue;
-            let rec = null;
-            // CRU: um item editado viaja como o registro que ele é (sem os bytes do original,
-            // que a leitura resolvida traria junto). O original vai pelo `pacoteBases`.
-            try { rec = await AVDB.getMediaCru(m.id); } catch (_) { continue; }
-            if (!rec) continue;
-            const corpo = rec.blob || null;
-            // `grupos`: de QUE grupos da folha este item é — é o que deixa a IMPORTAÇÃO por
-            // marcas decidir sobre ele (um vídeo de série não está em lista nenhuma do
-            // `state`, e só o grupo da série o nomeia). Um leitor antigo ignora o campo.
-            const grupos = [];
-            if (plano.midiaPorGrupo) {
-              for (const [chave, conj] of plano.midiaPorGrupo) if (conj.has(m.id)) grupos.push(chave);
-            }
-            await esc.registro({
-              t: 'media', rec: AVPacote.sanearMedia(rec), bytes: corpo ? corpo.size : 0, grupos,
-            }, corpo);
-            if (rec.thumb) await esc.registro({ t: 'media-thumb', bytes: rec.thumb.size }, rec.thumb);
-            if (Array.isArray(rec.pages)) {
-              for (let i = 0; i < rec.pages.length; i++) {
-                const pg = rec.pages[i];
-                if (!pg) continue;
-                await esc.registro({ t: 'media-pagina', i, tipo: pg.type || '', bytes: pg.size }, pg);
-              }
-            }
-          }
-        }
-
-        // OS ORIGINAIS ESCONDIDOS dos itens editados (ver `pacoteBases`): `base: true` no
-        // cabeçalho é o que deixa a importação por marcas decidir — entram só se o editado
-        // entrou.
-        if (bases.length) {
-          etapa = 'Originais dos itens editados';
-          bgItemOnly(tarefa, etapa);
-          for (const b of bases) {
-            await esc.registro({
-              t: 'media', rec: AVPacote.sanearMedia(b.rec), bytes: b.corpo ? b.corpo.size : 0,
-              grupos: [], base: true,
-            }, b.corpo || null);
-            if (b.rec.thumb) await esc.registro({ t: 'media-thumb', bytes: b.rec.thumb.size }, b.rec.thumb);
-          }
-        }
-
-        // O CATÁLOGO DO OPFS. Os registros vêm ANTES dos bytes de propósito:
-        // eles são pequenos, e um pacote cortado no meio deixa o destino com
-        // catálogo sem arquivo — que o app já sabe tratar (a faixa não toca) —,
-        // em vez de arquivo sem catálogo, que é espaço ocupado que nada aponta.
-        // (Cortado, aliás, ele não importa: falta o registro `fim`.)
-        //
-        // O CORTE É O MESMO DOS BYTES, e ele passa pela MESMA função: um
-        // registro de catálogo cujo arquivo não viaja é uma faixa que não toca
-        // do outro lado.
-        etapa = 'Catálogo';
-        bgItemOnly(tarefa, etapa);
-        for (const rec of await AVDB.filesAll()) {
-          if (!rec || !rec.id) continue;
-          if (rec.opfsPath && !plano.caminhoViaja(rec.opfsPath)) continue;
-          const gDoArquivo = rec.opfsPath ? AVPacote.grupoDoCaminho(rec.opfsPath, plano.ids) : '';
-          if (rec.opfsPath && !sel.has(gDoArquivo)) continue;
-          // O catálogo de uma pasta de SÉRIE não viaja: os bytes dela também não.
-          if (gDoArquivo && plano.seriesIds && plano.seriesIds.has(AVPacote.colecaoDoGrupo(gDoArquivo))) continue;
-          await esc.registro({ t: 'arquivo', rec: AVPacote.sanearArquivo(rec), bytes: 0 });
-          if (rec.thumb) await esc.registro({ t: 'arquivo-thumb', bytes: rec.thumb.size }, rec.thumb);
-        }
-
-        // OS BYTES DO OPFS — a maior parte do pacote, e a parte que a folha de
-        // escolha corta. GRUPO A GRUPO, e não numa varredura só: é o nome do
-        // grupo que a etapa mostra, e é isso que faz uma exportação de dez
-        // minutos dizer o que está acontecendo em vez de contar bytes.
-        for (const g of plano.grupos) {
-          // OS GRUPOS DE MÍDIA JÁ FORAM ESCRITOS acima, pela união: eles não
-          // têm arquivos no OPFS. O `porGrupo` não os conhece, então o `continue`
-          // abaixo bastaria — a guarda é explícita porque eles são VÁRIOS, e
-          // "o `midia` é a exceção" não é verdade.
-          if (g.fixo || !sel.has(g.chave)) continue;
-          if (plano.midiaPorGrupo && plano.midiaPorGrupo.has(g.chave)) continue;
-          const pacote = plano.porGrupo.get(g.chave);
-          if (!pacote) continue;
-          etapa = g.rotulo;
-          bgItemOnly(tarefa, etapa);
-          for (const a of pacote.arquivos) {
-            let f = null;
-            try { f = await AVDB.opfsGetFile(a.caminho); } catch (_) { continue; }
-            await esc.registro({
-              t: 'opfs', caminho: a.caminho, tipo: f.type || '', bytes: f.size,
-            }, f);
-          }
-        }
-
-        await esc.registro({ t: 'fim', bytes: 0 });
+        await pacoteEscreverRegistros(esc, plano, sel, bases, total, tarefa);
         // O QUE SOBROU NO LOTE tem de sair antes do `fim` do canal: o escritor
         // junta registros pequenos, e o `fim` é o menor de todos.
         await esc.descarregar();
@@ -36670,6 +36761,197 @@ async function exportarPacote() {
   // NO CAMINHO DO SAF NÃO HÁ O QUE MANDAR: o arquivo já é do operador, na
   // pasta que ELE escolheu. O botão diz quanto pesou e volta ao que era.
   pacoteFalar(pacoteExportarTileEl, fmtBytes(gravados), 5000);
+}
+
+// ---------------------------------------------------------------------------
+// ENVIAR ESTE CULTO — o botão de cada linha da gaveta dos cronogramas
+// ---------------------------------------------------------------------------
+//
+// Decisão do operador (18/11): um `.avpkg` pequeno com UM cronograma, as mídias dele e a
+// CAPA, direto para o compartilhar. O FORMATO É O DE SEMPRE (ver `AVPacote.TIPOS`): o
+// `info` diz `escopo: 'culto'` e a capa é um segundo `info`. Do outro lado ele entra pelo
+// Importar de hoje e vira um cronograma GUARDADO novo (`AVDB.cronoImportar`).
+
+// O id do cronograma sendo enviado agora ('' = nenhum): é o que a gaveta pinta.
+let cultoEnviando = '';
+
+/** `{ nome, ids }` do cronograma `id` — o ATIVO mora em `imports`, um guardado nos `ids` dele. */
+async function cultoDoCronograma(id) {
+  const lido = await AVDB.cronoLer();
+  const item = lido.itens.find((x) => x.id === id);
+  if (!item) return null;
+  let ids = [];
+  if (id === lido.ativo) {
+    ids = await AVDB.listIds('imports');
+  } else {
+    const v = await AVDB.getState('cronogramas');
+    const c = v && Array.isArray(v.itens) ? v.itens.find((x) => x && x.id === id) : null;
+    ids = c && Array.isArray(c.ids) ? c.ids : [];
+  }
+  return { nome: item.nome, ids: [...new Set(ids.filter((x) => typeof x === 'string' && x))] };
+}
+
+/** O tipo de um item em palavra de gente, para a linha da capa. */
+function cultoTipoLegivel(rec) {
+  if (isCue(rec)) return (CUES[rec.cue] && CUES[rec.cue].nome) || 'cena';
+  if (rec.kind === 'semana') return 'vídeo da semana';
+  if (rec.kind === 'deck' || ehPptx(rec)) return 'apresentação';
+  if (ehPdf(rec)) return 'PDF';
+  if (rec.kind === 'youtube') return rec.blob ? 'vídeo' : 'link do YouTube';
+  const t = String(rec.type || '');
+  if (rec.kind === 'video' || /^video\//.test(t)) return 'vídeo';
+  if (rec.kind === 'audio' || /^audio\//.test(t)) return 'música';
+  if (rec.kind === 'image' || /^image\//.test(t)) return 'imagem';
+  return (rec.url && !rec.blob && !rec.opfsPath) ? 'link' : 'arquivo';
+}
+
+/**
+ * AS LINHAS DA CAPA, na ordem do cronograma: momento → `{ tipo:'momento', hora, titulo }`
+ * (a hora PREVISTA — sem `itin.desloc`, que é o ajuste do dia DESTE aparelho); mídia →
+ * `{ tipo:'midia', titulo, sub }`. Um id sem registro não vira linha.
+ */
+async function cultoLinhasDaCapa(ids) {
+  const linhas = [];
+  for (const id of ids) {
+    let rec = null;
+    try { rec = await AVDB.getMedia(id); } catch (_) { rec = null; }
+    if (!rec) continue;
+    if (ehMomento(rec)) {
+      const min = Number(rec.data && rec.data.min);
+      linhas.push({ tipo: 'momento', hora: itinMinValido(min) ? createStage.itinHora(Math.round(min)) : '',
+        titulo: String(rec.name || '').trim() || 'Momento' });
+    } else {
+      linhas.push({ tipo: 'midia', titulo: String(rec.name || '').trim() || 'Item', sub: cultoTipoLegivel(rec) });
+    }
+  }
+  return linhas;
+}
+
+// Quantas páginas de capa um pacote leva, no máximo (decisão do operador).
+const CULTO_CAPAS_MAX = 6;
+/**
+ * As PÁGINAS da capa (PNG), em ordem, ou `[]` — a capa NUNCA derruba o envio (sem ela o pacote
+ * é o de hoje). `AVCapa.desenharPaginas` quando existe; senão a página única de `desenhar`.
+ */
+async function cultoCapas(nome, ids) {
+  try {
+    const C = window.AVCapa;
+    if (!C || (typeof C.desenharPaginas !== 'function' && typeof C.desenhar !== 'function')) {
+      console.warn('[culto] AVCapa ausente: o pacote sai sem capa');
+      return [];
+    }
+    const dados = { nome, linhas: await cultoLinhasDaCapa(ids), rodape: 'Toque no arquivo para importar no app' };
+    const paginas = typeof C.desenharPaginas === 'function'
+      ? await C.desenharPaginas(dados) : [await C.desenhar(dados)];
+    return (Array.isArray(paginas) ? paginas : [])
+      .filter((b) => b instanceof Blob && b.size).slice(0, CULTO_CAPAS_MAX);
+  } catch (e) {
+    console.warn('[culto] a capa falhou; o pacote sai sem ela:', e);
+    return [];
+  }
+}
+
+async function exportarCulto(id) {
+  const c = pacoteCanal();
+  if (!c || pacoteEmCurso) return;
+  // O SHELL TEM UM PRONTO SÓ, e criar outro arquivo leva o anterior na porta (a faxina de
+  // `pacoteCriarLocal`): com um acervo pronto, quem decide é o operador.
+  if (pacotePronto && !(await appConfirm({
+    title: 'Descartar o pacote pronto',
+    message: 'Há um pacote do acervo pronto para enviar (' + fmtBytes(pacotePronto.bytes)
+      + '). Enviar este culto o apaga.',
+    okText: 'Enviar o culto',
+    perigo: true,
+  }))) return;
+  if (pacoteEmCurso) return;
+  pacoteOuvirCanal(c);
+  pacoteEmCurso = true;
+  pacoteCancelar = false;
+  cultoEnviando = id;
+  pacoteRenderTiles();
+  renderCronoGaveta();
+  let erro = '';
+  let criado = false;
+  let gravados = -1;
+  let nome = '';
+  let cabeLocal = false;
+  try {
+    const culto = await cultoDoCronograma(id);
+    if (!culto || !culto.ids.length) throw new Error('Este cronograma está vazio.');
+    // UM ID NOVO POR ARQUIVO: do outro lado ele vira um guardado NOVO, nunca o ativo de lá
+    // (`cronoImportar` funde num cronograma de mesmo id — e no ATIVO, se for ele); importar
+    // o MESMO arquivo duas vezes continua não duplicando. Sem `ativo` no valor.
+    const novoId = 'cr-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    const cronogramas = { itens: [{ id: novoId, nome: culto.nome, ids: culto.ids, usado: 0 }] };
+    const plano = await pacotePlano(null, {
+      ids: culto.ids, cronogramas, grupo: 'culto', rotulo: culto.nome,
+    });
+    const sel = new Set(plano.grupos.map((g) => g.chave));
+    let bases = [];
+    try { bases = await pacoteBases(plano, sel); } catch (_) { bases = []; }
+    const total = Math.max(pacoteBytesDe(plano, sel) + bases.reduce((t, b) => t + b.tamanho, 0), 1);
+    const capas = await cultoCapas(culto.nome, culto.ids);
+    const espaco = await AVNative.pacoteEspaco();
+    cabeLocal = espaco > 0 && espaco - total > PACOTE_FOLGA_BYTES;
+    const arq = AVPacote.nomeDoCulto(culto.nome, new Date());
+    nome = cabeLocal ? await AVNative.pacoteCriarLocal(arq) : await AVNative.pacoteCriar(arq);
+    if (!nome) return;   // desistiu no seletor: nada foi criado
+    criado = true;
+    // O pronto que havia foi levado pela porta do shell.
+    pacotePronto = null;
+    await withBgWork(async () => {
+      const tarefa = bgTaskStart('Enviando o culto', 1, 'enviar');
+      bgItemOnly(tarefa, culto.nome);
+      let feitos = 0;
+      const esc = pacoteEscritor((ab) => pacoteBloco(c, ab), (n) => {
+        feitos += n;
+        bgTaskBytes(tarefa, Math.min(feitos, total), total);
+      }, () => pacoteCancelar);
+      try {
+        await pacoteEscreverRegistros(esc, plano, sel, bases, total, tarefa, {
+          info: { escopo: 'culto', culto: { id: novoId, nome: culto.nome }, grupos: [culto.nome],
+            capas: capas.length },
+          capas,
+        });
+        await esc.descarregar();
+        await pacotePedir(c, JSON.stringify({ fim: true }));
+      } finally {
+        bgTaskEnd(tarefa);
+      }
+    });
+    gravados = await AVNative.pacoteFechar();
+    if (gravados < 0) erro = 'O arquivo não pôde ser fechado — pode ter faltado espaço.';
+  } catch (e) {
+    erro = (e && e.message) || 'O envio do culto falhou.';
+  } finally {
+    if (erro && criado) { try { AVNative.pacoteCancelar(); } catch (_) { /* ponte */ } }
+    pacoteEmCurso = false;
+    pacoteCancelar = false;
+    cultoEnviando = '';
+    pacoteRenderTiles();
+    renderCronoGaveta();
+  }
+  if (erro) {
+    await openAppDialog({ title: 'Não deu para enviar o culto', message: erro, okText: 'Entendi', cancelText: null });
+    return;
+  }
+  if (!criado) return;
+  pacoteAnotar('preparou', 'culto, ' + fmtBytes(gravados) + ' ("' + nome + '")');
+  bgConcluido('Culto pronto', fmtBytes(gravados));
+  if (!cabeLocal) {
+    // NO SAF o arquivo já é do operador: o que falta é ACHÁ-LO, e o nome é o que importa.
+    await openAppDialog({ title: 'Culto salvo', message: 'Salvo como “' + nome + '” na pasta escolhida.',
+      okText: 'OK', cancelText: null });
+    return;
+  }
+  const enviados = await AVNative.pacoteCompartilhar();
+  pacoteAnotar('enviou', enviados < 0 ? 'culto: o shell recusou o envio (-1)'
+    : 'culto: seletor aberto com ' + fmtBytes(enviados));
+  if (enviados < 0) {
+    await openAppDialog({ title: 'Não deu para enviar o culto',
+      message: 'O arquivo do culto não pôde ser compartilhado. Toque em enviar de novo.',
+      okText: 'Entendi', cancelText: null });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -36852,6 +37134,37 @@ function pacoteCursor(fonte) {
       return { cab, corpo, pulado: !ler };
     },
   };
+}
+
+/**
+ * O QUE O PACOTE DIZ DE SI, lendo só os primeiros registros: `{ info, capas }` — o `info` JSON
+ * (num culto, `escopo: 'culto'`, `culto: { id, nome }` e `capas: n`) e os PNG dos `info` de capa
+ * que vêm logo depois (`capa: 'image/png'`, um por página, ver `AVPacote.TIPOS`), em ordem;
+ * `null` / `[]` quando não há. Não confere o pacote (isso é a `pacoteConferir`) e nunca lança:
+ * é a pergunta da PRÉVIA.
+ */
+async function pacoteLerCapa(fonte) {
+  const out = { info: null, capas: [] };
+  try {
+    if (!AVPacote.conferirAssinatura(await fonte.bytes(0, AVPacote.ASSINATURA_BYTES)).ok) return out;
+    const cursor = pacoteCursor(fonte);
+    // O `info` JSON + no máximo `CULTO_CAPAS_MAX` páginas: o resto do pacote não é lido.
+    for (let i = 0; i <= CULTO_CAPAS_MAX; i++) {
+      const r = await cursor.proximo((cab) => cab.t === 'info');
+      if (!r || r.cab.t !== 'info') break;
+      if (r.cab.capa) {
+        if (r.corpo) out.capas.push(r.corpo.type ? r.corpo : new Blob([r.corpo], { type: String(r.cab.capa) }));
+        continue;
+      }
+      if (out.info || out.capas.length) break;
+      if (r.corpo) {
+        try { out.info = JSON.parse(await r.corpo.text()); } catch (_) { out.info = null; }
+      }
+    }
+  } catch (e) {
+    console.warn('[pacote] capa:', (e && e.message) || e);
+  }
+  return out;
 }
 
 /**
@@ -37268,6 +37581,7 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
     try {
       const n = await AVDB.cronoImportar(cronosDoPacote, filtro && filtro.admitidos ? filtro.admitidos : null);
       if (n) contagem.chaves += 1;
+      contagem.cronos = n;
     } catch (e) {
       if (pacoteSemEspaco(e)) throw new Error(PACOTE_SEM_ESPACO);
       console.warn('[crono] importar falhou:', e);
@@ -37397,10 +37711,17 @@ function pacoteListaAdmitida(filtro, chave, valor) {
 /** O caminho dos bytes de um original admitido (o áudio e as imagens de fundo da letra). */
 function pacoteLembrarCaminhosBase(filtro, rec) {
   if (!filtro.caminhosBase) filtro.caminhosBase = new Set();
-  if (rec && rec.opfsPath) filtro.caminhosBase.add(rec.opfsPath);
+  for (const c of pacoteCaminhosDoArquivo(rec)) filtro.caminhosBase.add(c);
+}
+/** Os caminhos de OPFS que um registro do catálogo precisa para abrir: o áudio e as imagens de
+ *  fundo da letra. */
+function pacoteCaminhosDoArquivo(rec) {
+  const out = [];
+  if (rec && rec.opfsPath) out.push(rec.opfsPath);
   if (rec && Array.isArray(rec.lyrics)) {
-    for (const sl of rec.lyrics) if (sl && sl.imageOpfsPath) filtro.caminhosBase.add(sl.imageOpfsPath);
+    for (const sl of rec.lyrics) if (sl && sl.imageOpfsPath) out.push(sl.imageOpfsPath);
   }
+  return out;
 }
 
 /** Uma mídia entra se QUALQUER grupo que a contém está marcado — a regra da saída. */
@@ -37711,8 +38032,14 @@ async function pacoteRelatorio(contagem, consumo) {
     }
     if (ordenadas.length > 1) linhas.push('Total: ' + tem + ' de ' + total + ' músicas');
   }
+  // UM CULTO entra como cronograma GUARDADO (`cronoImportar`): o nome dele é a confirmação.
+  if (contagem.culto) {
+    linhas.push('“' + contagem.culto + '” ' + (contagem.cronos ? 'entrou como um cronograma guardado'
+      : 'já estava na gaveta dos cronogramas'));
+  }
   if (contagem.media) {
-    linhas.push(contagem.media + ' mídia(s) no Cronograma e nos Favoritos');
+    linhas.push(contagem.media + (contagem.culto ? ' mídia(s) do culto'
+      : ' mídia(s) no Cronograma e nos Favoritos'));
   }
   if (!linhas.length) {
     linhas.push(contagem.fora ? 'Nada do que estava marcado era novo aqui'
@@ -37780,7 +38107,7 @@ async function importarPacote() {
   if (!window.__NATIVE__ || pacoteEmCurso || pacotePronto) return;
   // A SELEÇÃO É LIDA ANTES DO SELETOR: é o que estava marcado quando o operador
   // tocou em Importar (ver `pacoteFiltroDeImportacao`).
-  const filtro = pacoteFiltroDeImportacao();
+  let filtro = pacoteFiltroDeImportacao();
   const escolhidos = await AVNative.pickDoc(['*/*']);
   const alvo = (escolhidos && escolhidos[0]) || null;
   if (!alvo || !alvo.url) return;
@@ -37812,6 +38139,13 @@ async function importarPacote() {
       await fonte.bytes(0, AVPacote.ASSINATURA_BYTES),
     );
     if (!assinatura.ok) throw new Error(assinatura.erro);
+    // UM PACOTE DE CULTO ENTRA INTEIRO: as marcas da janela escolhem grupos do ACERVO, e
+    // um culto não tem grupo — filtrado, ele perderia mídias e o cronograma ficaria oco.
+    const sobre = await pacoteLerCapa(fonte);
+    if (sobre.info && sobre.info.escopo === 'culto') {
+      filtro = null;
+      contagem.culto = (sobre.info.culto && String(sobre.info.culto.nome || '')) || 'Culto';
+    }
     // A CONFERÊNCIA RODA DENTRO DA PROTEÇÃO DE SEGUNDO PLANO: ela percorre o
     // arquivo INTEIRO pelos cabeçalhos — minutos num acervo grande —, e é
     // exatamente o instante em que o operador minimiza o app.
@@ -37921,13 +38255,16 @@ async function importarPacote() {
       ? 'O arquivo do pacote continua no aparelho: ' + motivo + '.'
       : (filtro
         ? 'O arquivo do pacote foi apagado — com o que não estava marcado.'
-        : 'O arquivo do pacote foi apagado — o acervo agora está na biblioteca.');
+        : contagem.culto
+          ? 'O arquivo do pacote foi apagado — o culto agora está na gaveta dos cronogramas.'
+          : 'O arquivo do pacote foi apagado — o acervo agora está na biblioteca.');
   } catch (_) {
     consumo = 'O arquivo do pacote continua no aparelho.';
   }
 
   pacotePulsar(pacoteImportarTileEl, 'ok');
-  bgConcluido('Acervo importado', 'A biblioteca já está no aparelho.');
+  bgConcluido(contagem.culto ? 'Culto importado' : 'Acervo importado',
+    contagem.culto ? 'Está na gaveta dos cronogramas.' : 'A biblioteca já está no aparelho.');
   // A REHIDRATAÇÃO VEM ANTES DO RELATÓRIO, e a ordem é o que o relatório diz.
   // Ele nomeia as coleções por `allCollections()`, que lê o `albumCatalog` do
   // MÓDULO; quem o repõe do banco é o `loadCollections()` daqui de baixo.
@@ -37941,7 +38278,7 @@ async function importarPacote() {
   // caso NORMAL do aparelho que o recurso existe para servir.
   await reidratarDepoisDaImportacao();
   await openAppDialog({
-    title: 'Acervo importado',
+    title: contagem.culto ? 'Culto importado' : 'Acervo importado',
     message: await pacoteRelatorio(contagem, consumo),
     // "OK", E NÃO "Ver a biblioteca": o desfecho deste botão é FECHAR o
     // diálogo, e um rótulo que promete uma navegação e entrega um fechar leria

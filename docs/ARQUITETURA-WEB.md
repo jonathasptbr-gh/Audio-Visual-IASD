@@ -242,6 +242,10 @@ app/src/main/assets/web/
 │   │                           # vira UM arquivo e volta noutro. Os BYTES não
 │   │                           # passam por aqui: quem os move é o controle.js,
 │   │                           # pelo canal `__avPacote` do shell
+│   ├── capa.js                 # A CAPA DO CULTO (v1.14.74): as páginas PNG
+│   │                           # (até 6) com o itinerário de um cronograma,
+│   │                           # que viajam no `info` do pacote de um culto.
+│   │                           # Diagramação PURA, com oráculo em Node
 │   ├── tour.js                 # O TOUR GUIADO (v1.14.0): véu, recorte e balão,
 │   │                           # um tour por estado da tela, automático uma vez.
 │   │                           # Só lê o DOM e os ganchos do controle.js — ver

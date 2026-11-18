@@ -277,6 +277,26 @@ checar(!!P, 'o módulo publica `AVPacote`');
   checar(P.nomeDoArquivo().endsWith('.avpkg'), 'e sem argumento ele usa o relógio de agora');
 }
 
+// 7-B. O NOME DO PACOTE DE UM CULTO: `<nome> DD-MM.avpkg`, saneado (é o que a
+// bolha do WhatsApp mostra, e o provedor de documentos recusa / \ : * ? " < > |).
+{
+  const d = new Date(2026, 10, 21, 9, 7);
+  const casos = [
+    ['Culto Jovem', 'Culto Jovem 21-11.avpkg'],
+    ['  Sábado/Manhã: "Santa Ceia" <1>?|*\\  ', 'Sábado Manhã Santa Ceia 1 21-11.avpkg'],
+    ['', 'Culto 21-11.avpkg'],
+    [null, 'Culto 21-11.avpkg'],
+    ['...', 'Culto 21-11.avpkg'],
+    ['a\u0000b\nc', 'a b c 21-11.avpkg'],
+    ['x'.repeat(200), 'x'.repeat(80) + ' 21-11.avpkg'],
+    ['🎵'.repeat(90), '🎵'.repeat(80) + ' 21-11.avpkg'],
+  ];
+  const ruins = casos.filter(([e, s]) => P.nomeDoCulto(e, d) !== s).map(([e]) => [e, P.nomeDoCulto(e, d)]);
+  checar(!ruins.length, 'nomeDoCulto: "<nome> DD-MM.avpkg", sem / \\ : * ? " < > | nem controle, '
+    + 'espaços colapsados, até 80 caracteres (sem partir emoji), vazio vira "Culto"', JSON.stringify(ruins));
+  checar(/ \d\d-\d\d\.avpkg$/.test(P.nomeDoCulto('X')), 'e sem data ele usa o dia de hoje');
+}
+
 // ---------------------------------------------------------------------------
 // 8. O GRUPO DE UM CAMINHO (v1.7.2) — a folha de escolha da exportação
 // ---------------------------------------------------------------------------

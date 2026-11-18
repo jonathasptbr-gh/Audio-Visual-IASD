@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.74** — o Pacote 16, lotes P1+P2: "Enviar" um culto da gaveta dos cronogramas, com a capa em páginas dentro do `.avpkg` (só web, sem `shellTag`).
 - **v1.14.73** — o operador conferiu os 50 pontos de medição e nada estava quebrado: as 55 linhas que dependiam dele saem fechadas, a `Faixa` do YouTube perde os cinco campos sem leitor, e a publicação do OTA passa a REPROVAR versão igual com conteúdo diferente (shell mudou, Release v1.14.73).
 - **v1.14.72** — o lote de higienização: as oito linhas de dono "higienização" fecham num lote só (só web e `tools/`, sem `shellTag`) — o `!important` do `.cast-url`, o portão de 120 do `notas.json`, a sonda vendo pseudo-elemento, o aviso de Release no `estado.sh`, o `:not(#plBtn)`, o deck refeito medido e os dois flaky esperando o FATO.
 - **v1.14.71** — Pacote 47: o pop-up de volume da abertura SAI, e nasce a seção "Inicialização" em Configurações — modo, Não perturbe e volume na abertura, as duas últimas desligadas por padrão e a barra guardando o número quando a chave desliga (só web); na carona, o número do passador fica centralizado na caixa.
@@ -806,6 +807,50 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.74 — o Pacote 16, lotes P1+P2: "Enviar" um culto da gaveta dos cronogramas, com a capa em páginas dentro do `.avpkg`
+
+**O PEDIDO** (Pacote 16, plano final na Parte IV do `ESTUDO-CRONOGRAMA.md`): o
+organizador entrega o culto pronto ao sonoplasta. O operador juntou os lotes P1
+(a capa) e P2 (exportar este culto) — a capa só faz sentido com UM culto — e
+pôs o botão na GAVETA dos cronogramas (renomear | nome | **enviar** | excluir).
+
+**A MEDIÇÃO QUE DECIDIU O FORMATO:** o app de hoje RECUSA o pacote inteiro
+diante de um `t` desconhecido (`cabecalhoDeBytes`) e recusa `VERSAO > 1`. Então
+nada de tipo novo nem de `av` 2: a capa vai em registros `info` (que todo app
+pula), um por página — `{t:'info', capa:'image/png', tipo:'image/png', pagina,
+paginas, bytes}` com o PNG cru no corpo —, e o 1º `info` ganha `escopo:'culto'`,
+`culto:{id,nome}` e `capas:n`. A regra ficou no comentário de `TIPOS` e no
+`PACOTE.md`: **campo novo vai em `info`, enquanto houver app velho.**
+
+**O QUE VIAJA** (`pacotePlanoDoCulto`, o mesmo plano com escopo; o laço de
+escrita foi EXTRAÍDO para `pacoteEscreverRegistros`, que o `exportarPacote` também
+usa): só a chave `cronogramas`, com UM item de id NOVO e sem `ativo` (o
+`cronoImportar` funde ids iguais — no guardado ou no ATIVO —, e o id novo garante
+"guardado novo, ativo intocado"); as mídias do cronograma, momentos inclusive; o
+original escondido dos editados; o catálogo e os bytes de um item de coleção.
+Nenhuma preferência. Nome do arquivo: `AVPacote.nomeDoCulto` → `<nome> DD-MM.avpkg`.
+Na importação, `pacoteLerCapa` lê o 1º `info` e as capas; com `escopo:'culto'` a
+seleção do Transferir não filtra (`filtro = null`), e o relatório diz "Culto
+importado". A tela de PRÉVIA que mostra as capas é o próximo lote (P3).
+
+**A CAPA** (`controle/capa.js`, módulo novo `AVCapa`, diagramação PURA): PNG
+1080×1920 (9:16, pedido do operador para caber na tela do celular), tema escuro
+pelos tokens; nada de elipse no nome — quebra em 2 linhas no mesmo tamanho (um
+tamanho por papel, fixo); subitens recuados sob a coluna da hora; até 6 páginas
+com "Página i de n", a linha do momento repetida com "(continuação)" e SEM a
+hora (pedido do operador: a hora diria que o momento começa ali); "e mais N"
+só na 6ª. Sem `AVCapa`, ou com ele falhando, o pacote sai sem capa e o envio segue.
+
+**Oráculos:** `capa.test.mjs` (Node puro) e `pacote-culto.test.mjs` (Chromium,
+ponte falsa, o `capa.js` real; reversão medida: sem o `filtro = null` do culto o
+bloco C reprova; e a hora na continuação reprova o `capa.test`). `pacote.test`
+ganhou `nomeDoCulto`. O `native.js` passou a esperar o `AVCapa` no
+`otaAppIsUp` (cobrado pelo `watchdog-modulos`) e o autoteste do bundle conta
+`controle/capa.js`.
+
+**Só web:** o shell não mudou desde a tag v1.14.73 — o `shellTag` saiu do
+`version.json`, e não há Release.
 
 ## v1.14.73 — os resíduos declarados fecham: a conferência do operador, e o conserto de CI que faltava
 

@@ -71,8 +71,18 @@
   // um pacote é um arquivo de fora, e um `t` desconhecido tem de ser recusado
   // em vez de cair num `default` que ninguém escreveu. Um tipo novo entra aqui
   // E no `switch` do importador — as duas metades, no mesmo lote.
+  //
+  // **E UM TIPO NOVO QUEBRA O APP VELHO**: `cabecalhoDeBytes` recusa o pacote
+  // INTEIRO diante de um `t` fora desta lista, e `conferirAssinatura` recusa
+  // `VERSAO` maior. Enquanto houver app velho na frota, o que é novo viaja como
+  // CAMPO de um tipo que ele já conhece — e o lugar é o `info`, que todo
+  // importador pula (`if (cab.t === 'info') continue`). Assim nasceu a CAPA do
+  // pacote de um culto: um `info` POR PÁGINA logo depois do primeiro,
+  // `{ t:'info', capa:'image/png', tipo:'image/png', pagina, paginas, bytes }`, com
+  // o PNG cru como corpo; o primeiro `info` (JSON) ganha `escopo:'culto'`,
+  // `culto:{ id, nome }` e `capas: n`.
   const TIPOS = [
-    'info',        // o cabeçalho humano do pacote (corpo: JSON)
+    'info',        // o cabeçalho humano (corpo: JSON); com `capa`, uma página PNG da capa de um culto
     'state',       // uma chave de `state` cujo valor é JSON
     'state-blob',  // uma chave de `state` cujo valor é um Blob (o wallpaper)
     'media',       // um registro de "media"; o corpo é o blob principal. O cabeçalho pode
@@ -390,6 +400,25 @@
       + '-' + p(q.getHours()) + p(q.getMinutes()) + '.avpkg';
   }
 
+  /**
+   * O NOME DO PACOTE DE UM CULTO: `<nome do cronograma> DD-MM.avpkg`. É o que
+   * aparece na bolha do WhatsApp, então leva o nome que o operador deu e o dia.
+   * Saneado: sem `/ \ : * ? " < > |` nem controle (o provedor de documentos
+   * recusa ou troca), espaços colapsados, até 80 caracteres no nome; vazio vira
+   * "Culto".
+   */
+  function nomeDoCulto(nome, d) {
+    const q = d instanceof Date ? d : new Date();
+    const p = (n) => String(n).padStart(2, '0');
+    let base = String(nome == null ? '' : nome)
+      .replace(/[\u0000-\u001f\u007f/\\:*?"<>|]+/g, ' ')
+      .replace(/\s+/g, ' ').trim().replace(/^\.+/, '').trim();
+    const letras = Array.from(base);   // por ponto de código: um emoji não se parte ao meio
+    if (letras.length > 80) base = letras.slice(0, 80).join('').trim();
+    if (!base) base = 'Culto';
+    return base + ' ' + p(q.getDate()) + '-' + p(q.getMonth() + 1) + '.avpkg';
+  }
+
   global.AVPacote = {
     VERSAO,
     ASSINATURA_BYTES,
@@ -413,5 +442,6 @@
     colecaoDoGrupo,
     pastasDoAparelho,
     nomeDoArquivo,
+    nomeDoCulto,
   };
 })(this);

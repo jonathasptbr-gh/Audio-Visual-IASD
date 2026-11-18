@@ -559,3 +559,12 @@ Nada até amanhã. Na volta, a ordem é **P1 → P2 → P3 → P4** e o **P5 em
 paralelo** (é o mais barato). A primeira sessão começa medindo o item 1 do P1
 — o que um app antigo faz com um registro novo —, porque é ele que decide o
 desenho da capa.
+
+## 7 · Executado (18/11, v1.14.74)
+
+A medição do item 2 da §4 foi feita no código: o app de hoje RECUSA o pacote
+com `t` desconhecido e com `VERSAO > 1`. A §2 muda por isso: **o `av` NÃO sobe**
+e a capa vai em registros `info` (um por página, `capa:'image/png'`), que todo
+app pula. P1+P2 saíram juntos; a capa é 1080×1920 (não 1080×1350) e pagina em
+até 6. O formato e a regra estão no [`PACOTE.md`](recursos/PACOTE.md).
+

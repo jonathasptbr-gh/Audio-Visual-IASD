@@ -317,6 +317,11 @@ o formato **não muda** (o `.avpkg` já leva a organização desde a v1.14.32); 
 unidade "culto" no Transferir, a capa, a prévia e o `intent-filter`. A ordem de
 execução é P1 → P2 → P3 → P4, com P5 (os modelos) em paralelo.
 
+**Entregue na v1.14.74 (18/11):** P1+P2 juntos, por decisão do operador — o "Enviar" na
+gaveta dos cronogramas e as capas (9:16, até 6 páginas) em registros `info` do
+pacote. **Falta:** P3 (a prévia), P4 (`intent-filter` + a imagem junto no
+compartilhar ⇒ Release, autorizado pelo operador em 18/11) e P5 (os modelos).
+
 **A regra que este pacote herda e não pode esquecer:** *importar só acrescenta*
 (`PACOTE.md`); nada que já esteja no aparelho do sonoplasta é substituído.
 

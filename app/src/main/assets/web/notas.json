@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.14.74",
+    "itens": [
+      "Na lista de cronogramas, cada culto ganhou o botão Enviar: manda só aquele culto, com as mídias dele.",
+      "O arquivo leva capas com o itinerário (até 6 páginas), prontas para quem recebe ver o culto.",
+      "Quem recebe usa Importar: o culto entra como cronograma novo, sem mexer no que está em uso.",
+      "Não precisa instalar nada: chega pela atualização automática."
+    ]
+  },
+  {
     "versao": "1.14.73",
     "itens": [
       "Nada muda no uso: esta versão tira código sem leitor e põe uma trava na publicação da base web.",

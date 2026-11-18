@@ -45,6 +45,10 @@ medição em aparelho não é fino.**
 
 | quando · lote | onde | o que ficou | dono | por que não foi agora |
 |---|---|---|---|---|
+| 2026-11-18 · v1.14.74 | `exportarCulto` → `pacoteCriarLocal` (shell) | o arquivo do culto vira o "pacote pronto" do shell: o Transferir o mostra como acervo pronto e o Importar fica bloqueado até descartar; não dá para descartar logo depois de compartilhar (o outro app lê no tempo dele) | higienização | o conserto certo é o shell distinguir os dois prontos — entra no lote do shell (P4) |
+| 2026-11-18 · v1.14.74 | `pacotePlanoDoCulto` | item de PASTA DO APARELHO no cronograma viaja (catálogo com `folder:` de lá + bytes), embora no acervo ela fique fora; não se mediu se algum coletor do destino remove um `files` de pasta desconhecida | medição | precisa de dois aparelhos |
+| 2026-11-18 · v1.14.74 | importação de culto | o hino de coleção chega como catálogo + bytes, mas o índice `coll:` do destino não ganha o `fileIdFull`: na Biblioteca a coleção não conta aquele hino como baixado (no cronograma ele toca) | higienização | fora da cerca do lote; pede decidir se o import de culto toca no índice da coleção |
+| 2026-11-18 · v1.14.74 | `exportarCulto` | o envio do culto não tem cancelar (o `pacoteCancelar` só é ouvido pelo tile do Transferir) | higienização | um culto é pequeno; o cancelar entra com a prévia (P3) |
 | 2026-11-17 · v1.14.73 (`03811685`) | `tools/sorteio-simples.test.mjs` | o `verificar` do CI REPROVOU só ele (154/155) num push que não tocou na base web; o re-run passou e DUAS rodadas locais passaram. É intermitente, e o vermelho não ficou à mão: o log do job só diz "REPROVOU", sem a asserção | CI | um intermitente só se fecha com a reprodução armada antes do conserto; não havia o caso à mão no momento |
 
 **As 58 linhas anteriores** fecharam em 2026-11-17 (v1.14.73): 50 pela

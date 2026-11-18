@@ -801,3 +801,47 @@ os cabeçalhos do pacote inteiro antes de gravar: com `filtro` ela lê o corpo d
 **O original ADOTADO (`bases/<id>`, ver [`CONTROLE-LISTAS.md`](../arquitetura/CONTROLE-LISTAS.md)) viaja só pelo `pacoteBases`:** o
 `pacotePlano` tira `bases/` da varredura do OPFS (não é "arquivo sem coleção") e o `pacoteBases` não
 o pula por grupo.
+
+## O pacote de um culto — "Enviar" na gaveta dos cronogramas (18/11)
+
+Decisão do operador: cada linha da gaveta (`renderCronoGaveta`) tem um **enviar** entre o nome e
+o excluir (`.crono-enviar`, sprite `#icoCompartilhar`; some fora do app nativo, como o Exportar;
+apagado com o cronograma vazio). Ele exporta ESTE culto (`exportarCulto`): um `.avpkg` pequeno,
+nome `<cronograma> DD-MM.avpkg` (`AVPacote.nomeDoCulto`), e abre o compartilhar
+(`pacoteCriarLocal` + `pacoteCompartilhar`; sem espaço, o SAF de sempre).
+
+**O FORMATO NÃO MUDA, e a regra é esta: enquanto houver app velho na frota, o que é novo vai como
+CAMPO de `info`, nunca como tipo novo nem `VERSAO` maior.** MEDIDO: o app de hoje recusa o
+pacote INTEIRO diante de um `t` desconhecido (`cabecalhoDeBytes`) e de `VERSAO > 1`
+(`conferirAssinatura`); e pula todo `info` (`pacoteAplicarFluxo`). Daí:
+
+| registro | conteúdo |
+|---|---|
+| 1º `info` (JSON) | o de sempre + `escopo: 'culto'`, `culto: { id, nome }` e `capas: n` |
+| 2º… `info` | a CAPA, UM POR PÁGINA (até 6, `CULTO_CAPAS_MAX`), em ordem: `{ t:'info', capa:'image/png', tipo:'image/png', pagina (1-based), paginas: n, bytes }`, corpo = o PNG cru (`AVCapa.desenharPaginas`; sem ela, `[AVCapa.desenhar()]`; o `tipo` faz o Blob do cursor nascer com MIME). Se o `AVCapa` falta ou falha, o pacote sai SEM capa (aviso no console) — nunca falha o envio |
+| `state` | SÓ `cronogramas`, com UM item `{ id NOVO, nome, ids }` e SEM `ativo` |
+| `media` (+ miniatura/páginas) | os registros dos `ids` (momentos são cues `momento`, sem bytes) |
+| `media` com `base: true` | o original escondido de um editado (`pacoteBases`) |
+| `arquivo` + `opfs` | o registro de catálogo que um item aponta (hino de coleção, arquivo de pasta) e os bytes dele: o áudio e as imagens de fundo da letra (`pacoteCaminhosDoArquivo`) |
+
+- **O plano é o MESMO, com escopo** (`pacotePlano(aoAndar, escopo)` → `pacotePlanoDoCulto`): dois
+  grupos fixos (`midia` e `culto`) para o MESMO escritor (`pacoteEscreverRegistros`, extraído do
+  `exportarPacote`). Nenhuma outra chave de `state` viaja: o item abre pelo registro (`getMedia`
+  cai em `fileGet`), o índice da coleção não é preciso para ele tocar, e o guardado novo é o
+  detentor da mídia no destino (`lerDetentores`).
+- **O ID DO CRONOGRAMA É NOVO A CADA ARQUIVO**: `cronoImportar` funde um id que já existe — no
+  ATIVO, se for ele. Com id novo o destino ganha sempre um GUARDADO novo (" (2)" se o nome
+  colidir) e o ativo de lá não é tocado; importar o MESMO arquivo de novo une (não duplica).
+- **ENTRA PELO IMPORTAR DE HOJE**: `importarPacote` lê o começo do pacote (`pacoteLerCapa`) e,
+  com `escopo: 'culto'`, ignora as marcas do Transferir (`filtro = null`) — elas escolhem grupos
+  do ACERVO, e filtrado o culto chegaria oco. O relatório e o fim dizem "Culto importado".
+- **`pacoteLerCapa(fonte)` → `{ info, capas: Blob[] }`** lê só o `info` e as páginas logo depois
+  (até 1 + 6 registros) e nunca lança: é a pergunta da PRÉVIA (a tela é o próximo lote).
+- **O pronto do shell é um só**: com um acervo pronto, enviar um culto PERGUNTA antes
+  (`appConfirm`, perigo), porque `pacoteCriarLocal` leva o anterior na porta.
+
+Oráculo: **`pacote-culto.test.mjs`** (o que viaja e o que não; o `info` e a capa PNG — uma página
+e três, em ordem, e a queda para `desenhar`; sem capa com o `AVCapa` quebrado; a importação num aparelho limpo e num com outro ativo + marcas
+tiradas; o caminho cru `pacoteConferir` + `pacoteAplicarFluxo` com uma e com três páginas; `pacoteLerCapa`; o
+botão a 360 px). Reversão medida: sem o `filtro = null` do culto, o bloco C reprova (7 itens
+"ficaram de fora"). O nome: bloco 7-B do `pacote.test.mjs`.
