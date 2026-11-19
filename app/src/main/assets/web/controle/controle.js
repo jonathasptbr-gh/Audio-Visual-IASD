@@ -12097,6 +12097,10 @@ function aoSair(li) {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         li.style.height = '0px';
+        // O LAYOUT MUDA AQUI, e o `acompanharVeu` deste quadro já mediu antes deste callback:
+        // sem a remedida a pintura saía com a marca do layout anterior (1 quadro, o Z do
+        // `itinerario` reprovava 1 em 6 — v1.14.86).
+        acertarVeu(li.closest('.rola'));
         setTimeout(pronto, SAIDA_MS);
       });
     });

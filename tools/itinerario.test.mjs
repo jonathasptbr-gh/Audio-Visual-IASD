@@ -2599,13 +2599,18 @@ try {
       }
       l.scrollTop = 0; await z(150);
       const transbordo0 = l.scrollHeight - l.clientHeight;
+      // A AMOSTRA É DO QUADRO PRONTO, não do meio dele (v1.14.86): lida dentro do rAF, ela caía
+      // ANTES ou DEPOIS do `acompanharVeu` e dos rAF do `aoSair` conforme a ordem do quadro, e um
+      // quadro saía com a marca do layout anterior — reprovava às vezes, local e no CI, sem o olho
+      // ver nada (a pintura vem depois de TODOS os callbacks). O `setTimeout(0)` lê depois deles.
       return await new Promise((ok) => {
         const v = [], t0 = performance.now();
         itinMomentosOcultar(true);
+        const ler = () => v.push({ resto: Math.round(l.scrollHeight - l.scrollTop - l.clientHeight),
+          marca: l.classList.contains('tem-abaixo'), saindo: document.querySelectorAll('#library > .saindo').length });
         const passo = () => {
-          v.push({ resto: Math.round(l.scrollHeight - l.scrollTop - l.clientHeight), marca: l.classList.contains('tem-abaixo'),
-            saindo: document.querySelectorAll('#library > .saindo').length });
-          if (performance.now() - t0 < 460) requestAnimationFrame(passo); else ok({ transbordo0, v });
+          setTimeout(ler, 0);
+          if (performance.now() - t0 < 460) requestAnimationFrame(passo); else setTimeout(() => ok({ transbordo0, v }), 0);
         };
         requestAnimationFrame(passo);
       });
