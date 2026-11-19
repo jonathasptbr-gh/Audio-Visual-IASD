@@ -323,6 +323,16 @@ pacote. **Entregue na v1.14.75 (18/11):** P3 (a prévia) e P4 (a porta `ACTION_V
 junto no compartilhar, Release). **Falta:** P5 (os modelos) e as medições no
 aparelho (`RESIDUOS.md`).
 
+**Pedido do operador depois da v1.14.76 (18/11, 21h46, com print do aparelho)** — o próximo
+lote, antes do P5:
+
+| # | pedido (verbatim, encurtado) | o que já se sabe |
+|---|---|---|
+| 16.a | *"A importação está respondendo como se fosse uma importação normal da biblioteca, basicamente checando a biblioteca inteira… pode usar a mesma tela de confirmação de importação, e apenas fazer uma barra de progresso ou animação para o processo de importação após confirmação"* | o print mostra o relatório do acervo (`pacoteResumoDasColecoes`: "Hinário Adventista 2022: 601 de 601 músicas…") no fim de um culto. O culto deve: confirmar na prévia (`cultoPrevia`/`appDialogCapas`) → a MESMA folha vira progresso (barra) → fim curto, sem o censo das coleções |
+| 16.b | *"Após concluído, deixe selecionado e ativo o cronograma importado"* | `AVDB.cronoTrocar(novoId)` + `load()` depois do `cronoImportar`; o print diz **"“Cronograma” já estava na gaveta"** — investigar POR QUÊ (o id é novo a cada arquivo; foi o mesmo arquivo duas vezes, ou o aparelho que enviou?) |
+| 16.c | *"o mesmo pacote… já está funcionando com o filtro de intent?"* | sim, é o mesmo `.avpkg`; a porta só existe com o APK v1.14.75 no aparelho que RECEBE. Medição pendente (`RESIDUOS.md`, v1.14.75) |
+| 16.d | *"mídias baixadas do YouTube, via links ou como Provai e Vede… enviar no arquivo apenas os links… depois de importado o usuário (pelo alerta de itens não baixados) faz os downloads que quiser"* | DECISÃO do operador pendente da confirmação: a recomendação é **só o link** para tudo que é re-baixável por id (YouTube, séries, LouvorJA) — o item chega como "não baixado" e o alerta já existente oferece o download; a mídia PRÓPRIA (foto, vídeo do aparelho, PPTX) continua viajando. Medir: o que o `sanearMedia`/`pacotePlanoDoCulto` faz hoje com o `blob` de um item do YouTube, e como o alerta de não baixados trata o item importado |
+
 **A regra que este pacote herda e não pode esquecer:** *importar só acrescenta*
 (`PACOTE.md`); nada que já esteja no aparelho do sonoplasta é substituído.
 
