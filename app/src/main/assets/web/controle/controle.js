@@ -43923,7 +43923,8 @@ function renderEdicaoForm() {
   faixa.append(trilho, trecho, ini, fim);
   ini.addEventListener('input', () => edicaoMudouFaixa('ini', +ini.value));
   fim.addEventListener('input', () => edicaoMudouFaixa('fim', +fim.value));
-  // As DUAS PONTAS, uma coluna cada: o rótulo, o tempo e o ajuste fino. O passo da faixa é de
+  // As DUAS PONTAS, uma coluna cada: o rótulo, o tempo e o ajuste fino (o rótulo e o tempo sobem à
+  // linha do título pela grade do bloco, v1.14.83 — no CSS, `display: contents` nas pontas). O passo da faixa é de
   // meio segundo, e a precisão de um segundo por toque mora nos botões — numa hora de áudio a
   // faixa sozinha não chega ao segundo.
   const pontas = document.createElement('div'); pontas.className = 'edicao-pontas';

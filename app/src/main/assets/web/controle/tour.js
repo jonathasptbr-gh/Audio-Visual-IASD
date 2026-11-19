@@ -235,7 +235,9 @@
     'ferr-edicao-form': { modos: ['full'], passos: [
       { alvo: '#edicaoLista .edicao-card', abertura: true, titulo: 'Mídia escolhida',
         texto: 'É a mídia que você está cortando. Toque na linha para escolher outra; o X vermelho cancela esta edição e volta à lista.' },
-      { alvo: ['#edicaoLista .edicao-faixa', '#edicaoLista .edicao-pontas'], titulo: 'Trecho',
+      // O BLOCO INTEIRO (v1.14.83): as pontas viraram `display: contents` (a grade do bloco põe os
+      // tempos na linha do título), e um elemento sem caixa não tem retângulo para recortar.
+      { alvo: '#edicaoLista .edicao-bloco:has(> .edicao-faixa)', titulo: 'Trecho',
         texto: 'Arraste as duas pontas da faixa para escolher onde a mídia começa e onde termina. Os botões −1 s e +1 s acertam o segundo.', opcional: true },
       { alvo: '#edicaoLista .pacote-linha:not(.edicao-card)', todos: true, titulo: 'Fades',
         texto: 'Marque Fade de entrada ou Fade de saída para o trecho começar ou terminar suavemente.', opcional: true },
