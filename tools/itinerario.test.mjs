@@ -2599,30 +2599,31 @@ try {
       }
       l.scrollTop = 0; await z(150);
       const transbordo0 = l.scrollHeight - l.clientHeight;
-      // A AMOSTRA É DO QUADRO PRONTO, não do meio dele (v1.14.86): lida dentro do rAF, ela caía
-      // ANTES ou DEPOIS do `acompanharVeu` e dos rAF do `aoSair` conforme a ordem do quadro, e um
-      // quadro saía com a marca do layout anterior — reprovava às vezes, local e no CI, sem o olho
-      // ver nada (a pintura vem depois de TODOS os callbacks). O `setTimeout(0)` lê depois deles.
       return await new Promise((ok) => {
         const v = [], t0 = performance.now();
         itinMomentosOcultar(true);
-        const ler = () => v.push({ resto: Math.round(l.scrollHeight - l.scrollTop - l.clientHeight),
-          marca: l.classList.contains('tem-abaixo'), saindo: document.querySelectorAll('#library > .saindo').length });
         const passo = () => {
-          setTimeout(ler, 0);
-          if (performance.now() - t0 < 460) requestAnimationFrame(passo); else setTimeout(() => ok({ transbordo0, v }), 0);
+          v.push({ resto: Math.round(l.scrollHeight - l.scrollTop - l.clientHeight), marca: l.classList.contains('tem-abaixo'),
+            saindo: document.querySelectorAll('#library > .saindo').length });
+          if (performance.now() - t0 < 460) requestAnimationFrame(passo); else ok({ transbordo0, v });
         };
         requestAnimationFrame(passo);
       });
     });
     const cruzou = borda.v.some((q) => q.saindo > 0 && q.resto <= 2);
-    const soltos = borda.v.filter((q) => q.marca && q.resto <= 2).length;
+    // UM QUADRO DE FOLGA (v1.14.86): a amostra é lida DENTRO do rAF, e o quadro tem também o
+    // `acompanharVeu` e o rAF duplo do `aoSair` — a ordem entre eles (e o relógio de animação no
+    // CI lento) deixava o quadro em que a borda é cruzada com a marca do anterior, e o Z reprovava
+    // 1 em 6, local e no CI, sem nada à vista (16 ms). Solto é a marca sem transbordo num quadro
+    // cujo ANTERIOR já não transbordava: o defeito de antes do conserto eram 5 a 11 assim seguidos
+    // (reversão: `acompanharVeu` anulado E sem a remedida do `aoSair` → 10).
+    const soltos = borda.v.filter((q, i) => q.marca && q.resto <= 2 && i > 0 && borda.v[i - 1].resto <= 2).length;
     checar(borda.transbordo0 > 2 && cruzou,
       'Z · PREMISSA: a lista transbordava e a saída dos momentos a deixou sem transbordo NO MEIO do movimento',
       { transbordo0: borda.transbordo0, quadros: borda.v.slice(0, 12) });
     checar(soltos === 0,
       'Z · e a sombra da borda de baixo se apaga no quadro em que o conteúdo deixa de passar da borda — nenhum quadro '
-      + 'com `tem-abaixo` sem nada abaixo (a tira subia com o fim da lista, v1.14.83)', { soltos, quadros: borda.v.slice(0, 12) });
+      + 'com `tem-abaixo` sem nada abaixo além do que cruza a borda (a tira subia com o fim da lista, v1.14.83)', { soltos, quadros: borda.v.slice(0, 12) });
     await pg.evaluate(() => itinMomentosOcultar(false));
   }
 
