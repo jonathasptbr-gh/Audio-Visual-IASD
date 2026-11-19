@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.14.84",
+    "itens": [
+      "No tema claro, a lista de cronogramas ficou branca, com sombra em cada item.",
+      "\"Novo cronograma\" e \"Novo a partir de um modelo\" agora são botões azuis, nos dois temas.",
+      "Não precisa instalar nada: chega pela atualização automática."
+    ]
+  },
+  {
     "versao": "1.14.83",
     "itens": [
       "Ao ocultar os momentos, a sombra da base da lista não sobe mais junto com ela.",

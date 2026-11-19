@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.84** — a gaveta dos cronogramas: linhas `--panel` com `--elev-cartao` no claro e o "Novo cronograma"/"Novo a partir de um modelo" no par de AÇÃO (`--btn-accent`), nos dois temas (só web).
 - **v1.14.83** — a tira de baixo do `.rola` acompanha a altura que anda (`acompanharVeu`), o formulário do Editar mídia cabe na folha e a sombra da `.pacote-linha` solta no claro (só web).
 - **v1.14.82** — o mudo com a altura dos vizinhos no meio do recolher da prévia, o botão dos momentos responde no toque, a entrada das linhas abre a altura e o "%" do volume (só web).
 - **v1.14.81** — ajustes do claro: margem sob a faixa do itinerário, sombra nos blocos do POÇO (Biblioteca, Histórico, Transferir/Editar mídia), a sombra do glifo da prévia recolhida só no mudo e a borda da Biblioteca no `.sorteio-campo` (só web).
@@ -816,6 +817,17 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.84 — a gaveta dos cronogramas branca no claro, e os botões de criar em azul
+
+**O PEDIDO** (operador, 19/11): *"a lista de cronogramas … no modo claro, está com itens em cinza, que deveriam ser itens em branco com sombra. E os botões de criar cronograma e o outro deveriam ter cor de botões azuis como os botões ativos do app tem. Revise o padrão também no tema escuro"*.
+
+| pedido | o que mudou |
+|---|---|
+| itens cinza no claro | A `.crono-gaveta` declarava `--camada: --panel-2` nos dois temas — a regra do escuro (separar por TOM). No claro ela passa a `--panel` e a `.crono-lista > .crono-item` ganha `--elev-cartao`, no bloco "O CLARO SEPARA POR SOMBRA" (a regra da v1.14.80). O ativo segue em `--sel-fill`. Vale para as linhas dos modelos (`.crono-modelo-opcao` é `.crono-item`) |
+| os dois botões de criar em azul | `.crono-novo` (e com ele o `.crono-modelo`) trocou `--surface` por `--btn-accent` — o par de AÇÃO do `.lib-importar-btn` e das portas Bíblia/Ferramentas — e entrou na lista do `--elev-botao` no claro. No ESCURO a superfície afundada da gaveta (`--surface-sunk`) dava um botão mais escuro que o painel; agora é o azul das portas |
+
+Conferido na foto do Chromium do arnês, 400×860, nos dois temas, com a lista dos modelos aberta. `cronogramas-multiplos` e `cronograma-modelos` passam sem mudança.
 
 ## v1.14.83 — a sombra da borda que não sobe, o Editar mídia que cabe e o Transferir com sombra
 

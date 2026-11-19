@@ -709,11 +709,15 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 :root[data-tema="claro"] :is(#songMenuList, #pacoteLista, #edicaoLista) > .pacote-linha > .song-menu-btn {
   box-shadow: var(--elev-cartao);
 }
+/* A GAVETA DOS CRONOGRAMAS (19/11): *"está com itens em cinza, que deveriam ser itens em branco
+   com sombra"*. A linha veste `--panel` (o ativo segue em `--sel-fill`) e separa por sombra. */
+:root[data-tema="claro"] .crono-gaveta { --camada: var(--panel); }
+:root[data-tema="claro"] .crono-lista > .crono-item { box-shadow: var(--elev-cartao); }
 /* Os botões azuis. As PORTAS só no `.livre`: com a lista correndo por baixo elas
    mantêm a sombra de sobreposição de sempre (`--shadow-card`, v1.12.19), e é aqui,
    sem lista, que antes não havia nenhuma. O `+` da faixa do itinerário fica de
    fora: ele mora dentro de um cartão que já sombreia, ao lado de botões que não. */
-:root[data-tema="claro"] :is(.cast-acao-linha, .cast-acao, .lib-importar-btn,
+:root[data-tema="claro"] :is(.cast-acao-linha, .cast-acao, .lib-importar-btn, .crono-novo,
   .dialog-btn.primary, .chrono-btn.primary,
   .qs-tile.qs-on, .misc-chip.active, .cast-rede.active, .dest-btn.on, .fit-opt.active),
 :root[data-tema="claro"] .list-foot.livre :is(.tools-btn, .lib-foot-btn) {
@@ -2748,7 +2752,8 @@ main {
    OPACA e SEM CONTORNO (as regras da paleta): `--panel` com a sombra das
    superfícies que flutuam, e o arco recortando a tira de rolagem. Ela é um
    bloco `--panel`, então os filhos vestem `--panel-2` (`--camada`), como as
-   linhas de uma folha de baixo. */
+   linhas de uma folha de baixo — no ESCURO. No claro a linha é `--panel` e
+   separa por `--elev-cartao` (o bloco "O CLARO SEPARA POR SOMBRA"). */
 .crono-veu { position: fixed; inset: 0; z-index: 160; }
 .crono-gaveta {
   position: absolute; top: var(--sp-3); z-index: 161;
@@ -2845,12 +2850,14 @@ main {
 }
 .crono-item.enviando .crono-item-qtd { color: var(--accent); font-variant-numeric: tabular-nums; }
 /* "NOVO CRONOGRAMA" É A ÚLTIMA LINHA, com o conteúdo CENTRADO: ícone + rótulo,
-   o par discreto de criar do app (`--surface` + `--accent`, o do "Refazer" da
-   Verificação) na altura de um botão de faixa (`--quad-faixa`). */
+   na altura de um botão de faixa (`--quad-faixa`). O par é o de AÇÃO,
+   `--btn-accent` + `--accent` — o do Importar da Biblioteca e das portas Bíblia/
+   Ferramentas (pedido do operador, 19/11: *"deveriam ter cor de botões azuis"*);
+   no claro ganha `--elev-botao` (o bloco "O CLARO SEPARA POR SOMBRA"). */
 .crono-novo {
   display: flex; align-items: center; justify-content: center; gap: var(--sp-3);
   width: 100%; min-height: var(--quad-faixa); margin: 0; padding: 0 var(--sp-5);
-  background: var(--surface); color: var(--accent); border: none; border-radius: var(--radius-btn);
+  background: var(--btn-accent); color: var(--accent); border: none; border-radius: var(--radius-btn);
   font: inherit; font-size: var(--fs-md); font-weight: var(--fw-medio); white-space: nowrap;
   cursor: pointer; appearance: none; -webkit-appearance: none;
 }
