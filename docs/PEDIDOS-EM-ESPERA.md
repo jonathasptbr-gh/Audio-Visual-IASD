@@ -265,17 +265,6 @@ geometria** — eles partem do viewport de 430×900 do arnês (`tools/arnes.mjs`
 que é a forma de um celular em pé; cada um ganha a célula de paisagem. Liberar a
 rotação no Android é Release; o CSS é OTA.
 
-**O pedaço do navegador (estudo novo, 2026-11-18, revisto 22h):** a ideia de o
-celular servir e o navegador do computador ser o **app inteiro em atalhos**
-(um registro de ações; o painel chama as mesmas funções), com a apresentação
-na segunda tela, está em
-[`ESTUDO-PAISAGEM-NAVEGADOR.md`](ESTUDO-PAISAGEM-NAVEGADOR.md). Ele responde
-como começar pelo computador em três níveis — **quente** (o app minimizado,
-o painel só abre), **um toque** (o ouvinte mínimo) e **núcleo headless** (o
-cérebro no serviço, o único cold start automático) — e até onde o app consegue
-ficar discreto (minimizado sim; "fechado" hoje desliga a transmissão). **É
-estudo, não fila de execução.**
-
 ---
 
 ## Pacote 16 — O cronograma pronto: o organizador entrega o culto
