@@ -493,7 +493,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.81';
+const WEB_VERSION = '1.14.82';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -8818,10 +8818,18 @@ async function linhasSaem(alvo) {
 
 // OS MOMENTOS NA LISTA (o interruptor da faixa): ocultos, a lista do Cronograma não
 // desenha nenhuma linha de momento — o telão e a ordem gravada não mudam.
+// O BOTÃO RESPONDE NO TOQUE (v1.14.82). Relato do operador: *"está ocultando o itinerário e
+// apenas depois disso ele fica vermelho e riscado … faz parecer que o toque não funcionou"*. O
+// estado só muda DEPOIS da saída animada (a lista precisa das linhas velhas para animá-las),
+// então o desenho da faixa lê o PEDIDO enquanto ele corre: `itinMomentosPedido` é o estado
+// que o toque pediu, e `null` fora da troca.
+let itinMomentosPedido = null;
 async function itinMomentosOcultar(v) {
   const quer = !!v;
   if (quer === !!itin.momentosOcultos || itinTrocando) return;
   itinTrocando = true;
+  itinMomentosPedido = quer;
+  renderItinBar();
   try {
     if (quer) await linhasSaem((li) => li.classList.contains('momento'));
     itin.momentosOcultos = quer;
@@ -8829,7 +8837,11 @@ async function itinMomentosOcultar(v) {
     saveItin();
     listaEntrando = !quer;
     renderLibrary();
-  } finally { itinTrocando = false; }
+  } finally {
+    itinTrocando = false;
+    itinMomentosPedido = null;
+    renderItinBar();
+  }
 }
 
 // O GRUPO RECOLHIDO (pedido de 15/11): tocar um momento com grupo esconde as mídias
@@ -8876,8 +8888,8 @@ let itinFaixaAberta = false;
 // MEDIDA (a família do `aoSair`): de 0 até `offsetHeight` na abertura, o contrário no
 // fecho, e a LISTA anda junto porque quem a empurra é o layout. As duas MARGENS
 // entram na conta: a de cima é `--sp-3` (a folga que a faixa tem com a barra do topo)
-// e a de baixo é 0 — deixadas de fora, a lista começaria 5,6 px alta demais e daria
-// um degrau no fim do movimento.
+// e a de baixo também (v1.14.81, o vão até a lista) — deixadas de fora, a lista
+// começaria alta demais e daria um degrau no fim do movimento.
 // ABRINDO, o conteúdo entra antes (o `renderItinBar`); FECHANDO, ele fica até o fim,
 // senão a caixa esvaziaria e o `:empty` a apagaria no primeiro quadro.
 let itinFaixaAnimando = false;
@@ -9312,7 +9324,9 @@ function renderItinBar() {
     const ponto = itinBarBtnEl.querySelector('.itin-ponto');
     if (ponto) ponto.hidden = !live;
   }
-  const assin = [itinFaixaAberta ? 1 : 0, live ? 1 : 0, n ? 1 : 0, itin.desloc, itin.horas ? 1 : 0, itin.momentosOcultos ? 1 : 0,
+  // O que o botão dos momentos mostra: o PEDIDO em curso, senão o estado (ver `itinMomentosPedido`).
+  const ocultos = itinMomentosPedido !== null ? itinMomentosPedido : !!itin.momentosOcultos;
+  const assin = [itinFaixaAberta ? 1 : 0, live ? 1 : 0, n ? 1 : 0, itin.desloc, itin.horas ? 1 : 0, ocultos ? 1 : 0,
     itinEditor ? 1 : 0].join('|');
   if (assin === itinBarAssin) return;
   itinBarAssin = assin;
@@ -9332,13 +9346,13 @@ function renderItinBar() {
   tel.setAttribute('aria-pressed', live ? 'true' : 'false');
   tel.disabled = !live && !n;
   // OS MOMENTOS NA LISTA (ligado = visíveis): a pauta, riscada quando ocultos.
-  const mom = itinBarBotao('itinMomentosBtn', 'itin-momentos' + (itin.momentosOcultos ? '' : ' active'),
-    itin.momentosOcultos ? 'Momentos ocultos na lista — toque para mostrá-los'
+  const mom = itinBarBotao('itinMomentosBtn', 'itin-momentos' + (ocultos ? '' : ' active'),
+    ocultos ? 'Momentos ocultos na lista — toque para mostrá-los'
       : 'Momentos na lista — toque para ocultá-los',
-    itin.momentosOcultos ? icoSprite('icoMomentosOff') : icoSprite('icoMomentos'),
+    ocultos ? icoSprite('icoMomentosOff') : icoSprite('icoMomentos'),
     () => itinMomentosOcultar(!itin.momentosOcultos));
   mom.setAttribute('aria-label', 'Momentos no cronograma');
-  mom.setAttribute('aria-pressed', itin.momentosOcultos ? 'false' : 'true');
+  mom.setAttribute('aria-pressed', ocultos ? 'false' : 'true');
   const hor = itinBarBotao('itinHorasBtn', 'itin-horas' + (itin.horas ? ' active' : ''),
     itin.horas ? 'Mostrando os horários no telão — toque para mostrar só os títulos'
       : 'Mostrando só os títulos no telão — toque para mostrar os horários',
@@ -11151,6 +11165,7 @@ function renderLibrary() {
 // entrada começar, e o que se via era a linha aparecendo seca.
 function marcarLinhasQueEntram(antes) {
   if (!libraryEl) return;
+  const entram = [];
   for (const li of libraryEl.children) {
     const id = li.dataset && li.dataset.id;
     if (!id || antes.has(id)) continue;
@@ -11158,7 +11173,40 @@ function marcarLinhasQueEntram(antes) {
     li.addEventListener('animationend', (e) => {
       if (e.target === li) li.classList.remove('linha-entra');
     }, { once: true });
+    entram.push(li);
   }
+  abrirLinhasQueEntram(entram);
+}
+// A ENTRADA ABRE A ALTURA, COMO A SAÍDA A FECHA (v1.14.82). Pedido do operador: *"faça a
+// animação de desocultação ser na mesma velocidade mais calma que se usa na animação de
+// ocultação"*. A saída (`aoSair`) fecha a altura medida e a lista DESLIZA por cima; a entrada
+// só esmaecia a linha já no lugar, e a lista abaixo SALTAVA de uma vez — o mesmo tempo, lido
+// como corte. Aqui é o inverso exato: altura 0 e o vão engolido (`.abrindo`), um quadro, e a
+// altura medida com a MESMA transição do `.saindo`. Lê tudo antes de escrever (um `offsetHeight`
+// por linha intercalado com escrita forçaria um layout por linha).
+function abrirLinhasQueEntram(entram) {
+  if (!entram.length || semMovimento()) return;
+  const altos = entram.map((li) => li.offsetHeight);
+  entram.forEach((li, i) => {
+    if (!altos[i]) return;
+    li.style.height = '0px';
+    li.classList.add('abrindo');
+  });
+  void libraryEl.offsetHeight;
+  entram.forEach((li, i) => {
+    if (!altos[i]) return;
+    li.classList.add('abrindo-vai');
+    li.style.height = altos[i] + 'px';
+    li.classList.remove('abrindo');
+    const fim = () => {
+      li.removeEventListener('transitionend', aoFim);
+      li.classList.remove('abrindo-vai');
+      li.style.height = '';
+    };
+    const aoFim = (e) => { if (e.target === li && e.propertyName === 'height') fim(); };
+    li.addEventListener('transitionend', aoFim);
+    setTimeout(fim, SAIDA_MS + 80);
+  });
 }
 
 function renderLibraryCorpo() {

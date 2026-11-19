@@ -2512,14 +2512,21 @@ try {
     const ocultaQ = await pg.evaluate(() => new Promise((ok) => {
       const v = [], t0 = performance.now();
       itinMomentosOcultar(true);
+      // O BOTÃO JÁ RESPONDEU (v1.14.82): no MESMO tique do toque, antes de a saída andar.
+      const b = document.getElementById('itinMomentosBtn');
+      v.botao = b ? { pressed: b.getAttribute('aria-pressed'), ativo: b.classList.contains('active'),
+        saindo: document.querySelectorAll('#library > .saindo').length } : null;
       const passo = () => {
         v.push({ n: document.querySelectorAll('#library > li.lib-item').length,
           saindo: document.querySelectorAll('#library > .saindo').length,
           alt: [...document.querySelectorAll('#library > li.momento')].map((l) => Math.round(l.getBoundingClientRect().height)) });
-        if (performance.now() - t0 < 460) requestAnimationFrame(passo); else ok(v);
+        if (performance.now() - t0 < 460) requestAnimationFrame(passo); else ok({ v, botao: v.botao });
       };
       requestAnimationFrame(passo);
-    }));
+    })).then((r) => Object.assign(r.v, { botao: r.botao }));
+    checar(!!ocultaQ.botao && ocultaQ.botao.pressed === 'false' && !ocultaQ.botao.ativo,
+      'Z · o botão dos momentos fica RISCADO no toque, antes de a saída das linhas terminar (v1.14.82: *"faz '
+      + 'parecer que o toque não funcionou"*)', ocultaQ.botao);
     const h0 = (ocultaQ[0].alt || [0])[0];
     const comSaindo = ocultaQ.filter((q) => q.saindo > 0);
     const encolhendo = comSaindo.some((q) => q.alt.some((h) => h > 0 && h < h0 - 1));
@@ -2530,11 +2537,18 @@ try {
     const entrada = await pg.evaluate(() => {
       itinMomentosOcultar(false);
       const els = [...document.querySelectorAll('#library > .linha-entra')];
-      return { n: els.length, anim: els.map((l) => l.getAnimations().map((a) => a.animationName + ':' + Math.round(a.effect.getTiming().duration)).join()) };
+      return { n: els.length,
+        anim: els.map((l) => l.getAnimations().filter((a) => a.animationName)
+          .map((a) => a.animationName + ':' + Math.round(a.effect.getTiming().duration)).join()),
+        // E A ALTURA ABRE (v1.14.82): a transição de `height` do `.abrindo-vai`, o inverso da saída.
+        abre: els.map((l) => l.getAnimations().some((a) => a.transitionProperty === 'height')) };
     });
     checar(entrada.n === 3 && entrada.anim.every((a) => /^linha-entra:200$/.test(a)),
       'Z · MOSTRAR de volta traz as TRÊS linhas de momento com a entrada viva (`linha-entra`, a duração de '
       + '`--dur-media`)', entrada);
+    checar(entrada.n === 3 && entrada.abre.every(Boolean),
+      'Z · e a ALTURA delas ABRE (transição de `height`), na mesma curva em que a saída fecha — a lista de baixo '
+      + 'desliza em vez de saltar (v1.14.82)', entrada);
     // (4) O GRUPO: recolher um momento encolhe as mídias dele, e o colegas de baixo sobem.
     const grupoQ = await pg.evaluate(() => new Promise((ok) => {
       const v = [], t0 = performance.now();

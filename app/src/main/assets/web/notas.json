@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.14.82",
+    "itens": [
+      "Ao recolher a prévia, o botão de volume não fica mais baixo que os outros durante a animação.",
+      "O botão de ocultar os momentos do itinerário fica vermelho e riscado assim que você toca.",
+      "Mostrar os momentos de volta agora abre devagar, no mesmo ritmo de quando eles somem.",
+      "O número do volume ganhou um % pequeno ao lado.",
+      "Não precisa instalar nada: chega pela atualização automática."
+    ]
+  },
+  {
     "versao": "1.14.81",
     "itens": [
       "As opções do itinerário ganharam um espaço embaixo: a lista não é mais cortada colada nelas.",

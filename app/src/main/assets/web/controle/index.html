@@ -1710,7 +1710,7 @@
                  `.pv-mute-face` na `controle.css`. -->
             <button id="muteToggle" class="pv-fab pv-fab--mute" type="button" title="Mutar" aria-label="Mutar">
               <span class="pv-mute-face">
-                <span class="pv-mute-num" id="pvMuteNum">100</span>
+                <span class="pv-mute-num"><span class="pv-mute-val"><span id="pvMuteNum">100</span><span class="pv-mute-pct" aria-hidden="true">%</span></span></span>
                 <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <use class="ico-base" href="#icoSom"/><use class="ico-alt" href="#icoSomOff"/>
                 </svg>
@@ -2068,7 +2068,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.14.81</span>
+          <span id="appVersion">v1.14.82</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>

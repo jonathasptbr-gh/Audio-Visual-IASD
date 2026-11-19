@@ -102,7 +102,7 @@ const AMOSTRAR = ({ ids, ms, segundoToqueEm }) => new Promise((resolve) => {
       if (!b || b.hidden) return;
       const r = b.getBoundingClientRect();
       if (!r.width) return;
-      o[id] = { x: r.left - P.left, xr: P.right - r.right, y: r.top - P.top, yb: P.bottom - r.bottom };
+      o[id] = { x: r.left - P.left, xr: P.right - r.right, y: r.top - P.top, yb: P.bottom - r.bottom, alt: r.height };
     });
     return o;
   };
@@ -207,6 +207,13 @@ try {
     checar(todos((q) => canto(q.viewToggle.y) && canto(q.pvCastBtn.y) && canto(q.pvRecolherBtn.y)),
       'B2 · e os de CIMA (cortina, cast, seta) no topo — acompanham a borda que desce',
       rec.map((q) => [+q.viewToggle.y.toFixed(1), +q.pvRecolherBtn.y.toFixed(1)]).slice(0, 8));
+    // O MUDO TEM A ALTURA DA TELA CHEIA NO MEIO DO MOVIMENTO (v1.14.82): a face dele é absoluta, e
+    // com o `align-self` do `pv-animando` a caixa media só o padding (14px contra 36) — o *"fica
+    // mais baixo durante a animação"* do operador. Só nos quadros da grade (`anim`).
+    const daGrade = rec.filter((q) => q.anim && q.muteToggle && q.pvFullBtn);
+    checar(daGrade.length >= 2 && daGrade.every((q) => Math.abs(q.muteToggle.alt - q.pvFullBtn.alt) <= 0.5),
+      'B2 · e o MUDO tem a altura da tela cheia em todos os quadros do movimento, não só no repouso',
+      daGrade.map((q) => [+q.muteToggle.alt.toFixed(1), +q.pvFullBtn.alt.toFixed(1)]).slice(0, 8));
 
     // ---- B3 · OS BOTÕES ANDAM EM X ------------------------------------------------------------
     const xv = rec.map((q) => q.viewToggle.x);

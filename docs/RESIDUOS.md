@@ -45,6 +45,7 @@ medição em aparelho não é fino.**
 
 | quando · lote | onde | o que ficou | dono | por que não foi agora |
 |---|---|---|---|---|
+| 2026-11-19 · v1.14.82 | `abrirLinhasQueEntram` (`controle.js`) | a abertura da altura vale para toda entrada marcada (mostrar os momentos e reabrir um grupo); medida só no Chromium do arnês — o ritmo no WebView do aparelho não foi visto | medição | conferir no aparelho ocultando e mostrando os momentos |
 | 2026-11-19 · v1.14.81 | `.sorteio-campo .lib-search` no ESCURO | a borda de `--surface` dentro da folha é o recesso escuro sobre o painel, e o contraste dela contra o campo branco não foi medido (no claro é o cinza dos botões, como na Biblioteca) | medição | conferir no aparelho, tema escuro, Editar mídia |
 | 2026-11-19 · v1.14.80 | `controle.css` "O CLARO SEPARA POR SOMBRA" | a lista de cartões e botões sombreados foi feita pelo que a prévia mostrou (Cronograma, Modo Fácil, Ferramentas, Configurações); Biblioteca, Bíblia e as outras folhas não foram fotografadas no claro, e outro `--btn-accent` que pouse direto na página branca fica a 1,21:1 sem sombra | medição | conferir no aparelho; cada achado é uma linha a mais na lista |
 | 2026-11-19 · v1.14.79 | `MODELOS_DE_FABRICA` (o Sábado) | os horários são uma sugestão da pesquisa + a régua do operador, e só o uso num sábado real confirma | medição | depende da igreja; cada horário é editável |

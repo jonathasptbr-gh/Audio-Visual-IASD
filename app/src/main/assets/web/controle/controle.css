@@ -1264,6 +1264,16 @@ body {
   font-variant-numeric: tabular-nums;
   text-shadow: var(--pv-mute-halo);
 }
+/* O "%" (v1.14.82). Pedido do operador: *"que o número de volume tenha consigo um ícone de %.
+   Pode usar um símbolo de % com metade do tamanho que usou para os números"*. Ele é ABSOLUTO,
+   pendurado no canto de CIMA à direita do número (`.pv-mute-val` é a caixa só dos algarismos):
+   assim o NÚMERO continua no centro da face (o "como um ícone normal" que o `previa-recolhida`
+   C4 mede) e o símbolo não disputa o canto de BAIXO, que é do alto-falante. */
+.pv-mute-val { position: relative; }
+.pv-mute-pct {
+  position: absolute; left: 100%; top: .08em;
+  font-size: .5em; line-height: 1;
+}
 /* A classe dobrada é o desempate, e não estilo: `.pv-fab svg` (0,1,1) é escrito depois deste
    bloco e venceria por ordem — a mesma armadilha que o selo de camadas pagou uma vez (ver o
    comentário da `.pv-fab--camada`). A posição absoluta no canto é o "abaixo na direita" do
@@ -1696,6 +1706,16 @@ body.mode-simple .vol-pill.na-previa .vol-pill-trilho { max-height: 12rem; }
 .preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) .pv-fab--mute {
   --pv-mute-halo: none;
   --pv-mute-sombra: drop-shadow(0 1px 2px rgba(0, 0, 0, .45));
+}
+/* O MUDO TEM A ALTURA DOS VIZINHOS TAMBÉM NO MEIO DO MOVIMENTO (v1.14.82). Relato do operador:
+   *"o botão de volume fica mais baixo durante a animação, para só depois de terminada que ele
+   cresce"*. A face dele é ABSOLUTA (ver `.pv-mute-face`), então o conteúdo em fluxo era zero e
+   a caixa media só o padding — 14px contra 36. Em repouso a trilha ESTICA e esconde isso; no
+   `pv-animando` cada botão se prende à sua âncora (`align-self`) e mede o próprio conteúdo. O
+   espaçador tem a altura do ícone dos vizinhos (`--icon-md`) e largura zero: a caixa fica igual
+   à deles sem a face entrar na conta. */
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) .pv-fab--mute::before {
+  content: ''; display: block; width: 0; height: var(--icon-md);
 }
 .preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) #muteToggle { grid-column: 1; }
 .preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) #viewToggle { grid-column: 2; }
@@ -3775,6 +3795,14 @@ main {
   to { opacity: 1; transform: none; }
 }
 #library > .lib-item.linha-entra { animation: linha-entra var(--dur-media) ease both; }
+/* A ALTURA ABRE NA MESMA CURVA EM QUE A SAÍDA FECHA (v1.14.82, `abrirLinhasQueEntram`):
+   `.abrindo` é o estado de partida (altura 0 inline + o vão engolido, como o `.saindo`), e
+   `.abrindo-vai` carrega a transição até a altura medida. */
+#library > .lib-item.abrindo:not(:last-child) { margin-bottom: calc(-1 * var(--sp-3)); }
+#library > .lib-item.abrindo-vai {
+  transition: height .2s cubic-bezier(.22, .61, .36, 1),
+              margin-bottom .2s cubic-bezier(.22, .61, .36, 1);
+}
 @media (prefers-reduced-motion: reduce) {
   #library > .lib-item.linha-entra { animation: none; }
 }

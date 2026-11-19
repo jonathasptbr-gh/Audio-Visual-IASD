@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.82** — o mudo com a altura dos vizinhos no meio do recolher da prévia, o botão dos momentos responde no toque, a entrada das linhas abre a altura e o "%" do volume (só web).
 - **v1.14.81** — ajustes do claro: margem sob a faixa do itinerário, sombra nos blocos do POÇO (Biblioteca, Histórico, Transferir/Editar mídia), a sombra do glifo da prévia recolhida só no mudo e a borda da Biblioteca no `.sorteio-campo` (só web).
 - **v1.14.80** — o tema claro com página BRANCA e separação por SOMBRA (`--elev-*`); `app_bg_claro` acompanha (`shellTag`, APK).
 - **v1.14.79** — o Pacote 16 fecha: o modelo "Sábado de manhã" refeito (lição até 10h15, sermão das 11h15 ao meio-dia), "Salvar como modelo" / "Meus modelos" e a linha da gaveta compactada em nome · enviar · ⋮ (só web, sem `shellTag`).
@@ -814,6 +815,16 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.82 — o mudo no meio do recolher, os momentos no toque, a entrada que abre e o "%" do volume
+
+**O PEDIDO** (operador, 17–19/11), três relatos:
+
+| pedido | causa e conserto |
+|---|---|
+| *"durante a animação de compactação da preview … o botão de volume fica mais baixo"* | A `.pv-mute-face` é ABSOLUTA, então o mudo não tem conteúdo em fluxo: com o `align-self` do `pv-animando` a caixa media o padding (14px contra 36). Em repouso a trilha estica e esconde. Conserto: um `::before` de largura 0 e altura `--icon-md` no mudo da prévia recolhida — a caixa iguala a dos vizinhos sem a face entrar na conta. `previa-animacao` B2 cobra a altura igual à da tela cheia em todo quadro da grade |
+| *"o botão de ocultar itinerário … está ocultando o itinerário e apenas depois disso ele fica vermelho e riscado"* + *"a animação de desocultação … na mesma velocidade mais calma"* | `itinMomentosOcultar` só gravava o estado DEPOIS do `linhasSaem`. Agora `itinMomentosPedido` guarda o pedido durante a troca e o `renderItinBar` o desenha no MESMO tique (`null` fora dela). E a entrada (`marcarLinhasQueEntram` → `abrirLinhasQueEntram`) passou a ABRIR a altura medida na mesma curva do `.saindo` (`.abrindo` = altura 0 e o vão engolido; `.abrindo-vai` = a transição): antes ela só esmaecia a linha já no lugar e a lista de baixo saltava. `itinerario` Z cobra os dois |
+| *"que o número de volume tenha consigo um ícone de %… metade do tamanho"* | `.pv-mute-num` > `.pv-mute-val` (relativa, só os algarismos — `#pvMuteNum` mudou para dentro dela) + `.pv-mute-pct` ABSOLUTO no canto de cima à direita, `.5em`: o número continua no centro da face (C4 do `previa-recolhida`) e o canto de baixo segue do alto-falante. Vale na prévia aberta e na recolhida |
 
 ## v1.14.81 — ajustes do tema claro: a faixa do itinerário, as listas, a prévia recolhida e o campo da edição
 
