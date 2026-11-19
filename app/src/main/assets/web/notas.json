@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.14.88",
+    "itens": [
+      "Na lista de cronogramas, \"Modelos\" abre e fecha a lista de modelos com animação.",
+      "A lista de cronogramas não passa mais por baixo da barra de controles em telas menores.",
+      "Com isso, as sombras de cima e de baixo dessa lista ficam coladas nas bordas.",
+      "Não precisa instalar nada: chega pela atualização automática."
+    ]
+  },
+  {
     "versao": "1.14.87",
     "itens": [
       "Ao criar um cronograma a partir de um modelo, os momentos já aparecem na lista.",

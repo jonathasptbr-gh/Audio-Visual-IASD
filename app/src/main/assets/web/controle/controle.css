@@ -2764,6 +2764,13 @@ main {
   /* R1: dentro de um cartão a superfície de um controle AFUNDA. */
   --surface: var(--surface-sunk); --surface-2: var(--surface-2-sunk);
   overflow: hidden;
+  /* A GAVETA CABE NO `.list-body` (19/11): o teto da lista é `min(60vh, 28rem)`, e a 360×760
+     o `.list-body` tem MENOS que isso — MEDIDO, a gaveta descia 16px por baixo da barra de
+     controles, que pinta por cima: a borda de baixo e a sombra dela sumiam, e o operador via a
+     sombra "descolada" da fronteira. A gaveta é coluna, com o recuo de cima repetido embaixo,
+     e a lista encolhe dentro dela (scroller: `min-height` automática é 0). */
+  display: flex; flex-direction: column;
+  max-height: calc(100% - 2 * var(--sp-3));
   opacity: 0; transform: translateY(-6px);
   transition: opacity var(--dur-media) ease, transform var(--dur-media) ease;
 }
@@ -2878,6 +2885,20 @@ main {
 .crono-modelo .crono-seta { transition: transform var(--dur-media) ease; }
 .crono-modelo[aria-expanded="true"] .crono-seta { transform: rotate(180deg); }
 .crono-modelo-opcao > .crono-trocar { min-height: var(--thumb); }
+/* A LISTA DOS MODELOS ABRE E FECHA PELA ALTURA (`cronoModelosAlternar`, 19/11): a curva e o
+   tempo da saída das linhas do Cronograma (`.saindo`, `SAIDA_MS`). FECHADA, a linha não ocupa
+   nada: altura 0 inline, sem o recuo vertical e com o vão de cima (`gap` da `.crono-lista`)
+   engolido pela margem — senão sobrariam 11px de recuo e um vão por linha. */
+.crono-lista > .modelo-anim { overflow: hidden; flex-shrink: 0; }
+.crono-lista > .modelo-anim.modelo-fechado {
+  opacity: 0; padding-top: 0; padding-bottom: 0; margin-top: calc(-1 * var(--sp-3));
+}
+.crono-lista > .modelo-anim.modelo-vai {
+  transition: height .2s cubic-bezier(.22, .61, .36, 1),
+              padding .2s cubic-bezier(.22, .61, .36, 1),
+              margin-top .2s cubic-bezier(.22, .61, .36, 1),
+              opacity .2s ease;
+}
 /* "MEUS MODELOS": o rótulo de seção da lista (o par `--muted` em caixa alta dos rótulos do app). */
 .crono-modelos-rotulo {
   padding: var(--sp-2) var(--sp-3) 0; color: var(--muted);

@@ -103,8 +103,26 @@ try {
     });
     checar(ab === true && g.texto === 'Modelos' && g.rotulo === 'Novo a partir de um modelo' && g.exp === 'false' && g.opcoes === 0 && g.cabe && g.lado,
       'A · a gaveta tem "Modelos" (dito "Novo a partir de um modelo"), FECHADO, ao lado do "+ Novo" e da mesma largura, e o botão cabe a 360', porque(ab) || JSON.stringify(g));
-    await pg.click('#cronoModelo');
-    await z(200);
+    // A ABERTURA É ANIMADA (19/11): o toque não redesenha a gaveta (o botão é o MESMO nó, e a
+    // seta gira), e a última linha cresce de 0 até a altura dela atravessando quadros
+    // intermediários. A espera é pelo FATO (`cronoModelosAnimando` volta a falso).
+    const filme = async (abrir) => pg.evaluate((abrir) => new Promise((ok) => {
+      const b0 = document.getElementById('cronoModelo');
+      const v = [];
+      b0.click();
+      const passo = () => {
+        const u = [...document.querySelectorAll('#cronoLista > .crono-modelo-opcao')].pop();
+        v.push(u ? +u.getBoundingClientRect().height.toFixed(1) : -1);
+        if (cronoModelosAnimando) requestAnimationFrame(passo);
+        else ok({ v, mesmo: document.getElementById('cronoModelo') === b0, n: document.querySelectorAll('#cronoLista > .crono-modelo-opcao').length });
+      };
+      requestAnimationFrame(passo);
+    }), abrir);
+    const fa = await filme(true);
+    const fim = fa.v[fa.v.length - 1];
+    checar(fa.mesmo && fa.v.some((h) => h > 1 && h < fim - 1) && fim >= 50 && fa.v[0] < fim,
+      'A · a lista dos modelos ABRE ANIMADA: o botão é o mesmo nó e a última linha cresce por quadros intermediários',
+      JSON.stringify(fa));
     const o = await opcoes();
     const vis = await pg.evaluate(() => {
       const l = document.getElementById('cronoLista').getBoundingClientRect();
@@ -115,6 +133,26 @@ try {
       + 'Quarta à noite5 momentos · 19:30 às 20:18' && vis.exp === 'true' && vis.dentro && vis.alt >= 50,
     'A · o toque abre os TRÊS modelos, com a conta e o horário, e o último fica à vista na gaveta',
     JSON.stringify({ o, vis }));
+    // A GAVETA CABE NA ÁREA DA LISTA (19/11): com a tela baixa, o teto `min(60vh, 28rem)` passava
+    // do `.list-body` e a gaveta descia por baixo da barra de controles (a borda de baixo e a
+    // sombra dela sumiam). PREMISSA: a lista dela de fato rola.
+    await pg.setViewportSize({ width: 360, height: 600 });
+    await z(300);
+    const cab = await pg.evaluate(() => {
+      const g = document.getElementById('cronoGaveta').getBoundingClientRect();
+      const lb = document.querySelector('.list-body').getBoundingClientRect();
+      const l = document.getElementById('cronoLista');
+      return { g: g.bottom, lb: lb.bottom, rola: l.scrollHeight - l.clientHeight };
+    });
+    checar(cab.rola > 2 && cab.g <= cab.lb + 0.5,
+      'A · numa tela baixa a gaveta CABE na área da lista (não desce sob a barra de controles), e a lista dela rola',
+      JSON.stringify(cab));
+    await pg.setViewportSize({ width: 360, height: 800 });
+    await z(300);
+    // E FECHA ANIMADA: a última linha encolhe por quadros e as linhas saem no fim.
+    const ff = await filme(false);
+    checar(ff.mesmo && ff.n === 0 && ff.v.some((h) => h > 1 && h < fim - 1),
+      'A · e FECHA ANIMADA: a linha encolhe por quadros intermediários e no fim as linhas saem', JSON.stringify(ff));
     await pg.evaluate(() => fecharCronoGaveta());
     await esperar(pg, () => document.getElementById('cronoGaveta').hidden);
     await abrirGaveta();

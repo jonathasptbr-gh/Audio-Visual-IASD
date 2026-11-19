@@ -493,7 +493,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.87';
+const WEB_VERSION = '1.14.88';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -21593,6 +21593,7 @@ function abrirCronoGaveta() {
   if (itinFaixaAberta) itinFaixaAlternar(false);
   fecharAcoesDaLinha();
   cronoModelosAbertos = false;
+  cronoModelosAnimando = false;
   renderCronoGaveta();
   lerMeusModelos();
   const seq = ++cronoGavetaSeq;
@@ -21798,20 +21799,63 @@ function renderCronoModelos(li) {
   b.appendChild(t);
   b.insertAdjacentHTML('beforeend', '<svg class="crono-seta" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
     + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>');
-  b.addEventListener('click', () => {
-    cronoModelosAbertos = !cronoModelosAbertos;
-    renderCronoGaveta();
-    if (cronoModelosAbertos) cronoRolarAoFim();
-  });
+  b.addEventListener('click', () => { cronoModelosAlternar(b); });
   li.appendChild(b);
-  if (!cronoModelosAbertos) return;
-  for (const m of MODELOS_DE_FABRICA) cronoListaEl.appendChild(linhaDeModelo(m, false));
-  if (!meusModelos.length) return;
+  if (cronoModelosAbertos) cronoListaEl.append(...linhasDosModelos());
+}
+// AS LINHAS DOS MODELOS: os de fábrica e, sob o rótulo "Meus modelos", os do operador.
+function linhasDosModelos() {
+  const lis = MODELOS_DE_FABRICA.map((m) => linhaDeModelo(m, false));
+  if (!meusModelos.length) return lis;
   const rot = document.createElement('li');
   rot.className = 'crono-modelos-rotulo';
   rot.textContent = 'Meus modelos';
-  cronoListaEl.appendChild(rot);
-  for (const m of meusModelos) cronoListaEl.appendChild(linhaDeModelo(m, true));
+  return lis.concat(rot, meusModelos.map((m) => linhaDeModelo(m, true)));
+}
+// A LISTA DOS MODELOS ABRE E FECHA ANIMADA (pedido do operador, 19/11: *"a abertura dessa aba
+// deve ser animada"*). O toque NÃO redesenha a gaveta: o botão é o mesmo nó, então a seta gira
+// pela transição dela, e as linhas entram (ou saem) pela altura medida — a régua da entrada e da
+// saída das linhas do Cronograma (`abrirLinhasQueEntram`/`aoSair`, `SAIDA_MS`). A gaveta cresce
+// junto (altura `auto`), e enquanto a altura anda a lista acompanha o FIM (a última linha à vista)
+// e a sombra das bordas é remedida a cada quadro. Um toque no meio da animação é ignorado.
+let cronoModelosAnimando = false;
+function cronoModelosAlternar(b) {
+  if (!cronoListaEl || cronoModelosAnimando) return;
+  cronoModelosAbertos = !cronoModelosAbertos;
+  b.setAttribute('aria-expanded', cronoModelosAbertos ? 'true' : 'false');
+  const abrindo = cronoModelosAbertos;
+  const lis = abrindo ? linhasDosModelos()
+    : [...cronoListaEl.querySelectorAll(':scope > :is(.crono-modelo-opcao, .crono-modelos-rotulo)')];
+  if (abrindo) cronoListaEl.append(...lis);
+  if (semMovimento()) {
+    if (abrindo) cronoRolarAoFim(); else lis.forEach((li) => li.remove());
+    acertarVeu(cronoListaEl);
+    return;
+  }
+  cronoModelosAnimando = true;
+  const altos = lis.map((li) => li.offsetHeight);   // tudo lido antes de escrever
+  lis.forEach((li, i) => {
+    li.style.height = (abrindo ? 0 : altos[i]) + 'px';
+    li.classList.add('modelo-anim');
+    li.classList.toggle('modelo-fechado', abrindo);
+  });
+  void cronoListaEl.offsetHeight;
+  lis.forEach((li, i) => {
+    li.classList.add('modelo-vai');
+    li.style.height = (abrindo ? altos[i] : 0) + 'px';
+    li.classList.toggle('modelo-fechado', !abrindo);
+  });
+  const ate = performance.now() + SAIDA_MS + 40;
+  const passo = () => {
+    if (abrindo) cronoRolarAoFim();
+    acertarVeu(cronoListaEl);
+    if (performance.now() < ate) { requestAnimationFrame(passo); return; }
+    if (abrindo) lis.forEach((li) => { li.classList.remove('modelo-anim', 'modelo-vai'); li.style.height = ''; });
+    else lis.forEach((li) => li.remove());
+    acertarVeu(cronoListaEl);
+    cronoModelosAnimando = false;
+  };
+  requestAnimationFrame(passo);
 }
 // UMA LINHA DE MODELO: o miolo (nome + "N momentos · início às fim") aplica; a do operador tem
 // também o EXCLUIR à direita, que pergunta.

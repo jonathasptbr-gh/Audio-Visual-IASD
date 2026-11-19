@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.88** — a lista dos modelos da gaveta abre e fecha animada (`cronoModelosAlternar`) e a gaveta cabe no `.list-body` (`max-height: calc(100% - 2 * --sp-3)`, coluna flex) — a sombra de baixo ficava sob a barra de controles (só web).
 - **v1.14.87** — aplicar um modelo e importar um culto forçam os momentos À VISTA (`mostrarMomentos`) (só web).
 - **v1.14.86** — a linha de criar da gaveta: "+ Novo" (rótulo curto, `title` "Novo cronograma") e "Modelos" na MESMA largura (`.crono-criar` em grade `repeat(2, minmax(0, 1fr))`, sem quebra); o J do `cronogramas-multiplos` mira fora da gaveta e o `aoSair` remede a sombra da borda depois de zerar a altura (o Z do `itinerario` instável) (só web).
 - **v1.14.85** — a linha de criar da gaveta dos cronogramas: "Novo cronograma" e "Modelos ⌄" lado a lado (`.crono-criar`, quebra quando não cabe), no par PRIMÁRIO sólido (`--accent-fill`/`--on-accent`) (só web).
@@ -820,6 +821,17 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.88 — os modelos abrem animados, e a gaveta cabe na área da lista
+
+**O PEDIDO** (operador, 19/11): *"Faça uma animação para a extensão da gaveta de modelos … A abertura dessa aba deve ser animada"* e *"verifique as sombras das fronteiras superior e inferior desta mesma janela … estão ligeiramente descoladas de suas fronteiras. Muito provavelmente era bug causado por o tamanho da lista ser do mesmo tamanho disponível"*.
+
+| pedido | causa e conserto |
+|---|---|
+| a abertura animada | O toque no "Modelos" redesenhava a gaveta inteira (`renderCronoGaveta`): as linhas apareciam de uma vez e a seta, num nó novo, não girava. `cronoModelosAlternar(b)` não redesenha: troca o `aria-expanded` do MESMO botão (a `.crono-seta` gira pela transição dela) e põe (ou tira) as linhas de `linhasDosModelos()` pela altura medida — `.modelo-anim` + `.modelo-fechado` (altura 0 inline, sem `padding` vertical, o `gap` engolido por `margin-top` negativa) → `.modelo-vai` (a curva e os 200ms do `.saindo`). Um laço de rAF até `SAIDA_MS + 40` mantém o FIM da lista à vista ao abrir (`cronoRolarAoFim`) e remede a sombra (`acertarVeu`); um toque no meio é ignorado (`cronoModelosAnimando`). `prefers-reduced-motion`: seco |
+| as sombras descoladas | NÃO era o limbo do transbordo: MEDIDO a 360×760 com 4 cronogramas e os modelos abertos, a gaveta ia até y 497 e a barra de controles começa em 481 — o teto da lista (`min(60vh, 28rem)` = 448px) passava do `.list-body` (até 476), e a barra pinta por cima. A borda de baixo e a sombra dela ficavam 16px escondidas; com um item a mais a lista rola e a sombra de cima aparece, o que dava a impressão de "alinhar". Conserto: a `.crono-gaveta` é coluna flex com `max-height: calc(100% - 2 * var(--sp-3))` (o recuo de cima repetido embaixo) e a lista encolhe dentro dela. Depois: o fundo em 470,3 (o `.list-body` − 5,6) |
+
+`cronograma-modelos` A cobra a abertura e o fechamento por quadros intermediários com o mesmo nó, e a gaveta dentro do `.list-body` a 360×600 com a PREMISSA de que a lista rola. Reversões medidas: com `prefers-reduced-motion` (sem animação) os dois filmes reprovam; sem o `max-height` o "cabe" reprova.
 
 ## v1.14.87 — o modelo e o culto importado chegam com os momentos à vista
 
