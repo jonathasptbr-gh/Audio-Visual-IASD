@@ -2582,6 +2582,43 @@ try {
     checar(seco.saindo === 0 && seco.n === 3,
       'Z · e com `prefers-reduced-motion` a troca é SECA: nenhuma linha veste `saindo` e a lista já está no estado '
       + 'final', seco);
+    // (6) A SOMBRA DA BORDA DE BAIXO NÃO SOBE COM A LISTA (v1.14.83). Relato do operador: ao
+    // ocultar os momentos, *"a sombra de fronteira da base da lista acaba subindo junto da lista
+    // encolhida"*. A tira é um `sticky` no fim do conteúdo; com o conteúdo ficando mais curto que
+    // o scroller NO MEIO da saída e a marca `tem-abaixo` ainda de pé, ela andava com o fim da
+    // lista. A cena cresce até TRANSBORDAR um pouco (os momentos são metade das linhas, então
+    // ocultá-los cruza a borda no meio do movimento — a PREMISSA), e nenhum quadro pode ter a
+    // marca sem transbordo. MEDIDO antes do conserto: 5 quadros assim.
+    const borda = await pg.evaluate(async () => {
+      const z = (ms) => new Promise((f) => setTimeout(f, ms));
+      const l = libraryEl;
+      const msg = (n) => AVDB.addCue('message', { text: n }, { name: n, list: 'imports' });
+      const mom = (n, min) => AVDB.addCue('momento', { min }, { name: n, list: 'imports' });
+      for (let i = 0; i < 30 && l.scrollHeight - l.clientHeight <= 20; i++) {
+        await mom('Extra ' + i, 700 + i * 5); await msg('Item extra ' + i); await load(); await z(120);
+      }
+      l.scrollTop = 0; await z(150);
+      const transbordo0 = l.scrollHeight - l.clientHeight;
+      return await new Promise((ok) => {
+        const v = [], t0 = performance.now();
+        itinMomentosOcultar(true);
+        const passo = () => {
+          v.push({ resto: Math.round(l.scrollHeight - l.scrollTop - l.clientHeight), marca: l.classList.contains('tem-abaixo'),
+            saindo: document.querySelectorAll('#library > .saindo').length });
+          if (performance.now() - t0 < 460) requestAnimationFrame(passo); else ok({ transbordo0, v });
+        };
+        requestAnimationFrame(passo);
+      });
+    });
+    const cruzou = borda.v.some((q) => q.saindo > 0 && q.resto <= 2);
+    const soltos = borda.v.filter((q) => q.marca && q.resto <= 2).length;
+    checar(borda.transbordo0 > 2 && cruzou,
+      'Z · PREMISSA: a lista transbordava e a saída dos momentos a deixou sem transbordo NO MEIO do movimento',
+      { transbordo0: borda.transbordo0, quadros: borda.v.slice(0, 12) });
+    checar(soltos === 0,
+      'Z · e a sombra da borda de baixo se apaga no quadro em que o conteúdo deixa de passar da borda — nenhum quadro '
+      + 'com `tem-abaixo` sem nada abaixo (a tira subia com o fim da lista, v1.14.83)', { soltos, quadros: borda.v.slice(0, 12) });
+    await pg.evaluate(() => itinMomentosOcultar(false));
   }
 
   // ── G″. O CORPO DO CARD DO MOMENTO SAIU (v1.14.62) ───────────────────────

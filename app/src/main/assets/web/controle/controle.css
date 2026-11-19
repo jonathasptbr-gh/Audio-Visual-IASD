@@ -702,6 +702,13 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
   .hist-sessao, .edicao-bloco, .teste-erro) {
   box-shadow: var(--elev-cartao);
 }
+/* E A LINHA SOLTA DESSAS LISTAS (v1.14.83): *"na lista de exportar e importar, que se chama
+   transferir. Não está tendo sombra nos cards azuis"*. Um item sem grupo (o hinário, os "Outros
+   itens") é uma `.pacote-linha` TRANSPARENTE, e quem pinta o azul é o botão dentro dela — a
+   sombra vai em quem pinta. Só na RAIZ da lista: dentro de um grupo a linha volta ao papel. */
+:root[data-tema="claro"] :is(#songMenuList, #pacoteLista, #edicaoLista) > .pacote-linha > .song-menu-btn {
+  box-shadow: var(--elev-cartao);
+}
 /* Os botões azuis. As PORTAS só no `.livre`: com a lista correndo por baixo elas
    mantêm a sombra de sobreposição de sempre (`--shadow-card`, v1.12.19), e é aqui,
    sem lista, que antes não havia nenhuma. O `+` da faixa do itinerário fica de
@@ -13886,5 +13893,47 @@ body.lib-assentando .popup-sheet--lib { visibility: hidden; }
    aba só. */
 .edicao-panel > .popup-list { padding-left: 0; padding-right: 0; }
 .edicao-panel > .popup-fecho { margin-left: 0; margin-right: 0; }
+/* ===== O FORMULÁRIO CABE NA FOLHA (v1.14.83) =====
+   Relato do operador: *"os cards e elementos dessa tela ficam literalmente maior que a área de
+   scroll disponível, provavelmente porque na base, a margem entre o scroll e o botão está
+   ligeiramente maior do que deveria … caberia tranquilamente esses cards se fossem dimensionados
+   para se ajustar a tela"*. MEDIDO a 392×800 (o aparelho dele): 414px de conteúdo num scroller
+   de 328, e 17,6px entre a lista e o "Confirmar" — o `gap` do painel (`--sp-4`) SOMADO ao
+   `margin-top` que o `.popup-fecho` trouxe das Configurações (`--sp-5`). Quatro cortes, nenhum
+   alvo de toque menor:
+   · o fecho perde a margem própria e fica a UM vão da lista, o do painel (`--sp-3`);
+   · o pé da lista fica com `--sp-3` (era o `.8rem` da lista de Configurações) — a folga da
+     sombra do último cartão, e não mais;
+   · a linha de apoio das marcas (fade, só o áudio) fica numa linha, com reticências — o nome
+     diz o que é, e a frase de baixo quebrava em duas;
+   · o TRECHO sobe os dois tempos para a linha do título: "Início 0:00 · Trecho · Fim 0:06" é
+     UMA linha, e não duas. O DOM não muda (`.edicao-ponta` continua levando rótulo, tempo e
+     passos): quem reorganiza é a grade do bloco, com `display: contents` nas pontas;
+   · e o formulário (só ele: a lista da ESCOLHA não muda) fica um degrau mais denso — o vão
+     entre os cartões e o recuo do topo em `--sp-2`, o recuo vertical das linhas em `--sp-3`
+     (45px de linha, acima do `--hit`). MEDIDO depois, a 392×800: 339px de conteúdo para 340
+     de scroller, sem rolagem num áudio (um vídeo tem a linha "Só o áudio" a mais, e rola). */
+.edicao-panel { gap: var(--sp-3); }
+.edicao-panel > .popup-fecho { margin-top: 0; }
+#edicaoLista:has(> .edicao-bloco) { gap: var(--sp-2); padding-top: var(--sp-2); }
+#edicaoLista:has(> .edicao-bloco) > .pacote-linha > .song-menu-btn { padding-top: var(--sp-3); padding-bottom: var(--sp-3); }
+#edicaoLista > .edicao-bloco:has(.edicao-nome) { gap: var(--sp-2); }
+.edicao-panel > .popup-list { padding-bottom: var(--sp-3); }
+#edicaoLista > .pacote-linha:not(.edicao-card) .song-menu-sub {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#edicaoLista > .edicao-bloco:has(> .edicao-faixa) {
+  display: grid; grid-template-columns: 1fr 1fr; column-gap: var(--sp-3);
+}
+#edicaoLista > .edicao-bloco > .edicao-pontas,
+#edicaoLista > .edicao-bloco > .edicao-pontas > .edicao-ponta { display: contents; }
+#edicaoLista > .edicao-bloco > .edicao-cab { grid-row: 1; grid-column: 1 / -1; justify-self: center; align-self: center; }
+#edicaoLista > .edicao-bloco .edicao-ponta-cab { grid-row: 1; align-self: center; padding-inline: var(--sp-3); }
+#edicaoLista > .edicao-bloco .edicao-ponta:first-child > .edicao-ponta-cab { grid-column: 1; justify-self: start; }
+#edicaoLista > .edicao-bloco .edicao-ponta:last-child > .edicao-ponta-cab { grid-column: 2; justify-self: end; }
+#edicaoLista > .edicao-bloco > .edicao-faixa { grid-row: 2; grid-column: 1 / -1; }
+#edicaoLista > .edicao-bloco .edicao-passos { grid-row: 3; }
+#edicaoLista > .edicao-bloco .edicao-ponta:first-child > .edicao-passos { grid-column: 1; }
+#edicaoLista > .edicao-bloco .edicao-ponta:last-child > .edicao-passos { grid-column: 2; }
 .edicao-panel > .popup-list > .edicao-secao { padding-left: 0; padding-right: 0; }
 .edicao-panel[hidden] { display: none; }

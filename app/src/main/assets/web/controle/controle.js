@@ -493,7 +493,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.82';
+const WEB_VERSION = '1.14.83';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -11193,6 +11193,7 @@ function abrirLinhasQueEntram(entram) {
     li.classList.add('abrindo');
   });
   void libraryEl.offsetHeight;
+  acompanharVeu(libraryEl, SAIDA_MS);
   entram.forEach((li, i) => {
     if (!altos[i]) return;
     li.classList.add('abrindo-vai');
@@ -12058,12 +12059,37 @@ function pedirConfirmacaoNaLinha(botao, opts) {
  * seguro — a linha está no documento e não vai mudar de tamanho.
  */
 const SAIDA_MS = 200;
+// A SOMBRA DA BORDA ACOMPANHA A ALTURA QUE ANDA (v1.14.83). Relato do operador: *"ao encolher
+// os momentos … a sombra de fronteira da base da lista acaba subindo junto da lista encolhida,
+// descolando a sombra da fronteira inferior. Ela desaparece no fim da animação"*. A tira de baixo
+// é um `sticky` no FIM do conteúdo: ela só fica presa à borda enquanto o conteúdo passa dela, e
+// quem a desliga (`tem-abaixo`) é o `acertarVeu` — que só roda em rolagem, em mudança de TAMANHO
+// do scroller (`veuRO`) e em mutação do DOM. Uma linha que fecha a altura não dispara nenhum dos
+// três: o conteúdo encolhia por baixo de uma marca velha, e a tira subia com o fim dele. Aqui o
+// scroller é remedido a cada quadro enquanto uma altura anda (um laço por scroller; o prazo só
+// se estende).
+const veuAcompanhando = new WeakMap();
+function acompanharVeu(el, ms) {
+  if (!el) return;
+  const ate = performance.now() + ms + 40;
+  const ja = veuAcompanhando.get(el);
+  veuAcompanhando.set(el, Math.max(ate, ja || 0));
+  if (ja) return;
+  const passo = () => {
+    acertarVeu(el);
+    if (el === libraryEl) acertarSombraDasPortas();
+    if (performance.now() < veuAcompanhando.get(el)) requestAnimationFrame(passo);
+    else veuAcompanhando.delete(el);
+  };
+  requestAnimationFrame(passo);
+}
 function aoSair(li) {
   if (!li || !li.isConnected || semMovimento()) return Promise.resolve();
   const alto = li.offsetHeight;
   if (!alto) return Promise.resolve();
   li.style.height = alto + 'px';
   li.classList.add('saindo');
+  acompanharVeu(li.closest('.rola'), SAIDA_MS);
   // Um quadro para o `height` medido virar o estado DE PARTIDA: escrevê-lo e
   // zerá-lo na mesma passada dá uma caixa que nunca teve altura, e a transição
   // não acontece.

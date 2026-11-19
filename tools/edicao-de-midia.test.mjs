@@ -848,11 +848,18 @@ const longo = await app.evaluate(async () => {
   const lab = L.querySelector('.edicao-card .song-menu-label');
   const ro = L.querySelector('.edicao-card .edicao-rolante');
   return { card: +card.height.toFixed(1), vao: +(fr.top - nome.bottom).toFixed(1),
+    // O VÃO ENTRE A LISTA E O FECHO (v1.14.83): UM só, o `gap` do painel — era ele SOMADO ao
+    // `margin-top` do `.popup-fecho` (17,6px), o *"margem … ligeiramente maior"* do operador.
+    vaoLista: +(fr.top - L.getBoundingClientRect().bottom).toFixed(1),
+    gapPainel: parseFloat(getComputedStyle(document.getElementById('edicaoSecao')).rowGap),
     rolando: !!(ro && ro.classList.contains('edicao-rolando')), animado: ro ? getComputedStyle(ro).animationName : '', uma: lab.getBoundingClientRect().height < 40 };
 });
-checar(longoOk === true && longo.rolando === true && longo.animado === 'np-marquee' && longo.uma === true && Math.abs(longo.card - 53.2) < 6,
+checar(longoOk === true && longo.rolando === true && longo.animado === 'np-marquee' && longo.uma === true && Math.abs(longo.card - 45.2) < 6,   // 45,2: o recuo de `--sp-3` do formulário (v1.14.83; era 53,2)
   'C · com um título comprido o card segue de UMA linha (mesma altura) e o texto ROLA em ping-pong', porque(longoOk) || JSON.stringify(longo));
 checar(longo.vao <= 400, 'C · o fecho fica no pé do painel, depois do formulário — o vão é o da lista, que rola por dentro', JSON.stringify(longo));
+checar(Math.abs(longo.vaoLista - longo.gapPainel) <= 0.6 && longo.gapPainel <= 6,
+  'C · entre a lista e o fecho há UM vão, o do painel (`--sp-3`) — sem a margem própria do `.popup-fecho` somada (v1.14.83)',
+  JSON.stringify({ vao: longo.vaoLista, gap: longo.gapPainel }));
 const trocaVista = await app.evaluate(async () => {
   const box = document.getElementById('edicaoSecao');
   const h0 = box.getBoundingClientRect().height;

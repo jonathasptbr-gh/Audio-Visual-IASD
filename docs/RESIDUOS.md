@@ -45,6 +45,7 @@ medição em aparelho não é fino.**
 
 | quando · lote | onde | o que ficou | dono | por que não foi agora |
 |---|---|---|---|---|
+| 2026-11-19 · v1.14.83 | o formulário do Editar mídia (`#edicaoLista:has(> .edicao-bloco)`) | cabe sem rolar a 392×800 num ÁUDIO (339/340px, medido no Chromium); um vídeo tem a linha "Só o áudio" a mais e rola, e telas mais baixas ou a fonte do sistema maior também | medição | conferir no aparelho com áudio e com vídeo |
 | 2026-11-19 · v1.14.82 | `abrirLinhasQueEntram` (`controle.js`) | a abertura da altura vale para toda entrada marcada (mostrar os momentos e reabrir um grupo); medida só no Chromium do arnês — o ritmo no WebView do aparelho não foi visto | medição | conferir no aparelho ocultando e mostrando os momentos |
 | 2026-11-19 · v1.14.81 | `.sorteio-campo .lib-search` no ESCURO | a borda de `--surface` dentro da folha é o recesso escuro sobre o painel, e o contraste dela contra o campo branco não foi medido (no claro é o cinza dos botões, como na Biblioteca) | medição | conferir no aparelho, tema escuro, Editar mídia |
 | 2026-11-19 · v1.14.80 | `controle.css` "O CLARO SEPARA POR SOMBRA" | a lista de cartões e botões sombreados foi feita pelo que a prévia mostrou (Cronograma, Modo Fácil, Ferramentas, Configurações); Biblioteca, Bíblia e as outras folhas não foram fotografadas no claro, e outro `--btn-accent` que pouse direto na página branca fica a 1,21:1 sem sombra | medição | conferir no aparelho; cada achado é uma linha a mais na lista |
