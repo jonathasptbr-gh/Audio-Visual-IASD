@@ -670,6 +670,7 @@ jobs:
           rodar tools/limpar-cronograma.test.mjs
           rodar tools/importar-na-biblioteca.test.mjs
           rodar tools/cronogramas-multiplos.test.mjs
+          rodar tools/cronograma-modelos.test.mjs
           rodar tools/linha-da-preparacao.test.mjs
           rodar tools/miniaturas-estaveis.test.mjs
           rodar tools/biblia-leitura-cabe.test.mjs

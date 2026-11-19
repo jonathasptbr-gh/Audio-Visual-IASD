@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.14.78",
+    "itens": [
+      "Na lista de cronogramas, \"Novo a partir de um modelo\": sábado de manhã, domingo à noite ou quarta à noite.",
+      "O cronograma novo já vem com os momentos do culto e os horários; é só pôr as mídias debaixo de cada um.",
+      "O cronograma que estava em uso continua guardado na lista, sem mudar nada.",
+      "Não precisa instalar nada: chega pela atualização automática."
+    ]
+  },
+  {
     "versao": "1.14.77",
     "itens": [
       "Ao importar um culto, a tela de confirmação vira uma barra de progresso e termina numa frase curta.",

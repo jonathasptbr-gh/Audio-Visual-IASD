@@ -1655,12 +1655,31 @@
     await txDone(tx);
     return true;
   }
-  /** Cria um vazio ("Cronograma N") e o torna ativo. Devolve `{ id, nome }`. */
-  async function cronoCriar() {
+  /**
+   * Cria um vazio ("Cronograma N") e o torna ativo. Devolve `{ id, nome }`.
+   * `modelo` (Pacote 16, P5; opcional): `{ nome, momentos: [{ min, titulo }] }` — o cronograma
+   * nasce com o nome do modelo (sufixo se colidir) e os momentos como cenas `momento`, gravados
+   * na MESMA transação: um corte no meio não deixa um cronograma pela metade.
+   */
+  async function cronoCriar(modelo) {
     const [st, tx] = await cronoTx();
     const c = await cronoLerEm(st);
     delete c.virgem;
-    const novo = { id: cronoId(), nome: cronoNomeNovo(c.itens.map((x) => x.nome)), ids: [], usado: 0 };
+    const usados = c.itens.map((x) => x.nome);
+    const nomeModelo = modelo && typeof modelo.nome === 'string' ? modelo.nome.trim().slice(0, 60) : '';
+    const novo = { id: cronoId(), nome: nomeModelo ? cronoNomeLivre(nomeModelo, usados) : cronoNomeNovo(usados), ids: [], usado: 0 };
+    if (modelo && Array.isArray(modelo.momentos)) {
+      const ms = tx.objectStore(STORE_MEDIA);
+      for (const m of modelo.momentos) {
+        if (!m || typeof m.min !== 'number') continue;
+        const min = Math.round(m.min);
+        if (!(min >= 0 && min < 1440)) continue;
+        const titulo = String(m.titulo || '').trim().slice(0, 60) || 'Momento';
+        const rec = makeMediaRecord({ cue: 'momento', data: { min }, kind: 'cue', type: 'cue/momento', name: titulo });
+        await asPromise(ms.add(rec));
+        novo.ids.push(rec.id);
+      }
+    }
     c.itens.push(novo);
     await cronoTrocarEm(st, c, novo.id);
     await cronoGravarEm(st, c);

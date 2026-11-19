@@ -95,7 +95,7 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 |---|---|---|---|
 | **5** — Itinerário: a tela de espera antes do primeiro momento | 8 (I4×U2) | pedido | só web, depois de planejar |
 | **13** — Estudos (não são fila de execução) | 4 | estudo | nenhuma entrega |
-| **16** — O cronograma pronto: o organizador entrega o culto ao sonoplasta | 8 (I4×U2) | pedido | planejamento → Kotlin + web |
+| **16** — O cronograma pronto: o organizador entrega o culto ao sonoplasta (resta o 16.e: "Salvar como modelo") | 8 (I4×U2) | pedido | só web |
 | **29** — Guia do site: a captura da lista de Ferramentas e do Cronograma | 2 (I2×U1) | resíduo | só site (pede o app em tela) |
 
 ---
@@ -154,7 +154,7 @@ ordem; a fila é dele.
 | 13.1 | controle de slides + compartilhar itinerário/cronograma | | 4 | 1 | 4 | estudo |
 | 13.2 | transmissão ao vivo | | 3 | 1 | 3 | estudo |
 | 13.3 | layout de paisagem (o app no Windows saiu) | | 3 | 1 | 3 | estudo |
-| **16** | **O cronograma pronto: o organizador entrega o culto** | pedido | 4 | 2 | **8** | planejamento |
+| **16** | **O cronograma pronto: o organizador entrega o culto** (resta o 16.e) | pedido | 4 | 2 | **8** | web |
 | **29** | **Guia do site: a captura da lista de Ferramentas e do Cronograma** | resíduo | 2 | 1 | **2** | site |
 
 ---
@@ -320,10 +320,12 @@ execução é P1 → P2 → P3 → P4, com P5 (os modelos) em paralelo.
 **Entregue na v1.14.74 (18/11):** P1+P2 juntos, por decisão do operador — o "Enviar" na
 gaveta dos cronogramas e as capas (9:16, até 6 páginas) em registros `info` do
 pacote. **Entregue na v1.14.75 (18/11):** P3 (a prévia) e P4 (a porta `ACTION_VIEW` e as capas
-junto no compartilhar, Release). **Falta:** P5 (os modelos) e as medições no
+junto no compartilhar, Release). **Faltava:** P5 (os modelos) e as medições no
 aparelho (`RESIDUOS.md`).
 
-**Pedido do operador depois da v1.14.76 (18/11):** 16.a, 16.b e 16.d ENTREGUES na v1.14.77 (16.d: decisão "Só o link", 18/11); 16.c MEDIDO pelo operador em 18/11, 22h04 — o toque no `.avpkg` abre o app na prévia. Fica deste pacote: o **P5 (os modelos)**.
+**Pedido do operador depois da v1.14.76 (18/11):** 16.a, 16.b e 16.d ENTREGUES na v1.14.77 (16.d: decisão "Só o link", 18/11); 16.c MEDIDO pelo operador em 18/11, 22h04 — o toque no `.avpkg` abre o app na prévia. **P5 (os modelos) ENTREGUE na v1.14.78 (19/11):** "Novo a partir de um modelo" na gaveta, com os três de fábrica (o cronograma nasce com os momentos e fica em uso; horários do modelo — decisões do operador, 19/11).
+
+**Fica deste pacote — 16.e (adiado pelo operador, 19/11):** "Salvar como modelo" / "Meus modelos" (a chave `modelos`, só momentos: horário e título) e, junto, a dica do que pôr em cada momento (a coluna "o sonoplasta precisa de" do `ESTUDO-CRONOGRAMA.md` §3.2, que não viaja ao telão). Nada disso está autorizado: pergunte antes.
 
 **A regra que este pacote herda e não pode esquecer:** *importar só acrescenta*
 (`PACOTE.md`); nada que já esteja no aparelho do sonoplasta é substituído.
@@ -347,6 +349,8 @@ operador manda a captura, ou ela sai da prévia visual no Chromium.
 ---
 
 ## O que saiu desta lista (rastro, não log)
+
+**v1.14.78 (2026-11-19), só web:** o **Pacote 16, P5** — "Novo a partir de um modelo" na gaveta dos cronogramas: Sábado de manhã (15 momentos), Domingo à noite (8) e Quarta à noite (5); o cronograma novo nasce com os momentos e fica em uso, e o de antes continua na gaveta. Fica o 16.e. Nota em `docs/HISTORICO.md`.
 
 **v1.14.77 (2026-11-18), só web:** o **Pacote 16, itens 16.a/16.b/16.d** — a importação de um culto vira progresso na MESMA folha da prévia e termina numa frase curta; o culto importado fica ATIVO; o pacote do culto leva só o link do YouTube, das séries e das faixas de coleção (o aviso do cronograma baixa); e, na carona, o alerta do topo deixou de cobrir a porta do itinerário e a capa marca o hinário de 1996. Nota em `docs/HISTORICO.md`.
 

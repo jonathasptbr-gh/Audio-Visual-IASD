@@ -573,3 +573,9 @@ até 6. O formato e a regra estão no [`PACOTE.md`](recursos/PACOTE.md).
 de entrada (`ACTION_VIEW` por `application/octet-stream` + MIME próprio, pela fila dos shares), as
 capas JUNTO no envio (`ACTION_SEND_MULTIPLE`) e o pronto próprio do culto. As medições 1 e 3 da §4
 continuam do aparelho. O formato e a regra: [`PACOTE.md`](recursos/PACOTE.md).
+
+**P5 (19/11, v1.14.78, só web):** os três de fábrica (`MODELOS_DE_FABRICA`, os títulos da §3.2
+limpos para o telão) e "Novo a partir de um modelo" (`#cronoModelo`) na gaveta. Decisões do
+operador: o novo fica EM USO (a régua do 16.b; o oráculo da §3 dizia "o ativo não muda" — vale o
+que não muda é o CONTEÚDO do de antes) e os horários são os do modelo. A chave `modelos`, o
+"Salvar como modelo" e as dicas do que pôr em cada momento ficaram para o 16.e (fila).

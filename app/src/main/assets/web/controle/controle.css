@@ -2770,6 +2770,12 @@ main {
   cursor: pointer; appearance: none; -webkit-appearance: none;
 }
 .crono-novo > svg { flex: none; }
+/* "NOVO A PARTIR DE UM MODELO" (Pacote 16, P5): o mesmo par do "Novo cronograma", com a seta da
+   lista que ele abre (a do título, girada quando aberta). Cada MODELO é uma linha da gaveta só
+   com o miolo — nome e "N momentos · início às fim" —, na altura das outras (`--thumb`). */
+.crono-modelo .crono-seta { transition: transform var(--dur-media) ease; }
+.crono-modelo[aria-expanded="true"] .crono-seta { transform: rotate(180deg); }
+.crono-modelo-opcao > .crono-trocar { min-height: var(--thumb); }
 /* A TRILHA 3 era um VÃO reservado (v5.309, para o título não sair do eixo
    quando o voltar aparece) e virou a casa da ENGRENAGEM na v1.2.0 — o vão
    previa isto por escrito. A trilha já mede `--hit`, que é a caixa do botão. */

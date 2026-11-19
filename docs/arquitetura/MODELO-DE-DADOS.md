@@ -267,6 +267,10 @@ cronoLer()                    // { ativo, itens: [{ id, nome, qtd, usado }] } �
                               // ativo lida de `imports`, na MESMA transação
 cronoTrocar(id), cronoCriar() // a troca é UMA transação: imports → o ativo, o
                               // escolhido → imports. Nunca coleta (a união não muda)
+cronoCriar({ nome, momentos: [{ min, titulo }] })
+                              // o MODELO (P5): nasce com o nome e as cenas `momento`
+                              // na MESMA transação; `min` não numérico ou fora do dia
+                              // é pulado; título vazio → "Momento"
 cronoRenomear(id, nome)       // aparado; vazio → null; colisão → " (2)"
 cronoExcluir(id)              // cai no usado mais recentemente; coleta o que só ele
                               // segurava; recusa (false) o ÚNICO

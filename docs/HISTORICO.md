@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.78** — o Pacote 16, P5: "Novo a partir de um modelo" na gaveta, com os três modelos de fábrica (só web, sem `shellTag`).
 - **v1.14.77** — o Pacote 16, itens 16.a/16.b/16.d: a importação do culto vira progresso na mesma folha e termina curta, o culto entra ATIVO, e o pacote do culto leva só o link do que se baixa de novo (só web, sem `shellTag`).
 - **v1.14.76** — o envio do culto mostra a etapa: a conta da linha vira "Juntando as mídias…", "Desenhando as capas…", "Gravando… N%", com barra (só web, sem `shellTag`).
 - **v1.14.75** — o Pacote 16, lotes P3+P4: a prévia do culto recebido, a porta de entrada (`ACTION_VIEW`) e as capas junto no compartilhar (shell mudou: `SHELL_VERSION` 90, Release v1.14.75).
@@ -810,6 +811,24 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.78 — o Pacote 16, P5: os modelos de culto ("Novo a partir de um modelo")
+
+**O PEDIDO:** o P5 da Parte IV do `ESTUDO-CRONOGRAMA.md`. Decisões do operador (19/11): o
+cronograma do modelo fica EM USO; os horários são os do modelo (sem perguntar a hora de início);
+só os três de fábrica — "Salvar como modelo"/"Meus modelos" e a chave `modelos` ficam para o 16.e.
+
+| peça | o que ficou |
+|---|---|
+| os modelos | `MODELOS_DE_FABRICA` no `controle.js` (junto dos cronogramas múltiplos): Sábado de manhã (15), Domingo à noite (8), Quarta à noite (5) — a liturgia da §3.2, com os TÍTULOS limpos para o telão (o itinerário os projeta). Constantes: nada no banco até serem usados |
+| a gravação | `AVDB.cronoCriar(modelo?)`: com `{ nome, momentos }`, o novo nasce com `cronoNomeLivre(nome)` e as cenas `momento` (`makeMediaRecord`, `data.min`) no `STORE_MEDIA` da MESMA transação do `cronoTx`, e `cronoTrocarEm` as põe em `imports`. `min` não numérico ou fora de 0–1439 é pulado; título vazio → "Momento". Sem argumento, o de sempre |
+| a gaveta | `#cronoModelo` ("Novo a partir de um modelo", `.crono-novo.crono-modelo`, seta que gira) depois do `#cronoNovo`; abre as `.crono-item.crono-modelo-opcao` (nome + "N momentos · 09:00 às 12:10") e rola até a última; `cronoModelosAbertos` zera a cada `abrirCronoGaveta`. Tocar: `novoCronogramaDeModelo` (fecha a gaveta, `cronoCriar`, `load`) |
+| o tour | um passo novo na seção `cronogramas` (`#cronoModelo`) |
+
+Oráculos: `cronograma-modelos` NOVO (o botão cabe a 360, a lista fechada/aberta/reaberta, o modelo
+em uso com o de antes intacto e sem coleta, os 15 momentos com horário e título, o " (2)" com ids
+próprios, a entrada inválida pulada) e o `cronogramas-multiplos` A (as duas últimas linhas da
+gaveta). Só web, sem `shellTag`.
 
 ## v1.14.77 — o Pacote 16, itens 16.a/16.b/16.d: a importação do culto na mesma folha, o culto ativo, e "só o link"
 
