@@ -156,9 +156,9 @@ try {
       return {
         abaixo: +(r.top - h.bottom).toFixed(1),
         n: itens.length,
-        // AS DUAS ÚLTIMAS LINHAS são as de criar: "Novo cronograma" e o "Novo a partir de um
-        // modelo" (Pacote 16, P5 — o `cronograma-modelos.test.mjs`).
-        ultimo: [...document.querySelectorAll('#cronoLista > li')].slice(-2).map((li) => li.textContent.trim()).join(' | '),
+        // A ÚLTIMA LINHA é a de criar: "Novo cronograma" e "Modelos" lado a lado (Pacote 16, P5 —
+        // o `cronograma-modelos.test.mjs`).
+        ultimo: [...document.querySelectorAll('#cronoLista > li:last-child > button')].map((b) => b.textContent.trim()).join(' | '),
         ativo: ativo && ativo.querySelector('.crono-trocar').textContent.trim(),
         fundo: ativo && getComputedStyle(ativo).backgroundColor,
         selRgb,
@@ -169,9 +169,9 @@ try {
     checar(ab === true && g.abaixo >= 0 && g.abaixo < 12,
       'A · tocar no título abre a GAVETA logo abaixo do cabeçalho — da faixa do itinerário, a última '
       + 'peça dele à vista (e da barra do topo, sem ela)', porque(ab) || JSON.stringify(g));
-    checar(g.n === 1 && /^Cronograma\s*3 itens$/.test(g.ativo) && g.ultimo === 'Novo cronograma | Novo a partir de um modelo',
-      'A · e ela lista o cronograma com a CONTA de itens, e as últimas linhas são "Novo cronograma" e '
-      + '"Novo a partir de um modelo"',
+    checar(g.n === 1 && /^Cronograma\s*3 itens$/.test(g.ativo) && g.ultimo === 'Novo cronograma | Modelos',
+      'A · e ela lista o cronograma com a CONTA de itens, e a última linha é "Novo cronograma" e '
+      + '"Modelos", lado a lado',
       JSON.stringify(g));
     checar(g.fundo === g.selRgb && g.expandido === 'true',
       'A · e o ATIVO é marcado com `--sel-fill`, a linguagem de SELECIONADO numa lista',

@@ -2,7 +2,7 @@
 // OS MODELOS DE CULTO (Pacote 16, P5)
 // ============================================================================
 //
-// "Novo a partir de um modelo", na gaveta dos cronogramas: Sábado de manhã ·
+// "Modelos" (dito "Novo a partir de um modelo"), ao lado do "Novo cronograma", na gaveta: Sábado de manhã ·
 // Domingo à noite · Quarta à noite (`MODELOS_DE_FABRICA`). Aplicar cria um
 // cronograma NOVO com os momentos do modelo e o deixa EM USO; o de antes fica na
 // gaveta, intacto (decisão do operador, 19/11). Os defeitos que este arquivo
@@ -90,13 +90,18 @@ try {
       const l = document.getElementById('cronoLista').getBoundingClientRect();
       const r = b.getBoundingClientRect();
       return {
-        texto: b.textContent.trim(), exp: b.getAttribute('aria-expanded'),
+        texto: b.textContent.trim(), rotulo: b.getAttribute('aria-label'), exp: b.getAttribute('aria-expanded'),
+        // LADO A LADO com o "Novo cronograma" (19/11): a mesma faixa, o "Novo" à esquerda.
+        lado: (() => {
+          const n = document.getElementById('cronoNovo').getBoundingClientRect();
+          return Math.abs(n.top - r.top) < 1 && Math.abs(n.height - r.height) < 1 && n.right <= r.left;
+        })(),
         cabe: b.scrollWidth <= b.clientWidth + 1 && r.right <= l.right + 0.5,
         opcoes: document.querySelectorAll('#cronoLista .crono-modelo-opcao').length,
       };
     });
-    checar(ab === true && g.texto === 'Novo a partir de um modelo' && g.exp === 'false' && g.opcoes === 0 && g.cabe,
-      'A · a gaveta tem "Novo a partir de um modelo", FECHADO, e o botão cabe a 360', porque(ab) || JSON.stringify(g));
+    checar(ab === true && g.texto === 'Modelos' && g.rotulo === 'Novo a partir de um modelo' && g.exp === 'false' && g.opcoes === 0 && g.cabe && g.lado,
+      'A · a gaveta tem "Modelos" (dito "Novo a partir de um modelo"), FECHADO, ao lado do "Novo cronograma", e o botão cabe a 360', porque(ab) || JSON.stringify(g));
     await pg.click('#cronoModelo');
     await z(200);
     const o = await opcoes();

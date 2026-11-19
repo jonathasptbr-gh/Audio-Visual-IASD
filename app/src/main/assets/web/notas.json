@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.14.85",
+    "itens": [
+      "Na lista de cronogramas, \"Novo cronograma\" e \"Modelos\" ficam lado a lado, em azul sólido.",
+      "\"Modelos\" abre a lista de modelos logo abaixo, como antes.",
+      "Com a letra do celular grande, \"Modelos\" desce para a linha de baixo para não cortar o texto.",
+      "Não precisa instalar nada: chega pela atualização automática."
+    ]
+  },
+  {
     "versao": "1.14.84",
     "itens": [
       "No tema claro, a lista de cronogramas ficou branca, com sombra em cada item.",

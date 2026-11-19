@@ -289,7 +289,7 @@
         texto: 'Toque nos três pontos para renomear, salvar como modelo ou apagar o cronograma.', opcional: true },
       { alvo: '#cronoNovo', titulo: 'Novo cronograma',
         texto: 'Toque para criar uma lista nova, para outro culto ou evento. A atual continua guardada.' },
-      { alvo: '#cronoModelo', titulo: 'Novo a partir de um modelo',
+      { alvo: '#cronoModelo', titulo: 'Modelos',
         texto: 'Escolha sábado de manhã, domingo à noite ou quarta à noite: a lista nasce com os momentos do culto, e você põe as mídias debaixo de cada um.' },
     ] },
     // A BÍBLIA TEM DUAS TELAS, E CADA UMA SE EXPLICA UMA VEZ (v1.14.20): a grade de livros e

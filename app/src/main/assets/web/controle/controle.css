@@ -2849,21 +2849,33 @@ main {
   transition: background-size var(--dur-media) ease;
 }
 .crono-item.enviando .crono-item-qtd { color: var(--accent); font-variant-numeric: tabular-nums; }
-/* "NOVO CRONOGRAMA" É A ÚLTIMA LINHA, com o conteúdo CENTRADO: ícone + rótulo,
-   na altura de um botão de faixa (`--quad-faixa`). O par é o de AÇÃO,
-   `--btn-accent` + `--accent` — o do Importar da Biblioteca e das portas Bíblia/
-   Ferramentas (pedido do operador, 19/11: *"deveriam ter cor de botões azuis"*);
-   no claro ganha `--elev-botao` (o bloco "O CLARO SEPARA POR SOMBRA"). */
+/* A LINHA DE CRIAR (`.crono-criar`, pedido do operador, 19/11): "Novo cronograma"
+   e "Modelos ⌄" LADO A LADO, o primeiro com a sobra e o segundo do tamanho do
+   rótulo. Cada um com o conteúdo CENTRADO, na altura de um botão de faixa
+   (`--quad-faixa`). O par é o PRIMÁRIO, sólido — `--accent-fill` + `--on-accent`,
+   o do `+` de criar momento e do `.dialog-btn.primary` (*"o azul sólido, que
+   usamos em botões como o de criar momento"*); no claro ganha `--elev-botao` (o
+   bloco "O CLARO SEPARA POR SOMBRA").
+   QUEBRA quando não cabe (`flex-wrap`): os dois crescem a partir do rótulo, e
+   com a fonte do sistema maior a 320/360 o "Modelos" desce e ocupa a linha de
+   baixo inteira — em vez de o rótulo do "Novo" vazar da caixa (medido: 24px a
+   320 com 1,25×). */
+.crono-criar { display: flex; flex-wrap: wrap; gap: var(--sp-3); flex-shrink: 0; }
+/* O "Novo" leva a sobra (`flex-grow` 100 contra 1); sozinho na linha de baixo, o
+   "Modelos" leva tudo. (O `.crono-modelo` também é `.crono-novo`: a 1ª regra vale
+   para os dois.) */
+.crono-criar > .crono-novo { flex: 100 0 auto; width: auto; padding: 0 var(--sp-4); }
+.crono-criar > .crono-modelo { flex-grow: 1; }
 .crono-novo {
   display: flex; align-items: center; justify-content: center; gap: var(--sp-3);
   width: 100%; min-height: var(--quad-faixa); margin: 0; padding: 0 var(--sp-5);
-  background: var(--btn-accent); color: var(--accent); border: none; border-radius: var(--radius-btn);
+  background: var(--accent-fill); color: var(--on-accent); border: none; border-radius: var(--radius-btn);
   font: inherit; font-size: var(--fs-md); font-weight: var(--fw-medio); white-space: nowrap;
   cursor: pointer; appearance: none; -webkit-appearance: none;
 }
 .crono-novo > svg { flex: none; }
-/* "NOVO A PARTIR DE UM MODELO" (Pacote 16, P5): o mesmo par do "Novo cronograma", com a seta da
-   lista que ele abre (a do título, girada quando aberta). Cada MODELO é uma linha da gaveta só
+/* "MODELOS" (Pacote 16, P5): o mesmo par do "Novo cronograma", com a seta da lista que ele abre
+   (a do título, girada quando aberta). Cada MODELO é uma linha da gaveta só
    com o miolo — nome e "N momentos · início às fim" —, na altura das outras (`--thumb`). */
 .crono-modelo .crono-seta { transition: transform var(--dur-media) ease; }
 .crono-modelo[aria-expanded="true"] .crono-seta { transform: rotate(180deg); }
@@ -5489,7 +5501,7 @@ main {
 
 /* ---------- O IMPORTAR, UM BOTÃO NO FIM DA BIBLIOTECA (v1.14.40 → v1.14.42) ----------
    Ver `blocoImportar`. É BOTÃO e não coleção (pedido do operador: *"uma cor e design de botão"*):
-   o par de AÇÃO `--btn-accent`/`--accent` (o do "Novo cronograma" da gaveta e do `.active`),
+   o par de AÇÃO `--btn-accent`/`--accent` (o das portas Bíblia/Ferramentas e do `.active`),
    largura inteira, alvo `--hit-foot`, ícone e rótulo centrados. O `li` é `bloco-fixo`: altura do
    conteúdo, fora da repartição da tampa. O recuo no `--press` vem da lista dos controles folha. */
 #hymnResults.acervo > .lib-importar { flex-shrink: 0; }

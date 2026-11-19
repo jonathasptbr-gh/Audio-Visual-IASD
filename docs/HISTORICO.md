@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.85** — a linha de criar da gaveta dos cronogramas: "Novo cronograma" e "Modelos ⌄" lado a lado (`.crono-criar`, quebra quando não cabe), no par PRIMÁRIO sólido (`--accent-fill`/`--on-accent`) (só web).
 - **v1.14.84** — a gaveta dos cronogramas: linhas `--panel` com `--elev-cartao` no claro e o "Novo cronograma"/"Novo a partir de um modelo" no par de AÇÃO (`--btn-accent`), nos dois temas (só web).
 - **v1.14.83** — a tira de baixo do `.rola` acompanha a altura que anda (`acompanharVeu`), o formulário do Editar mídia cabe na folha e a sombra da `.pacote-linha` solta no claro (só web).
 - **v1.14.82** — o mudo com a altura dos vizinhos no meio do recolher da prévia, o botão dos momentos responde no toque, a entrada das linhas abre a altura e o "%" do volume (só web).
@@ -817,6 +818,17 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.85 — "Novo cronograma" e "Modelos" lado a lado, no azul sólido
+
+**O PEDIDO** (operador, 19/11, sobre a v1.14.84): *"O azul a que me refiro era o azul sólido, que usamos em botões como o de criar momento"* e *"faça outra versão de layout para esses botões do cronograma, fazendo eles lado a lado. Um sendo o "+ Novo cronograma" e o outro sendo apenas "Modelos v""*.
+
+| pedido | o que mudou |
+|---|---|
+| o azul sólido | `.crono-novo` (e o `.crono-modelo`) trocou `--btn-accent` + `--accent` (o par de AÇÃO claro da v1.14.84) por `--accent-fill` + `--on-accent` — o do `.itin-b.itin-novo` e do `.dialog-btn.primary`. O `--elev-botao` no claro fica |
+| lado a lado, "Modelos ⌄" | `renderCronoGaveta` abre um `li.crono-criar` com o `#cronoNovo` e passa o `li` a `renderCronoModelos(li)`, que põe ali o `#cronoModelo`: só "Modelos" e a `.crono-seta` (sem o ícone de lista), com `title`/`aria-label` "Novo a partir de um modelo". A lista dos modelos segue abaixo, nas linhas da gaveta. CSS: `flex-wrap`, `flex: 100 0 auto` no "Novo" e `flex-grow: 1` no "Modelos" — o "Novo" leva a sobra; sem caber, o "Modelos" desce e ocupa a linha. MEDIDO no Chromium: lado a lado a 320/360/430 com a fonte 1×; com 1,25× a 320 e a 360 ele desce (antes da quebra, o rótulo do "Novo" vazava 24px a 320). O passo do tour passou a se chamar "Modelos" |
+
+`cronograma-modelos` A cobra o rótulo, o `aria-label` e os dois na mesma faixa; `cronogramas-multiplos` A cobra a última linha como "Novo cronograma | Modelos".
 
 ## v1.14.84 — a gaveta dos cronogramas branca no claro, e os botões de criar em azul
 

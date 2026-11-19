@@ -493,7 +493,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.84';
+const WEB_VERSION = '1.14.85';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -21611,8 +21611,8 @@ function fecharCronoGaveta() {
  * A GAVETA. Uma LINHA por cronograma — o nome (e a conta) à esquerda, e à direita os DOIS botões
  * sempre à vista: ENVIAR e o `⋮` das opções (pedido do operador, 19/11: renomear, salvar como
  * modelo e excluir atrás de um botão de opções, como nas outras listas). As opções são a faixa
- * de `montarAcoesDaLinha`, a mesma das linhas do Cronograma. Depois, "Novo cronograma" e "Novo a
- * partir de um modelo".
+ * de `montarAcoesDaLinha`, a mesma das linhas do Cronograma. Depois, a linha de CRIAR: "Novo
+ * cronograma" e "Modelos" LADO A LADO (pedido do operador, 19/11), e a lista dos modelos abaixo.
  *
  * O miolo é um botão: tocar nele TROCA. O ativo é a linha em `--sel-fill`. O
  * EXCLUIR DO ÚNICO cronograma LIMPA (o app nunca fica com zero, e esvaziar não
@@ -21703,6 +21703,7 @@ function renderCronoGaveta() {
     cronoListaEl.appendChild(li);
   }
   const li = document.createElement('li');
+  li.className = 'crono-criar';
   const b = document.createElement('button');
   b.className = 'crono-novo';
   b.id = 'cronoNovo';
@@ -21714,7 +21715,7 @@ function renderCronoGaveta() {
   b.addEventListener('click', () => { novoCronograma(); });
   li.appendChild(b);
   cronoListaEl.appendChild(li);
-  renderCronoModelos();
+  renderCronoModelos(li);
 }
 
 // ===== OS MODELOS DE CULTO (Pacote 16, P5) =====
@@ -21746,7 +21747,7 @@ const MODELOS_DE_FABRICA = [
   ] },
 ].map((m) => ({ id: m.id, nome: m.nome, momentos: m.momentos.map(([h, mi, titulo]) => ({ min: h * 60 + mi, titulo })) }));
 
-// A LISTA DOS MODELOS SE ABRE NA PRÓPRIA GAVETA, debaixo do "Novo a partir de um modelo", e nasce
+// A LISTA DOS MODELOS SE ABRE NA PRÓPRIA GAVETA, debaixo da linha de criar, e nasce
 // fechada a cada abertura da gaveta (`abrirCronoGaveta`): os três de fábrica e, debaixo do rótulo
 // "Meus modelos", os do operador (`meusModelos`, o espelho de `AVDB.modelosLer`, relido a cada
 // abertura e depois de salvar ou excluir — o desenho é síncrono e lê só o espelho).
@@ -21759,20 +21760,22 @@ async function lerMeusModelos() {
 // A GAVETA ROLA ATÉ O FIM — e SÓ ela: o `scrollIntoView` rolaria também a página, e a barra do
 // topo subia para fora da tela junto com a lista aberta.
 function cronoRolarAoFim() { if (cronoListaEl) cronoListaEl.scrollTop = cronoListaEl.scrollHeight; }
-// O ÍCONE DOS MODELOS (uma lista): o do "Novo a partir de um modelo" e o do "Salvar como modelo".
+// O ÍCONE DOS MODELOS (uma lista): o do "Salvar como modelo".
 function modeloIconSvg() {
   return '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2"'
     + ' stroke-linecap="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg>';
 }
-function renderCronoModelos() {
-  const li = document.createElement('li');
+// O "MODELOS" divide a linha com o "Novo cronograma" (`li`, a `.crono-criar`): só o rótulo e a
+// seta da lista que ele abre; o `aria-label`/`title` dizem o que ele faz por extenso.
+function renderCronoModelos(li) {
   const b = document.createElement('button');
   b.className = 'crono-novo crono-modelo';
   b.id = 'cronoModelo';
   b.setAttribute('aria-expanded', cronoModelosAbertos ? 'true' : 'false');
-  b.innerHTML = modeloIconSvg();
+  b.title = 'Novo a partir de um modelo';
+  b.setAttribute('aria-label', b.title);
   const t = document.createElement('span');
-  t.textContent = 'Novo a partir de um modelo';
+  t.textContent = 'Modelos';
   b.appendChild(t);
   b.insertAdjacentHTML('beforeend', '<svg class="crono-seta" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
     + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>');
@@ -21782,7 +21785,6 @@ function renderCronoModelos() {
     if (cronoModelosAbertos) cronoRolarAoFim();
   });
   li.appendChild(b);
-  cronoListaEl.appendChild(li);
   if (!cronoModelosAbertos) return;
   for (const m of MODELOS_DE_FABRICA) cronoListaEl.appendChild(linhaDeModelo(m, false));
   if (!meusModelos.length) return;
