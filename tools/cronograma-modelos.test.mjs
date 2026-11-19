@@ -91,17 +91,18 @@ try {
       const r = b.getBoundingClientRect();
       return {
         texto: b.textContent.trim(), rotulo: b.getAttribute('aria-label'), exp: b.getAttribute('aria-expanded'),
-        // LADO A LADO com o "Novo cronograma" (19/11): a mesma faixa, o "Novo" à esquerda.
+        // LADO A LADO com o "+ Novo" (19/11): a mesma faixa e a mesma largura, o "Novo" à esquerda.
         lado: (() => {
           const n = document.getElementById('cronoNovo').getBoundingClientRect();
-          return Math.abs(n.top - r.top) < 1 && Math.abs(n.height - r.height) < 1 && n.right <= r.left;
+          return Math.abs(n.top - r.top) < 1 && Math.abs(n.height - r.height) < 1 && n.right <= r.left
+            && Math.abs(n.width - r.width) < 1;   // e da MESMA largura (19/11)
         })(),
         cabe: b.scrollWidth <= b.clientWidth + 1 && r.right <= l.right + 0.5,
         opcoes: document.querySelectorAll('#cronoLista .crono-modelo-opcao').length,
       };
     });
     checar(ab === true && g.texto === 'Modelos' && g.rotulo === 'Novo a partir de um modelo' && g.exp === 'false' && g.opcoes === 0 && g.cabe && g.lado,
-      'A · a gaveta tem "Modelos" (dito "Novo a partir de um modelo"), FECHADO, ao lado do "Novo cronograma", e o botão cabe a 360', porque(ab) || JSON.stringify(g));
+      'A · a gaveta tem "Modelos" (dito "Novo a partir de um modelo"), FECHADO, ao lado do "+ Novo" e da mesma largura, e o botão cabe a 360', porque(ab) || JSON.stringify(g));
     await pg.click('#cronoModelo');
     await z(200);
     const o = await opcoes();

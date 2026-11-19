@@ -45,6 +45,7 @@ medição em aparelho não é fino.**
 
 | quando · lote | onde | o que ficou | dono | por que não foi agora |
 |---|---|---|---|---|
+| 2026-11-19 · v1.14.86 | `.crono-criar` | nenhum resíduo novo; a largura igual e o rótulo sem vazar foram medidos só no Chromium do arnês | medição | conferir no aparelho |
 | 2026-11-19 · v1.14.85 | `.crono-criar` | nenhum resíduo novo; a quebra do "Modelos" para a linha de baixo com a fonte do sistema maior foi medida só no Chromium do arnês | medição | conferir no aparelho com a fonte grande |
 | 2026-11-19 · v1.14.84 | `.crono-gaveta` no claro | nenhum resíduo novo; o ativo (`--sel-fill`) e os dois botões de criar (`--btn-accent`) são azuis próximos nos dois temas — o ativo se distingue pelo nome em negrito e pelo `⋮`; visto só no Chromium do arnês | medição | conferir no aparelho, nos dois temas |
 | 2026-11-19 · v1.14.83 | o formulário do Editar mídia (`#edicaoLista:has(> .edicao-bloco)`) | cabe sem rolar a 392×800 num ÁUDIO (339/340px, medido no Chromium); um vídeo tem a linha "Só o áudio" a mais e rola, e telas mais baixas ou a fonte do sistema maior também | medição | conferir no aparelho com áudio e com vídeo |

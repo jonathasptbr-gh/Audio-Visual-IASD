@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.86** — a linha de criar da gaveta: "+ Novo" (rótulo curto, `title` "Novo cronograma") e "Modelos" na MESMA largura (`.crono-criar` em grade `repeat(2, minmax(0, 1fr))`, sem quebra); o J do `cronogramas-multiplos` mira fora da gaveta (só web).
 - **v1.14.85** — a linha de criar da gaveta dos cronogramas: "Novo cronograma" e "Modelos ⌄" lado a lado (`.crono-criar`, quebra quando não cabe), no par PRIMÁRIO sólido (`--accent-fill`/`--on-accent`) (só web).
 - **v1.14.84** — a gaveta dos cronogramas: linhas `--panel` com `--elev-cartao` no claro e o "Novo cronograma"/"Novo a partir de um modelo" no par de AÇÃO (`--btn-accent`), nos dois temas (só web).
 - **v1.14.83** — a tira de baixo do `.rola` acompanha a altura que anda (`acompanharVeu`), o formulário do Editar mídia cabe na folha e a sombra da `.pacote-linha` solta no claro (só web).
@@ -818,6 +819,17 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.86 — "+ Novo" e "Modelos" da mesma largura
+
+**O PEDIDO** (operador, 19/11, sobre a v1.14.85): *"Encolha o texto de novo cronograma para "+ Novo". E distribua igualmente o espaço horizontal para os dois botões terem a mesma largura"*.
+
+| pedido | o que mudou |
+|---|---|
+| "+ Novo" | O `<span>` do `#cronoNovo` diz "Novo"; o `title`/`aria-label` "Novo cronograma" dizem o que ele cria (o passo do tour segue "Novo cronograma") |
+| a mesma largura | `.crono-criar` saiu do `flex-wrap` com `flex-grow` 100 × 1 (v1.14.85) para `display: grid; grid-template-columns: repeat(2, minmax(0, 1fr))`, e a QUEBRA saiu junto: com os rótulos curtos ela não tem mais o que salvar. MEDIDO no Chromium: 138,8px cada a 320 (1×), 133,5px a 320 com 1,25× sem vazar; 158,8 a 360; 183,6 a 430 |
+
+**O ORÁCULO QUE PASSAVA POR ACASO.** O J do `cronogramas-multiplos` (*"o toque FORA fecha a gaveta sem tocar na linha"*) mirava o CENTRO da última `.lib-item` — e esse centro (y 192) fica DENTRO da gaveta (fundo em 210). Até a v1.14.85 o ponto caía no "Novo cronograma", que fecha a gaveta ao CRIAR um cronograma, e o J passava medindo outra coisa; com os dois botões iguais o ponto caiu no vão entre eles e reprovou. Agora o ponto é o da última linha ABAIXO da gaveta (`max(centro, fundo + 4)`), com a PREMISSA `sobreLinha` cobrada. `cronograma-modelos` A cobra a largura igual.
 
 ## v1.14.85 — "Novo cronograma" e "Modelos" lado a lado, no azul sólido
 

@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.14.86",
+    "itens": [
+      "Na lista de cronogramas, o botão de criar agora diz só \"+ Novo\".",
+      "\"+ Novo\" e \"Modelos\" têm a mesma largura, lado a lado, mesmo com a letra do celular grande.",
+      "Não precisa instalar nada: chega pela atualização automática."
+    ]
+  },
+  {
     "versao": "1.14.85",
     "itens": [
       "Na lista de cronogramas, \"Novo cronograma\" e \"Modelos\" ficam lado a lado, em azul sólido.",

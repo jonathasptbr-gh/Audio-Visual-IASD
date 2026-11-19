@@ -493,7 +493,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.85';
+const WEB_VERSION = '1.14.86';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -21611,8 +21611,8 @@ function fecharCronoGaveta() {
  * A GAVETA. Uma LINHA por cronograma — o nome (e a conta) à esquerda, e à direita os DOIS botões
  * sempre à vista: ENVIAR e o `⋮` das opções (pedido do operador, 19/11: renomear, salvar como
  * modelo e excluir atrás de um botão de opções, como nas outras listas). As opções são a faixa
- * de `montarAcoesDaLinha`, a mesma das linhas do Cronograma. Depois, a linha de CRIAR: "Novo
- * cronograma" e "Modelos" LADO A LADO (pedido do operador, 19/11), e a lista dos modelos abaixo.
+ * de `montarAcoesDaLinha`, a mesma das linhas do Cronograma. Depois, a linha de CRIAR: "+ Novo"
+ * e "Modelos" LADO A LADO, da mesma largura (pedido do operador, 19/11), e a lista dos modelos abaixo.
  *
  * O miolo é um botão: tocar nele TROCA. O ativo é a linha em `--sel-fill`. O
  * EXCLUIR DO ÚNICO cronograma LIMPA (o app nunca fica com zero, e esvaziar não
@@ -21707,10 +21707,13 @@ function renderCronoGaveta() {
   const b = document.createElement('button');
   b.className = 'crono-novo';
   b.id = 'cronoNovo';
+  // O RÓTULO CURTO ("+ Novo", pedido do operador, 19/11): o que ele cria fica no `title`/`aria-label`.
+  b.title = 'Novo cronograma';
+  b.setAttribute('aria-label', b.title);
   b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"'
     + ' stroke-linecap="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>';
   const t = document.createElement('span');
-  t.textContent = 'Novo cronograma';
+  t.textContent = 'Novo';
   b.appendChild(t);
   b.addEventListener('click', () => { novoCronograma(); });
   li.appendChild(b);

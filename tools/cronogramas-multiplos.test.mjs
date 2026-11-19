@@ -156,9 +156,10 @@ try {
       return {
         abaixo: +(r.top - h.bottom).toFixed(1),
         n: itens.length,
-        // A ÚLTIMA LINHA é a de criar: "Novo cronograma" e "Modelos" lado a lado (Pacote 16, P5 —
-        // o `cronograma-modelos.test.mjs`).
+        // A ÚLTIMA LINHA é a de criar: "+ Novo" (dito "Novo cronograma") e "Modelos" lado a lado
+        // (Pacote 16, P5 — o `cronograma-modelos.test.mjs`).
         ultimo: [...document.querySelectorAll('#cronoLista > li:last-child > button')].map((b) => b.textContent.trim()).join(' | '),
+        novoRotulo: document.getElementById('cronoNovo').getAttribute('aria-label'),
         ativo: ativo && ativo.querySelector('.crono-trocar').textContent.trim(),
         fundo: ativo && getComputedStyle(ativo).backgroundColor,
         selRgb,
@@ -169,9 +170,9 @@ try {
     checar(ab === true && g.abaixo >= 0 && g.abaixo < 12,
       'A · tocar no título abre a GAVETA logo abaixo do cabeçalho — da faixa do itinerário, a última '
       + 'peça dele à vista (e da barra do topo, sem ela)', porque(ab) || JSON.stringify(g));
-    checar(g.n === 1 && /^Cronograma\s*3 itens$/.test(g.ativo) && g.ultimo === 'Novo cronograma | Modelos',
-      'A · e ela lista o cronograma com a CONTA de itens, e a última linha é "Novo cronograma" e '
-      + '"Modelos", lado a lado',
+    checar(g.n === 1 && /^Cronograma\s*3 itens$/.test(g.ativo) && g.ultimo === 'Novo | Modelos' && g.novoRotulo === 'Novo cronograma',
+      'A · e ela lista o cronograma com a CONTA de itens, e a última linha é "+ Novo" (dito '
+      + '"Novo cronograma") e "Modelos", lado a lado',
       JSON.stringify(g));
     checar(g.fundo === g.selRgb && g.expandido === 'true',
       'A · e o ATIVO é marcado com `--sel-fill`, a linguagem de SELECIONADO numa lista',
@@ -416,11 +417,18 @@ try {
       JSON.stringify(semMenu));
     // O TOQUE FORA, em cima de uma linha do Cronograma: fecha, e NÃO projeta.
     await abrirGaveta();
+    // O PONTO é o da última linha que fica ABAIXO da gaveta (o centro dela pode estar coberto: a
+    // mira no centro caía DENTRO da gaveta, no botão de criar, e o toque "fechava" por criar um
+    // cronograma — v1.14.86). `sobreLinha` é a premissa: o ponto está numa linha e fora da gaveta.
     const alvo = await pg.evaluate(() => {
       const li = [...document.querySelectorAll('#library .lib-item')].pop();
       const r = li.getBoundingClientRect();
-      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      const g = document.getElementById('cronoGaveta').getBoundingClientRect();
+      const y = Math.max(r.top + r.height / 2, g.bottom + 4);
+      return { x: r.left + r.width / 2, y, sobreLinha: y < r.bottom - 1 };
     });
+    checar(alvo.sobreLinha, 'J · PREMISSA: o toque de fora cai numa linha do Cronograma, abaixo da gaveta',
+      JSON.stringify(alvo));
     await pg.mouse.click(alvo.x, alvo.y);
     await z(500);
     const r = await pg.evaluate(() => ({
