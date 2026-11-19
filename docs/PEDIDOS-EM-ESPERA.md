@@ -95,7 +95,6 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 |---|---|---|---|
 | **5** — Itinerário: a tela de espera antes do primeiro momento | 8 (I4×U2) | pedido | só web, depois de planejar |
 | **13** — Estudos (não são fila de execução) | 4 | estudo | nenhuma entrega |
-| **16** — O cronograma pronto: o organizador entrega o culto ao sonoplasta (resta o 16.e: "Salvar como modelo") | 8 (I4×U2) | pedido | só web |
 | **29** — Guia do site: a captura da lista de Ferramentas e do Cronograma | 2 (I2×U1) | resíduo | só site (pede o app em tela) |
 
 ---
@@ -109,7 +108,6 @@ diferentes, e um lote nunca mistura dois temas.
 
 | tema | pacotes | o que sai junto |
 |---|---|---|
-| **Cronograma e destinos** | 16 | a abertura antes do culto, e o organizador entregando o culto pronto |
 | **Site** | 29 | as capturas do guia |
 | **Fila anterior a 14/11** | 5 | a tela de espera do Itinerário, na ordem que a fila já tinha |
 | **Estudos** | 13 | não são fila de execução: a entrega é a decisão do operador |
@@ -154,7 +152,6 @@ ordem; a fila é dele.
 | 13.1 | controle de slides + compartilhar itinerário/cronograma | | 4 | 1 | 4 | estudo |
 | 13.2 | transmissão ao vivo | | 3 | 1 | 3 | estudo |
 | 13.3 | layout de paisagem (o app no Windows saiu) | | 3 | 1 | 3 | estudo |
-| **16** | **O cronograma pronto: o organizador entrega o culto** (resta o 16.e) | pedido | 4 | 2 | **8** | web |
 | **29** | **Guia do site: a captura da lista de Ferramentas e do Cronograma** | resíduo | 2 | 1 | **2** | site |
 
 ---
@@ -267,71 +264,6 @@ rotação no Android é Release; o CSS é OTA.
 
 ---
 
-## Pacote 16 — O cronograma pronto: o organizador entrega o culto
-
-**Nota 8 (I4 × U2) · pedido · planejamento PRIMEIRO, depois Kotlin + web**
-
-Pedido do operador (2026-11-13). Este pacote **promove** o estudo 13.1(b): o
-compartilhamento de cronograma deixa de ser hipótese e vira o caminho de um
-caso de uso concreto.
-
-**O caso que o pediu:** *um líder de desbravadores organiza a cerimônia
-inteira — as mídias, a ordem, os tempos — e precisa entregá-la ao sonoplasta.
-Hoje isso é link por link no WhatsApp, ou um pendrive na mão.*
-
-**O que "pronto" significa:** o destinatário toca no link e recebe o culto
-montado — cronograma, itinerário, elementos e as mídias conforme a organização
-do responsável —, sem procurar arquivo nem pedir nada a ninguém.
-
-**O que já existe e não resolve sozinho:**
-
-| peça | o que faz | por que não basta |
-|---|---|---|
-| `.avpkg` ([`PACOTE.md`](recursos/PACOTE.md)) | leva o acervo inteiro de um aparelho a outro | é um arquivo de gigabytes: não atravessa o WhatsApp, e não carrega a ORGANIZAÇÃO do culto |
-| link de app (App Links em `audiovisualiasd.com.br`) | abre o app num endereço nosso | leva a lista, não a mídia |
-| o Cronograma (com os momentos do itinerário, que moram nele) | já existe como estrutura | não há como exportá-lo como uma unidade entregável |
-
-**O problema central:** a mídia é pesada e o link é leve. A saída provável é o
-pacote **pequeno** — a organização, os ids re-baixáveis (YouTube e LouvorJA já
-são re-baixáveis por id) e as impressões digitais do que precisa viajar — e o
-app do destinatário completa o que falta. A mídia PRÓPRIA do organizador é o
-caso difícil: sem servidor, os dois aparelhos precisam estar online juntos.
-
-**O que decidir ANTES de codar** (é a etapa de planejamento, e a entrega é a
-decisão):
-
-1. **Servidor ou não.** A arquitetura não tem nenhum, e o operador já perguntou
-   "talvez precisamos de um servidor?". Sem ele, o link sozinho não move bytes —
-   e a resposta muda o custo de tudo.
-2. **Quem é o dono do cronograma.** O organizador pode não ter o app. A autoria
-   pelo site é uma via? Se for, o site deixa de ser só página de download.
-3. **O que viaja.** A organização sempre; a mídia só quando não é re-baixável.
-4. **O que NÃO viaja nunca.** Privacidade — ver
-   [`MEDICAO-DE-ALCANCE.md`](MEDICAO-DE-ALCANCE.md).
-5. **O consentimento.** Receber um cronograma não pode ser um comando remoto:
-   o destinatário vê o que vai entrar e confirma antes. (É a mesma decisão de
-   porta de ENTRADA que o 13.1 já levantou para o controle remoto de slides.)
-
-**Plano final (2026-11-17):** [`ESTUDO-CRONOGRAMA.md`](ESTUDO-CRONOGRAMA.md), "Parte IV" —
-o formato **não muda** (o `.avpkg` já leva a organização desde a v1.14.32); faltam a
-unidade "culto" no Transferir, a capa, a prévia e o `intent-filter`. A ordem de
-execução é P1 → P2 → P3 → P4, com P5 (os modelos) em paralelo.
-
-**Entregue na v1.14.74 (18/11):** P1+P2 juntos, por decisão do operador — o "Enviar" na
-gaveta dos cronogramas e as capas (9:16, até 6 páginas) em registros `info` do
-pacote. **Entregue na v1.14.75 (18/11):** P3 (a prévia) e P4 (a porta `ACTION_VIEW` e as capas
-junto no compartilhar, Release). **Faltava:** P5 (os modelos) e as medições no
-aparelho (`RESIDUOS.md`).
-
-**Pedido do operador depois da v1.14.76 (18/11):** 16.a, 16.b e 16.d ENTREGUES na v1.14.77 (16.d: decisão "Só o link", 18/11); 16.c MEDIDO pelo operador em 18/11, 22h04 — o toque no `.avpkg` abre o app na prévia. **P5 (os modelos) ENTREGUE na v1.14.78 (19/11):** "Novo a partir de um modelo" na gaveta, com os três de fábrica (o cronograma nasce com os momentos e fica em uso; horários do modelo — decisões do operador, 19/11).
-
-**Fica deste pacote — 16.e (adiado pelo operador, 19/11):** "Salvar como modelo" / "Meus modelos" (a chave `modelos`, só momentos: horário e título) e, junto, a dica do que pôr em cada momento (a coluna "o sonoplasta precisa de" do `ESTUDO-CRONOGRAMA.md` §3.2, que não viaja ao telão). Nada disso está autorizado: pergunte antes.
-
-**A regra que este pacote herda e não pode esquecer:** *importar só acrescenta*
-(`PACOTE.md`); nada que já esteja no aparelho do sonoplasta é substituído.
-
----
-
 ## Pacote 29 — Guia do site: a captura da lista de Ferramentas e do Cronograma
 
 **Nota 2 (I2 × U1) · resíduo · só site**
@@ -349,6 +281,8 @@ operador manda a captura, ou ela sai da prévia visual no Chromium.
 ---
 
 ## O que saiu desta lista (rastro, não log)
+
+**v1.14.79 (2026-11-19), só web:** o **Pacote 16 fecha** — o modelo "Sábado de manhã" refeito pela régua do operador (lição até 10h15, sermão das 11h15 ao meio-dia), "Salvar como modelo" e "Meus modelos" (16.e), e a linha da gaveta compactada em nome · enviar · ⋮ (renomear, salvar como modelo e excluir nas opções). O pacote saiu da fila; o que ficou sem pedido (o modelo viajar sozinho, a dica de cada momento) está no `RESIDUOS.md` com dono `operador`. Nota em `docs/HISTORICO.md`.
 
 **v1.14.78 (2026-11-19), só web:** o **Pacote 16, P5** — "Novo a partir de um modelo" na gaveta dos cronogramas: Sábado de manhã (15 momentos), Domingo à noite (8) e Quarta à noite (5); o cronograma novo nasce com os momentos e fica em uso, e o de antes continua na gaveta. Fica o 16.e. Nota em `docs/HISTORICO.md`.
 

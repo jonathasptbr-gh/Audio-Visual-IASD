@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.79** — o Pacote 16 fecha: o modelo "Sábado de manhã" refeito (lição até 10h15, sermão das 11h15 ao meio-dia), "Salvar como modelo" / "Meus modelos" e a linha da gaveta compactada em nome · enviar · ⋮ (só web, sem `shellTag`).
 - **v1.14.78** — o Pacote 16, P5: "Novo a partir de um modelo" na gaveta, com os três modelos de fábrica (só web, sem `shellTag`).
 - **v1.14.77** — o Pacote 16, itens 16.a/16.b/16.d: a importação do culto vira progresso na mesma folha e termina curta, o culto entra ATIVO, e o pacote do culto leva só o link do que se baixa de novo (só web, sem `shellTag`).
 - **v1.14.76** — o envio do culto mostra a etapa: a conta da linha vira "Juntando as mídias…", "Desenhando as capas…", "Gravando… N%", com barra (só web, sem `shellTag`).
@@ -811,6 +812,41 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.79 — o Pacote 16 fecha: o Sábado refeito, "Salvar como modelo" e a linha da gaveta com ⋮
+
+### O modelo "Sábado de manhã" refeito pela régua do operador
+
+**O PEDIDO** (operador, 19/11, depois da v1.14.78): o vão de 1 h 05 entre "Avisos e encerramento"
+(9h50) e "Hino de transição" (10h55) estava demais; *"o estudo da lição normalmente vai até 10h15 e
+o sermão … mais perto das 11h15, fechando perto de 45 minutos ou mais até o meio-dia"*. Pesquisa
+nova (as fontes estão no `ESTUDO-CRONOGRAMA.md` §3.2, que foi reescrita): a Escola Sabatina vai das
+9h00 a ~10h25 com a lição em 9h20–10h15, o hino de transição às 10h25, o Culto das 10h30 às 12h05
+com o Provai e Vede às 10h38, a adoração infantil às 11h03 e o sermão das 11h15 às 12h00. Os 15
+momentos continuam 15 (`MODELOS_DE_FABRICA`); Domingo e Quarta não mudam. Cronograma já criado
+pelo modelo antigo NÃO muda (o modelo só vale para o que se cria depois). O oráculo
+`cronograma-modelos` afirma a lição, o sermão às 11h15 e o fim às 12h05.
+
+### "Salvar como modelo" (16.e) e a linha da gaveta com ⋮
+
+**O PEDIDO** (operador, 19/11, no mesmo lote): *"já vamos fazer o salvar modelo, mas para isso vamos
+precisar compactar os botões … renomear, salvar como modelo ou excluir, deve ficar atrás de um botão
+de opções, como já fazemos com diversos modelos de lista no app. Mantenha o botão de compartilhar
+sempre visível na lista junto do botão de opções"*.
+
+| peça | o que ficou |
+|---|---|
+| a linha | nome · enviar · `⋮` (o nome passou ao ALINHAMENTO À ESQUERDA, como as outras listas — com os dois quadrados à direita, o eixo da v1.12.55 deixou de existir). As opções são a faixa `.row-acoes` de `montarAcoesDaLinha` (chave `crono:<id>`): renomear · salvar como modelo · excluir, da borda esquerda até o `⋮`, opaca (`--linha` na `.crono-item`). As funções de cada botão não mudaram (`renomearCronograma`, `excluirCronograma` e o "Limpar" do único) |
+| salvar como modelo | `salvarCronoComoModelo`: só os MOMENTOS (horário e título; as mídias não entram), do ativo (`libItems`) ou de um guardado (`cronoIdsGuardados` + `getMedia`); o nome pelo `appPrompt` (sugere o do cronograma); sem momento, um aviso explica; salvo, a lista dos modelos abre e mostra o novo |
+| a chave `modelos` | `{ itens: [{ id: 'md-…', nome, momentos, criado }] }`, por `AVDB.modelosLer/modeloSalvar/modeloExcluir` (`updateState`); `momentosValidos` é o saneamento comum com `cronoCriar(modelo)`; nome com " (2)" contra os do operador e os de fábrica. Lista de objetos com `id`: o pacote do acervo a une por id |
+| Meus modelos | sob o rótulo `.crono-modelos-rotulo`, depois dos três de fábrica; cada um aplica como eles e tem o excluir (pergunta; o cronograma criado com ele fica). `meusModelos` é relido em `abrirCronoGaveta` |
+| o de passagem | abrir a lista dos modelos usava `scrollIntoView`, que rolava a PÁGINA junto (a barra do topo saía da tela, visto na foto a 360); agora rola só a lista (`cronoRolarAoFim`) |
+| o tour | o passo "Renomear e apagar" virou "Opções do cronograma" (`.row-mais`) |
+
+Oráculos: `cronograma-modelos` ganhou E/F/G (salvar, sem momento, a rolagem) e o
+`cronogramas-multiplos` M foi REESCRITO para a linha nova (320/360/430 × 1/1,25: enviar e ⋮ na
+ponta, as opções escondidas, o nome à esquerda, a faixa opaca com as três na ordem). Só web, sem
+`shellTag`.
 
 ## v1.14.78 — o Pacote 16, P5: os modelos de culto ("Novo a partir de um modelo")
 

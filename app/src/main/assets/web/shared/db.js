@@ -1655,6 +1655,19 @@
     await txDone(tx);
     return true;
   }
+  // OS MOMENTOS DE UM MODELO, saneados: `min` não numérico ou fora de 0–1439 sai; título aparado
+  // a 60, vazio → "Momento". Vale para o que se APLICA (`cronoCriar`) e para o que se GUARDA
+  // (`modeloSalvar`).
+  function momentosValidos(lista) {
+    const out = [];
+    for (const m of Array.isArray(lista) ? lista : []) {
+      if (!m || typeof m.min !== 'number') continue;
+      const min = Math.round(m.min);
+      if (!(min >= 0 && min < 1440)) continue;
+      out.push({ min, titulo: String(m.titulo || '').trim().slice(0, 60) || 'Momento' });
+    }
+    return out;
+  }
   /**
    * Cria um vazio ("Cronograma N") e o torna ativo. Devolve `{ id, nome }`.
    * `modelo` (Pacote 16, P5; opcional): `{ nome, momentos: [{ min, titulo }] }` — o cronograma
@@ -1668,13 +1681,9 @@
     const usados = c.itens.map((x) => x.nome);
     const nomeModelo = modelo && typeof modelo.nome === 'string' ? modelo.nome.trim().slice(0, 60) : '';
     const novo = { id: cronoId(), nome: nomeModelo ? cronoNomeLivre(nomeModelo, usados) : cronoNomeNovo(usados), ids: [], usado: 0 };
-    if (modelo && Array.isArray(modelo.momentos)) {
+    if (modelo) {
       const ms = tx.objectStore(STORE_MEDIA);
-      for (const m of modelo.momentos) {
-        if (!m || typeof m.min !== 'number') continue;
-        const min = Math.round(m.min);
-        if (!(min >= 0 && min < 1440)) continue;
-        const titulo = String(m.titulo || '').trim().slice(0, 60) || 'Momento';
+      for (const { min, titulo } of momentosValidos(modelo.momentos)) {
         const rec = makeMediaRecord({ cue: 'momento', data: { min }, kind: 'cue', type: 'cue/momento', name: titulo });
         await asPromise(ms.add(rec));
         novo.ids.push(rec.id);
@@ -1775,6 +1784,58 @@
       return out;
     });
   }
+  // ===== OS MODELOS DO OPERADOR (Pacote 16, 16.e) =====
+  //
+  //   modelos = { itens: [{ id, nome, momentos: [{ min, titulo }], criado: <ms> }] }
+  //
+  // "Salvar como modelo" guarda SÓ os momentos de um cronograma (horário e título); as mídias não
+  // entram. Os três de fábrica moram no `controle.js`, não aqui. A forma — lista de objetos com
+  // `id` — é a que a mescla do pacote une por id (`pacoteMesclarValor`): importar só acrescenta.
+  const MODELOS = 'modelos';
+  function modelosItens(v) {
+    return (v && Array.isArray(v.itens) ? v.itens : [])
+      .filter((m) => m && typeof m.id === 'string' && m.id)
+      .map((m) => ({
+        id: m.id,
+        nome: (typeof m.nome === 'string' && m.nome.trim()) ? m.nome.trim().slice(0, 60) : 'Modelo',
+        momentos: momentosValidos(m.momentos),
+        criado: typeof m.criado === 'number' ? m.criado : 0,
+      }))
+      .filter((m) => m.momentos.length);
+  }
+  /** Os modelos do operador, na ordem em que foram salvos. */
+  async function modelosLer() { return modelosItens(await getState(MODELOS)); }
+  /**
+   * Guarda um modelo. O nome é aparado (vazio → recusa, `null`) e ganha " (2)" se colidir com outro
+   * modelo do operador ou com um nome de `reservados` (os de fábrica). Sem momento válido, recusa.
+   * Devolve `{ id, nome }`.
+   */
+  async function modeloSalvar(nome, momentos, reservados) {
+    const limpo = String(nome == null ? '' : nome).replace(/\s+/g, ' ').trim().slice(0, 60);
+    const lista = momentosValidos(momentos).sort((a, b) => a.min - b.min);
+    if (!limpo || !lista.length) return null;
+    let salvo = null;
+    await updateState(MODELOS, (atual) => {
+      const itens = modelosItens(atual);
+      const usados = itens.map((m) => m.nome).concat(Array.isArray(reservados) ? reservados : []);
+      salvo = { id: 'md-' + uid(), nome: cronoNomeLivre(limpo, usados) };
+      itens.push({ id: salvo.id, nome: salvo.nome, momentos: lista, criado: Date.now() });
+      return { itens };
+    });
+    return salvo;
+  }
+  /** Apaga um modelo do operador. Devolve `true` se havia. */
+  async function modeloExcluir(id) {
+    let havia = false;
+    await updateState(MODELOS, (atual) => {
+      const itens = modelosItens(atual);
+      const resto = itens.filter((m) => m.id !== id);
+      havia = resto.length !== itens.length;
+      return { itens: resto };
+    });
+    return havia;
+  }
+
   /**
    * A IMPORTAÇÃO DE UM PACOTE (o `.avpkg`). O ATIVO do pacote não entra aqui: o
    * conteúdo dele viaja em `imports` e se soma ao ativo deste aparelho, como
@@ -1989,6 +2050,7 @@
     LISTS, listIds, listSet, listItems, listHas, listAdd, listRemove, gc, gcOrfaos, folderDrop,
     cronoLer, cronoTrocar, cronoCriar, cronoRenomear, cronoExcluir, cronoIdsGuardados,
     cronoGuardadosTirar, cronoGuardadosTrocarId, cronoImportar,
+    modelosLer, modeloSalvar, modeloExcluir,
     adotarProtegidos,
     fileAdd, fileGet, fileDelete, filesByFolder, filesAll, filesChaves,
     filesPastas,

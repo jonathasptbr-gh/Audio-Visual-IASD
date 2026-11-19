@@ -24,9 +24,9 @@
 //     e abrir o app novo não pode mudar nada nele — nem escrever a chave.
 //  5. O TOQUE DE FORA QUE TOCA (bloco J). Fechar a gaveta tocando fora não pode
 //     PROJETAR a linha de baixo.
-//  6. A LINHA QUE SE ATROPELA (bloco M, v1.12.55). Cada cronograma é uma linha
-//     renomear · nome · excluir, e o nome tem de ficar no EIXO entre os dois
-//     quadrados em toda largura e escala de fonte — medido, nunca de olho.
+//  6. A LINHA QUE SE ATROPELA (bloco M; refeita no Pacote 16, 16.e). Cada cronograma é uma
+//     linha nome · enviar · ⋮, e as opções (renomear, salvar como modelo, excluir) moram na
+//     faixa do ⋮ — medido em toda largura e escala de fonte, nunca de olho.
 //
 //   node tools/cronogramas-multiplos.test.mjs
 import path from 'node:path';
@@ -482,12 +482,12 @@ try {
   }
 
   // =========================================================================
-  // M · A LINHA: renomear · nome NO EIXO · excluir, em toda largura e escala
+  // M · A LINHA: nome · enviar · ⋮, em toda largura e escala (Pacote 16, 16.e)
   // =========================================================================
-  // Pedido do operador (v1.12.55): *"o botão de novo cronograma fique
-  // centralizado horizontalmente. E o mesmo para os nomes dos cronogramas,
-  // deixando o botão de excluir em um dos lados e o de renomear no outro
-  // extremo"*. Os cronogramas que os blocos anteriores deixaram (cinco): curtos, o longo do bloco L e um vazio.
+  // Pedido do operador (19/11): renomear, salvar como modelo e excluir atrás de um botão de
+  // OPÇÕES (`⋮`, a faixa de `montarAcoesDaLinha`), com o ENVIAR sempre à vista ao lado dele. O
+  // enviar só existe no app nativo: aqui ele é DESOCULTADO para a medida. Os cronogramas que os
+  // blocos anteriores deixaram (cinco): curtos, o longo do bloco L e um vazio.
   {
     await tocarNaGaveta('Novo cronograma');
     const celulas = [];
@@ -497,28 +497,30 @@ try {
         await pg.evaluate((e) => { document.documentElement.style.fontSize = (16 * e) + 'px'; }, f);
         await abrirGaveta();
         await z(350);
+        await pg.evaluate(() => document.querySelectorAll('#cronoLista .crono-enviar').forEach((b) => { b.hidden = false; }));
         const r = await pg.evaluate(() => {
           const cx = (b) => (b.left + b.right) / 2;
           const linhas = [...document.querySelectorAll('#cronoLista .crono-item')].map((li) => {
             const L = li.getBoundingClientRect();
-            const ren = li.querySelector('.crono-renomear').getBoundingClientRect();
             const tro = li.querySelector('.crono-trocar').getBoundingClientRect();
-            const exc = li.querySelector('.crono-excluir').getBoundingClientRect();
+            const env = li.querySelector('.crono-enviar').getBoundingClientRect();
+            const mais = li.querySelector(':scope > .row-mais').getBoundingClientRect();
             const nm = li.querySelector('.crono-item-nome');
             const n = nm.getBoundingClientRect();
             const q = li.querySelector('.crono-item-qtd').getBoundingClientRect();
+            const escondidos = ['.crono-renomear', '.crono-salvar-modelo', '.crono-excluir']
+              .every((sel) => getComputedStyle(li.querySelector(sel)).visibility === 'hidden');
             return {
-              // Os dois quadrados nas DUAS PONTAS da linha, quadrados e iguais.
-              pontas: ren.left - L.left < 12 && L.right - exc.right < 12,
-              quadrados: Math.abs(ren.width - ren.height) < 0.5 && Math.abs(exc.width - ren.width) < 0.5,
-              // Nada se sobrepõe: o miolo fica ENTRE os dois.
-              semToque: ren.right <= tro.left + 0.5 && tro.right <= exc.left + 0.5,
-              // O NOME e a CONTA no eixo entre os dois quadrados.
-              eixoNome: +Math.abs(cx(n) - (ren.right + exc.left) / 2).toFixed(2),
-              eixoQtd: +Math.abs(cx(q) - (ren.right + exc.left) / 2).toFixed(2),
-              // Um nome longo vira reticências DENTRO do miolo.
+              // O `⋮` na ponta DIREITA e o enviar colado nele, quadrados e iguais.
+              pontas: L.right - mais.right < 12 && mais.left - env.right < 20 && env.left > mais.left - 80,
+              quadrados: Math.abs(env.width - env.height) < 0.5 && Math.abs(mais.width - env.width) < 0.5,
+              // Nada se sobrepõe: o miolo termina antes do enviar.
+              semToque: tro.right <= env.left + 0.5,
+              // O NOME e a CONTA à ESQUERDA do miolo, alinhados entre si.
+              esquerda: n.left - tro.left < 12 && Math.abs(n.left - q.left) < 1,
               cabe: n.left >= tro.left - 0.5 && n.right <= tro.right + 0.5,
               cortado: nm.scrollWidth > nm.clientWidth + 1,
+              escondidos,
             };
           });
           const novo = document.getElementById('cronoNovo');
@@ -529,28 +531,60 @@ try {
           return {
             linhas,
             novoEixo: +Math.abs((ico.left + rot.right) / 2 - cx(nb)).toFixed(2),
-            novoCheio: Math.abs(nb.width - (gv.width - 2 * 12.8)) < 4 || nb.width > gv.width * 0.8,
             dentro: gv.left >= 0 && gv.right <= innerWidth,
             larg: document.documentElement.scrollWidth - innerWidth,
           };
         });
+        // A FAIXA DAS OPÇÕES da linha do nome LONGO: aberta pelo `⋮`, cobre o nome e o enviar
+        // (fundo opaco) e mostra os três botões, todos dentro da linha e à esquerda do `⋮`.
+        await pg.evaluate(() => {
+          const li = [...document.querySelectorAll('#cronoLista .crono-item')]
+            .find((x) => { const nm = x.querySelector('.crono-item-nome'); return nm.scrollWidth > nm.clientWidth + 1; });
+          li.querySelector(':scope > .row-mais').click();
+        });
+        await z(350);
+        r.faixa = await pg.evaluate(() => {
+          const li = document.querySelector('#cronoLista .crono-item.acoes-abertas');
+          if (!li) return null;
+          const L = li.getBoundingClientRect();
+          const fx = li.querySelector(':scope > .row-acoes');
+          const F = fx.getBoundingClientRect();
+          const mais = li.querySelector(':scope > .row-mais').getBoundingClientRect();
+          const n = li.querySelector('.crono-item-nome').getBoundingClientRect();
+          const env = li.querySelector('.crono-enviar').getBoundingClientRect();
+          const bts = ['.crono-renomear', '.crono-salvar-modelo', '.crono-excluir'].map((sel) => li.querySelector(sel).getBoundingClientRect());
+          const fundo = getComputedStyle(fx).backgroundColor;
+          return {
+            visivel: getComputedStyle(fx).visibility === 'visible',
+            cobre: F.left <= n.left + 0.5 && F.right >= env.right - 0.5 && F.right <= mais.left + 0.5,
+            botoes: bts.every((b) => b.width > 30 && b.left >= L.left - 0.5 && b.right <= mais.left + 0.5),
+            ordem: bts[0].right <= bts[1].left + 0.5 && bts[1].right <= bts[2].left + 0.5,
+            opaco: !/rgba\(.*, 0(\.\d+)?\)$/.test(fundo) && fundo !== 'transparent',
+          };
+        });
+        await pg.evaluate(() => fecharAcoesDaLinha());
         celulas.push({ w, f, ...r });
         await fecharGaveta();
       }
     }
     await pg.evaluate(() => { document.documentElement.style.fontSize = ''; });
     await pg.setViewportSize({ width: 390, height: 900 });
-    const ruins = (pred) => celulas.filter((c) => !pred(c)).map((c) => ({ w: c.w, f: c.f, l: c.linhas, novo: c.novoEixo }));
-    checar(celulas.every((c) => c.linhas.length >= 3 && c.linhas.every((l) => l.pontas && l.quadrados && l.semToque)),
-      'M · em 320/360/430 px e fonte 1×/1,25×, cada linha tem RENOMEAR numa ponta e EXCLUIR '
-      + 'na outra, quadrados iguais, e o miolo ENTRE eles sem sobrepor nenhum',
-      JSON.stringify(ruins((c) => c.linhas.length >= 3 && c.linhas.every((l) => l.pontas && l.quadrados && l.semToque))));
-    checar(celulas.every((c) => c.linhas.every((l) => l.eixoNome <= 1 && l.eixoQtd <= 1 && l.cabe)),
-      'M · e o NOME e a CONTA ficam no EIXO entre os dois botões (≤ 1px), dentro do miolo',
-      JSON.stringify(ruins((c) => c.linhas.every((l) => l.eixoNome <= 1 && l.eixoQtd <= 1 && l.cabe))));
+    const ruins = (pred) => celulas.filter((c) => !pred(c)).map((c) => ({ w: c.w, f: c.f, l: c.linhas, faixa: c.faixa }));
+    const okLinhas = (c) => c.linhas.length >= 3 && c.linhas.every((l) => l.pontas && l.quadrados && l.semToque && l.escondidos);
+    checar(celulas.every(okLinhas),
+      'M · em 320/360/430 px e fonte 1×/1,25×, cada linha mostra só o ENVIAR e o ⋮, colados na ponta '
+      + 'direita, quadrados iguais, sem tocar o miolo — renomear, salvar como modelo e excluir ficam escondidos',
+      JSON.stringify(ruins(okLinhas)));
+    checar(celulas.every((c) => c.linhas.every((l) => l.esquerda && l.cabe)),
+      'M · e o NOME e a CONTA ficam à ESQUERDA, dentro do miolo',
+      JSON.stringify(ruins((c) => c.linhas.every((l) => l.esquerda && l.cabe))));
     checar(celulas.every((c) => c.linhas.some((l) => l.cortado)),
       'M · PREMISSA: o nome longo do bloco L está de fato cortado em reticências — sem '
-      + 'ele o eixo acima seria medido só sobre nomes curtos', JSON.stringify(celulas.map((c) => c.linhas.map((l) => l.cortado))));
+      + 'ele a medida acima seria só sobre nomes curtos', JSON.stringify(celulas.map((c) => c.linhas.map((l) => l.cortado))));
+    const okFaixa = (c) => c.faixa && c.faixa.visivel && c.faixa.cobre && c.faixa.botoes && c.faixa.ordem && c.faixa.opaco;
+    checar(celulas.every(okFaixa),
+      'M · o ⋮ abre a faixa OPACA sobre o nome e o enviar, com renomear · salvar como modelo · excluir, '
+      + 'nessa ordem, dentro da linha e à esquerda do ⋮', JSON.stringify(ruins(okFaixa)));
     checar(celulas.every((c) => c.novoEixo <= 1 && c.dentro && c.larg <= 0),
       'M · e o "Novo cronograma" tem ícone + rótulo CENTRADOS na linha (≤ 1px), e a gaveta '
       + 'não passa da tela', JSON.stringify(celulas.map((c) => ({ w: c.w, f: c.f, novo: c.novoEixo, dentro: c.dentro, larg: c.larg }))));

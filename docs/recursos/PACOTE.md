@@ -804,8 +804,8 @@ o pula por grupo.
 
 ## O pacote de um culto — "Enviar" na gaveta dos cronogramas (18/11)
 
-Decisão do operador: cada linha da gaveta (`renderCronoGaveta`) tem um **enviar** entre o nome e
-o excluir (`.crono-enviar`, sprite `#icoCompartilhar`; some fora do app nativo, como o Exportar;
+Decisão do operador: cada linha da gaveta (`renderCronoGaveta`) tem um **enviar** sempre à vista, ao
+lado do `⋮` das opções (`.crono-enviar`, sprite `#icoCompartilhar`; some fora do app nativo, como o Exportar;
 apagado com o cronograma vazio). Ele exporta ESTE culto (`exportarCulto`): um `.avpkg` pequeno,
 nome `<cronograma> DD-MM.avpkg` (`AVPacote.nomeDoCulto`), e abre o compartilhar
 (no shell 90, `pacoteCriarCulto` + `pacoteCapa` + `pacoteCompartilharCulto`, com as capas JUNTO;

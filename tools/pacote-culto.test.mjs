@@ -292,22 +292,22 @@ try {
     const r = (s) => li.querySelector(s).getBoundingClientRect();
     const env = li.querySelector('.crono-enviar');
     const nm = li.querySelector('.crono-item-nome');
-    const filhos = [...li.children].map((x) => x.className.split(' ').find((c) => c.startsWith('crono-')));
+    // A LINHA (Pacote 16, 16.e): nome · ENVIAR · ⋮, e a faixa das opções (`.row-acoes`) atrás do ⋮.
+    const filhos = [...li.children].map((x) => x.className.split(' ').find((c) => c.startsWith('crono-') || c === 'row-acoes' || c === 'row-mais'));
     return {
       nome: nm.textContent, filhos, disabled: env.disabled, hidden: env.hidden,
       title: env.title, aria: env.getAttribute('aria-label'), svg: !!env.querySelector('svg use[href="#icoCompartilhar"]'),
       larguraNome: r('.crono-trocar').width, cortado: nm.scrollWidth > nm.clientWidth + 1,
-      ordem: r('.crono-renomear').right <= r('.crono-trocar').left + 0.5
-        && r('.crono-trocar').right <= r('.crono-enviar').left + 0.5
-        && r('.crono-enviar').right <= r('.crono-excluir').left + 0.5,
-      quadrado: Math.abs(r('.crono-enviar').width - r('.crono-excluir').width) < 0.5
-        && Math.abs(r('.crono-enviar').height - r('.crono-excluir').height) < 0.5,
+      ordem: r('.crono-trocar').right <= r('.crono-enviar').left + 0.5
+        && r('.crono-enviar').right <= r(':scope > .row-mais').left + 0.5,
+      quadrado: Math.abs(r('.crono-enviar').width - r(':scope > .row-mais').width) < 0.5
+        && Math.abs(r('.crono-enviar').height - r(':scope > .row-mais').height) < 0.5,
       icone: r('.crono-enviar svg').width,
     };
   }));
   const linha = (n) => gav.find((x) => x.nome === n) || {};
-  checar(gav.length === 3 && gav.every((l) => l.filhos.join(',') === 'crono-renomear,crono-trocar,crono-enviar,crono-excluir'),
-    'F · cada linha da gaveta: renomear | nome+conta | ENVIAR | excluir', JSON.stringify(gav.map((l) => l.filhos)));
+  checar(gav.length === 3 && gav.every((l) => l.filhos.join(',') === 'crono-trocar,crono-enviar,row-acoes,row-mais'),
+    'F · cada linha da gaveta: nome+conta | ENVIAR | ⋮ (as opções atrás dele)', JSON.stringify(gav.map((l) => l.filhos)));
   checar(!linha('Culto Sábado').disabled && !linha('Outro').disabled && linha('Vazio').disabled
     && gav.every((l) => !l.hidden && l.svg),
   'F · o enviar aparece (app nativo) com o desenho de compartilhar, e está DESABILITADO só no cronograma vazio',
@@ -316,7 +316,7 @@ try {
     && linha('Vazio').title === 'O cronograma está vazio',
   'F · title/aria-label "Enviar “<nome>”" (e o vazio diz por que está apagado)', JSON.stringify(gav.map((l) => l.title)));
   checar(gav.every((l) => l.ordem && l.quadrado && l.icone >= 16 && l.larguraNome >= 120 && !l.cortado),
-    'F · a 360 px: os quatro sem se sobrepor, o enviar do tamanho do excluir, ícone visível, e o '
+    'F · a 360 px: sem se sobrepor, o enviar do tamanho do ⋮, ícone visível, e o '
     + 'miolo do nome com ≥ 120 px sem cortar "Culto Sábado"', JSON.stringify(gav));
 
   // ===== A + B · O ENVIO PELO TOQUE, COM A CAPA =====

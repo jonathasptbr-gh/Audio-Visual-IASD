@@ -283,8 +283,8 @@
     cronogramas: { modos: ['full'], passos: [
       { alvo: '#cronoGaveta .crono-trocar', titulo: 'Seus cronogramas',
         texto: 'Toque no nome de um cronograma para passar a usá-lo na tela principal.' },
-      { alvo: ['#cronoGaveta .crono-renomear', '#cronoGaveta .crono-excluir'], titulo: 'Renomear e apagar',
-        texto: 'Toque nos botões ao lado do nome para mudar o nome do cronograma ou apagá-lo.', opcional: true },
+      { alvo: '#cronoGaveta .crono-item .row-mais', titulo: 'Opções do cronograma',
+        texto: 'Toque nos três pontos para renomear, salvar como modelo ou apagar o cronograma.', opcional: true },
       { alvo: '#cronoNovo', titulo: 'Novo cronograma',
         texto: 'Toque para criar uma lista nova, para outro culto ou evento. A atual continua guardada.' },
       { alvo: '#cronoModelo', titulo: 'Novo a partir de um modelo',

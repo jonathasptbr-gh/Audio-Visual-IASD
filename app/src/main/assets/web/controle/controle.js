@@ -493,7 +493,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.78';
+const WEB_VERSION = '1.14.79';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -21504,6 +21504,7 @@ function abrirCronoGaveta() {
   fecharAcoesDaLinha();
   cronoModelosAbertos = false;
   renderCronoGaveta();
+  lerMeusModelos();
   const seq = ++cronoGavetaSeq;
   if (cronoVeuEl) cronoVeuEl.hidden = false;
   cronoGavetaEl.hidden = false;
@@ -21533,9 +21534,11 @@ function fecharCronoGaveta() {
   setTimeout(fim, 260);
 }
 /**
- * A GAVETA. Uma LINHA por cronograma — renomear à esquerda, o nome (e a conta)
- * no MEIO, excluir à direita, os dois sempre à vista — e o "Novo cronograma"
- * por último.
+ * A GAVETA. Uma LINHA por cronograma — o nome (e a conta) à esquerda, e à direita os DOIS botões
+ * sempre à vista: ENVIAR e o `⋮` das opções (pedido do operador, 19/11: renomear, salvar como
+ * modelo e excluir atrás de um botão de opções, como nas outras listas). As opções são a faixa
+ * de `montarAcoesDaLinha`, a mesma das linhas do Cronograma. Depois, "Novo cronograma" e "Novo a
+ * partir de um modelo".
  *
  * O miolo é um botão: tocar nele TROCA. O ativo é a linha em `--sel-fill`. O
  * EXCLUIR DO ÚNICO cronograma LIMPA (o app nunca fica com zero, e esvaziar não
@@ -21614,7 +21617,15 @@ function renderCronoGaveta() {
       exportarCulto(c.id);
     });
 
-    li.append(ren, troca, env, exc);
+    // SALVAR COMO MODELO (16.e): só os momentos viajam para o modelo; sem momento, o toque explica.
+    const mod = document.createElement('button');
+    mod.className = 'row-btn crono-salvar-modelo';
+    mod.title = 'Salvar “' + c.nome + '” como modelo';
+    mod.setAttribute('aria-label', mod.title);
+    mod.innerHTML = modeloIconSvg();
+    mod.addEventListener('click', (e) => { e.stopPropagation(); salvarCronoComoModelo(c.id); });
+
+    li.append(troca, env, ...montarAcoesDaLinha(li, [ren, mod, exc], 'crono:' + c.id));
     cronoListaEl.appendChild(li);
   }
   const li = document.createElement('li');
@@ -21636,17 +21647,19 @@ function renderCronoGaveta() {
 // Um MODELO é um cronograma que nasce com os MOMENTOS do itinerário (horário + título) e sem
 // mídia: o sonoplasta põe as mídias debaixo de cada momento. Os três de fábrica são a liturgia do
 // `ESTUDO-CRONOGRAMA.md` §3.2 e moram AQUI, não no banco — não ocupam nada até serem usados.
+// O SÁBADO segue a régua do operador (19/11): a lição até 10h15 e o sermão das 11h15 ao meio-dia
+// (as fontes estão no estudo, §3.2).
 // Aplicar é `AVDB.cronoCriar(modelo)`: um cronograma NOVO, que fica EM USO (o de antes continua
 // na gaveta, intacto) — a régua do "Novo cronograma" e do culto recebido (16.b). Os horários são
 // os do modelo (decisão do operador, 19/11). Os TÍTULOS vão ao telão (o itinerário): falam com a
 // congregação, não com o sonoplasta.
 const MODELOS_DE_FABRICA = [
   { id: 'sabado', nome: 'Sábado de manhã', momentos: [
-    [9, 0, 'Prelúdio'], [9, 5, 'Boas-vindas e hino inicial'], [9, 12, 'Oração inicial'],
-    [9, 15, 'Recapitulação da lição'], [9, 40, 'Missões e ofertório'], [9, 50, 'Avisos e encerramento'],
-    [10, 55, 'Hino de transição'], [11, 0, 'Entrada da Bíblia e hino inicial'], [11, 7, 'Oração inicial'],
-    [11, 10, 'Leitura bíblica'], [11, 15, 'Hino de louvor'], [11, 20, 'Ofertório e música especial'],
-    [11, 28, 'Sermão'], [12, 0, 'Hino final e oração'], [12, 10, 'Bênção e poslúdio'],
+    [9, 0, 'Prelúdio e boas-vindas'], [9, 5, 'Hino inicial e oração'], [9, 12, 'Informativo Mundial das Missões'],
+    [9, 20, 'Estudo da lição'], [10, 15, 'Encerramento da Escola Sabatina'], [10, 25, 'Hino de transição'],
+    [10, 30, 'Doxologia e invocação'], [10, 38, 'Provai e Vede: dízimos e ofertas'],
+    [10, 48, 'Leitura bíblica e oração intercessora'], [10, 58, 'Hino de louvor'], [11, 3, 'Adoração infantil'],
+    [11, 10, 'Música especial'], [11, 15, 'Sermão'], [12, 0, 'Hino final e oração'], [12, 5, 'Bênção e poslúdio'],
   ] },
   { id: 'domingo', nome: 'Domingo à noite', momentos: [
     [19, 0, 'Música de acolhida'], [19, 5, 'Hino de abertura'], [19, 10, 'Oração inicial'],
@@ -21660,16 +21673,30 @@ const MODELOS_DE_FABRICA = [
 ].map((m) => ({ id: m.id, nome: m.nome, momentos: m.momentos.map(([h, mi, titulo]) => ({ min: h * 60 + mi, titulo })) }));
 
 // A LISTA DOS MODELOS SE ABRE NA PRÓPRIA GAVETA, debaixo do "Novo a partir de um modelo", e nasce
-// fechada a cada abertura da gaveta (`abrirCronoGaveta`).
+// fechada a cada abertura da gaveta (`abrirCronoGaveta`): os três de fábrica e, debaixo do rótulo
+// "Meus modelos", os do operador (`meusModelos`, o espelho de `AVDB.modelosLer`, relido a cada
+// abertura e depois de salvar ou excluir — o desenho é síncrono e lê só o espelho).
 let cronoModelosAbertos = false;
+let meusModelos = [];
+async function lerMeusModelos() {
+  try { meusModelos = await AVDB.modelosLer(); } catch (e) { console.warn('[crono] ler modelos falhou:', e); }
+  if (cronoModelosAbertos && cronoGavetaAberta()) renderCronoGaveta();
+}
+// A GAVETA ROLA ATÉ O FIM — e SÓ ela: o `scrollIntoView` rolaria também a página, e a barra do
+// topo subia para fora da tela junto com a lista aberta.
+function cronoRolarAoFim() { if (cronoListaEl) cronoListaEl.scrollTop = cronoListaEl.scrollHeight; }
+// O ÍCONE DOS MODELOS (uma lista): o do "Novo a partir de um modelo" e o do "Salvar como modelo".
+function modeloIconSvg() {
+  return '<svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2"'
+    + ' stroke-linecap="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg>';
+}
 function renderCronoModelos() {
   const li = document.createElement('li');
   const b = document.createElement('button');
   b.className = 'crono-novo crono-modelo';
   b.id = 'cronoModelo';
   b.setAttribute('aria-expanded', cronoModelosAbertos ? 'true' : 'false');
-  b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"'
-    + ' stroke-linecap="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></svg>';
+  b.innerHTML = modeloIconSvg();
   const t = document.createElement('span');
   t.textContent = 'Novo a partir de um modelo';
   b.appendChild(t);
@@ -21678,40 +21705,102 @@ function renderCronoModelos() {
   b.addEventListener('click', () => {
     cronoModelosAbertos = !cronoModelosAbertos;
     renderCronoGaveta();
-    const ultimo = cronoModelosAbertos && cronoListaEl.lastElementChild;
-    if (ultimo) ultimo.scrollIntoView({ block: 'nearest' });
+    if (cronoModelosAbertos) cronoRolarAoFim();
   });
   li.appendChild(b);
   cronoListaEl.appendChild(li);
   if (!cronoModelosAbertos) return;
-  for (const m of MODELOS_DE_FABRICA) {
-    const op = document.createElement('li');
-    op.className = 'crono-item crono-modelo-opcao';
-    const bt = document.createElement('button');
-    bt.className = 'crono-trocar';
-    bt.title = 'Criar “' + m.nome + '” e passar a usá-lo';
-    const nome = document.createElement('span');
-    nome.className = 'row-name crono-item-nome';
-    nome.textContent = m.nome;
-    const sub = document.createElement('span');
-    sub.className = 'row-sub crono-item-qtd';
-    const n = m.momentos.length;
-    sub.textContent = n + ' momentos · ' + createStage.itinHora(m.momentos[0].min)
-      + ' às ' + createStage.itinHora(m.momentos[n - 1].min);
-    bt.append(nome, sub);
-    bt.addEventListener('click', () => { novoCronogramaDeModelo(m.id); });
-    op.appendChild(bt);
-    cronoListaEl.appendChild(op);
-  }
+  for (const m of MODELOS_DE_FABRICA) cronoListaEl.appendChild(linhaDeModelo(m, false));
+  if (!meusModelos.length) return;
+  const rot = document.createElement('li');
+  rot.className = 'crono-modelos-rotulo';
+  rot.textContent = 'Meus modelos';
+  cronoListaEl.appendChild(rot);
+  for (const m of meusModelos) cronoListaEl.appendChild(linhaDeModelo(m, true));
 }
-async function novoCronogramaDeModelo(id) {
-  const m = MODELOS_DE_FABRICA.find((x) => x.id === id);
+// UMA LINHA DE MODELO: o miolo (nome + "N momentos · início às fim") aplica; a do operador tem
+// também o EXCLUIR à direita, que pergunta.
+function linhaDeModelo(m, meu) {
+  const op = document.createElement('li');
+  op.className = 'crono-item crono-modelo-opcao' + (meu ? ' meu' : '');
+  const bt = document.createElement('button');
+  bt.className = 'crono-trocar';
+  bt.title = 'Criar “' + m.nome + '” e passar a usá-lo';
+  const nome = document.createElement('span');
+  nome.className = 'row-name crono-item-nome';
+  nome.textContent = m.nome;
+  const sub = document.createElement('span');
+  sub.className = 'row-sub crono-item-qtd';
+  const n = m.momentos.length;
+  sub.textContent = (n === 1 ? '1 momento · ' : n + ' momentos · ') + createStage.itinHora(m.momentos[0].min)
+    + (n > 1 ? ' às ' + createStage.itinHora(m.momentos[n - 1].min) : '');
+  bt.append(nome, sub);
+  bt.addEventListener('click', () => { novoCronogramaDeModelo(m); });
+  op.appendChild(bt);
+  if (meu) {
+    const exc = document.createElement('button');
+    exc.className = 'row-btn crono-excluir';
+    exc.title = 'Excluir o modelo “' + m.nome + '”';
+    exc.setAttribute('aria-label', exc.title);
+    exc.appendChild(msym(ICON.del));
+    exc.addEventListener('click', (e) => { e.stopPropagation(); excluirMeuModelo(m); });
+    op.appendChild(exc);
+  }
+  return op;
+}
+async function novoCronogramaDeModelo(m) {
   if (!m) return;
   fecharCronoGaveta();
   cronoAntesDeTrocar();
   try { await AVDB.cronoCriar(m); } catch (e) { console.warn('[crono] modelo falhou:', e); }
   await load();
   if (libraryEl) libraryEl.scrollTop = 0;
+}
+/**
+ * SALVAR COMO MODELO (Pacote 16, 16.e): os MOMENTOS do cronograma `id` (horário e título) viram
+ * um modelo do operador; as mídias não entram. O nome sai do diálogo, com o do cronograma
+ * sugerido. Salvo, a gaveta abre a lista dos modelos e mostra o novo — o retorno mora onde o
+ * toque foi feito. Sem momento nenhum, um aviso diz como criá-los.
+ */
+async function salvarCronoComoModelo(id) {
+  const alvo = cronoPorId(id || cronos.ativo);
+  if (!alvo) return;
+  let recs;
+  if (alvo.id === cronos.ativo) recs = libItems || [];
+  else recs = (await Promise.all((await AVDB.cronoIdsGuardados(alvo.id)).map((x) => AVDB.getMedia(x)))).filter(Boolean);
+  const momentos = recs.filter((r) => ehMomento(r) && itinMinValido(Number(r.data && r.data.min)))
+    .map((r) => ({ min: Math.round(Number(r.data.min)), titulo: String(r.name || '') }));
+  if (!momentos.length) {
+    await appConfirm({
+      title: 'Salvar como modelo',
+      message: '“' + alvo.nome + '” não tem momentos. O modelo guarda os momentos do itinerário (horário e título): '
+        + 'crie-os pelo relógio no topo do Cronograma e salve de novo.',
+      okText: 'Entendi', cancelText: null,
+    });
+    return;
+  }
+  const n = momentos.length;
+  const nome = await appPrompt({
+    title: 'Salvar como modelo',
+    message: 'O modelo guarda ' + (n === 1 ? 'o momento' : 'os ' + n + ' momentos') + ' (horário e título), sem as mídias. Nome do modelo:',
+    value: alvo.nome, okText: 'Salvar',
+  });
+  if (nome == null || !String(nome).trim()) return;
+  let salvo = null;
+  try { salvo = await AVDB.modeloSalvar(nome, momentos, MODELOS_DE_FABRICA.map((m) => m.nome)); } catch (e) { console.warn('[crono] salvar modelo falhou:', e); }
+  if (!salvo) return;
+  cronoModelosAbertos = true;
+  await lerMeusModelos();
+  if (!cronoGavetaAberta()) return;
+  renderCronoGaveta();
+  cronoRolarAoFim();
+}
+async function excluirMeuModelo(m) {
+  const ok = await appConfirm({ title: 'Excluir o modelo', message: 'Excluir o modelo “' + m.nome + '”? Os cronogramas criados com ele não mudam.', okText: 'Excluir', perigo: true });
+  if (!ok) return;
+  try { await AVDB.modeloExcluir(m.id); } catch (e) { console.warn('[crono] excluir modelo falhou:', e); }
+  await lerMeusModelos();
+  if (cronoGavetaAberta()) renderCronoGaveta();
 }
 // O QUE MORRE COM UMA TROCA: a gaveta de uma linha aponta para linhas da lista
 // que acabou de sair de cena.

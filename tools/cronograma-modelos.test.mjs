@@ -16,6 +16,11 @@
 //     cronograma (`AVDB.cronoCriar(modelo)`), com horário e título certos, e um
 //     momento inválido é pulado em vez de gravado.
 //  D. O NOME QUE COLIDE: aplicar duas vezes dá "… (2)", com momentos próprios.
+//  E. SALVAR COMO MODELO (16.e), pelo ⋮ da linha: guarda SÓ os momentos (as mídias ficam), do
+//     ativo e de um guardado; o nome que colide com um de fábrica ganha " (2)"; o salvo aparece
+//     em "Meus modelos" na hora, aplica como os de fábrica e se exclui pela própria linha.
+//  F. O CRONOGRAMA SEM MOMENTO: o toque explica e nada é salvo.
+//  G. ABRIR A LISTA ROLA SÓ A GAVETA: a barra do topo não sai da tela.
 //
 //   node tools/cronograma-modelos.test.mjs
 import path from 'node:path';
@@ -100,7 +105,7 @@ try {
       const u = document.querySelector('#cronoLista > li:last-child').getBoundingClientRect();
       return { exp: document.getElementById('cronoModelo').getAttribute('aria-expanded'), dentro: u.bottom <= l.bottom + 1 && u.top >= l.top - 1, alt: u.height };
     });
-    checar(o.join(' | ') === 'Sábado de manhã15 momentos · 09:00 às 12:10 | Domingo à noite8 momentos · 19:00 às 20:10 | '
+    checar(o.join(' | ') === 'Sábado de manhã15 momentos · 09:00 às 12:05 | Domingo à noite8 momentos · 19:00 às 20:10 | '
       + 'Quarta à noite5 momentos · 19:30 às 20:18' && vis.exp === 'true' && vis.dentro && vis.alt >= 50,
     'A · o toque abre os TRÊS modelos, com a conta e o horário, e o último fica à vista na gaveta',
     JSON.stringify({ o, vis }));
@@ -127,8 +132,9 @@ try {
     JSON.stringify(st));
     const vivos = await pg.evaluate(async (ids) => (await Promise.all(ids.map((x) => AVDB.getMedia(x)))).filter(Boolean).length, idsAntes);
     checar(vivos === 2, 'B · e nenhuma mídia do cronograma de antes é apagada', String(vivos));
-    checar(ms.length === 15 && ms.every((x) => x.momento) && ms[0].min === 540 && ms[0].nome === 'Prelúdio'
-      && ms[14].min === 730 && ms[14].nome === 'Bênção e poslúdio' && st.linhas === 15,
+    checar(ms.length === 15 && ms.every((x) => x.momento) && ms[0].min === 540 && ms[0].nome === 'Prelúdio e boas-vindas'
+      && ms[3].nome === 'Estudo da lição' && ms[12].min === 675 && ms[12].nome === 'Sermão'
+      && ms[14].min === 725 && ms[14].nome === 'Bênção e poslúdio' && st.linhas === 15,
     'C · o novo nasce com os 15 MOMENTOS do modelo, na ordem, com horário e título, e a lista os mostra',
     JSON.stringify({ n: ms.length, primeiro: ms[0], ultimo: ms[14], linhas: st.linhas }));
 
@@ -145,6 +151,101 @@ try {
     });
     checar(inval.nome === 'Teste' && JSON.stringify(inval.itens) === '[[600,"Momento"]]',
       'C · horário inválido é PULADO e título vazio vira "Momento"', JSON.stringify(inval));
+  }
+
+  // E · salvar como modelo, pelo ⋮ da linha
+  const opcaoDaLinha = async (nome, sel) => {
+    await abrirGaveta();
+    await pg.evaluate(([n, q]) => {
+      const li = [...document.querySelectorAll('#cronoLista .crono-item:not(.crono-modelo-opcao)')]
+        .find((x) => x.querySelector('.crono-item-nome').textContent === n);
+      li.querySelector(':scope > .row-mais').click();
+      li.querySelector(q).click();
+    }, [nome, sel]);
+    await esperar(pg, () => document.getElementById('appDialog').classList.contains('open'));
+  };
+  const dialogo = () => pg.evaluate(() => ({
+    titulo: document.getElementById('appDialogTitle').textContent,
+    msg: document.getElementById('appDialogMsg').textContent,
+    valor: document.getElementById('appDialogInput').hidden ? null : document.getElementById('appDialogInput').value,
+    cancelar: !document.getElementById('appDialogCancel').hidden,
+  }));
+  {
+    await pg.evaluate(async () => {
+      await AVDB.addMedia(new Blob(['m'], { type: 'audio/mpeg' }), { name: 'Hino', type: 'audio/mpeg', kind: 'audio', list: 'imports' });
+      await load();
+    });
+    await opcaoDaLinha('Teste', '.crono-salvar-modelo');
+    const d = await dialogo();
+    await pg.fill('#appDialogInput', 'Meu culto');
+    await pg.click('#appDialogOk');
+    await esperar(pg, () => document.querySelectorAll('#cronoLista .crono-modelo-opcao.meu').length > 0);
+    await z(300);
+    const st = await pg.evaluate(async () => ({
+      modelos: await AVDB.modelosLer(),
+      rotulo: (document.querySelector('#cronoLista .crono-modelos-rotulo') || {}).textContent || '',
+      meus: [...document.querySelectorAll('#cronoLista .crono-modelo-opcao.meu .crono-trocar')].map((x) => x.textContent.trim()),
+      ultimoVisivel: (() => {
+        const l = document.getElementById('cronoLista').getBoundingClientRect();
+        const u = document.querySelector('#cronoLista > li:last-child').getBoundingClientRect();
+        return u.bottom <= l.bottom + 1;
+      })(),
+      topo: document.querySelector('.list-header').getBoundingClientRect().top, rolagem: scrollY,
+    }));
+    checar(d.valor === 'Teste' && /guarda o momento/.test(d.msg) && /sem as mídias/.test(d.msg),
+      'E · o ⋮ → "Salvar como modelo" pergunta o nome (sugere o do cronograma) e diz que guarda o momento, sem as mídias',
+      JSON.stringify(d));
+    checar(st.modelos.length === 1 && st.modelos[0].nome === 'Meu culto'
+      && JSON.stringify(st.modelos[0].momentos) === '[{"min":600,"titulo":"Momento"}]',
+    'E · o modelo guarda SÓ os momentos (o hino do cronograma não entra)', JSON.stringify(st.modelos));
+    checar(st.rotulo === 'Meus modelos' && st.meus.join('|') === 'Meu culto1 momento · 10:00' && st.ultimoVisivel,
+      'E · e ele aparece na hora em "Meus modelos", à vista na gaveta', JSON.stringify(st));
+    checar(st.topo >= 0 && st.rolagem === 0, 'G · abrir a lista dos modelos rola SÓ a gaveta: a barra do topo fica na tela',
+      JSON.stringify({ topo: st.topo, rolagem: st.rolagem }));
+
+    // de um GUARDADO, com o nome de um de fábrica
+    await opcaoDaLinha('Sábado de manhã', '.crono-salvar-modelo');
+    const d2 = await dialogo();
+    await pg.click('#appDialogOk');
+    await z(500);
+    const m2 = await pg.evaluate(async () => (await AVDB.modelosLer()).map((m) => [m.nome, m.momentos.length]));
+    checar(d2.valor === 'Sábado de manhã' && JSON.stringify(m2) === '[["Meu culto",1],["Sábado de manhã (2)",15]]',
+      'E · de um cronograma GUARDADO também; o nome igual ao de fábrica ganha " (2)"', JSON.stringify({ d2, m2 }));
+
+    // aplicar o modelo do operador
+    await aplicar('Meu culto');
+    const ms = await momentosDoAtivo();
+    checar(JSON.stringify(ms.map((x) => [x.momento, x.min, x.nome])) === '[[true,600,"Momento"]]',
+      'E · aplicar "Meu culto" cria o cronograma com o momento dele, e só ele', JSON.stringify(ms));
+
+    // F · sem momento
+    await opcaoDaLinha('Cronograma', '.crono-salvar-modelo');
+    const d3 = await dialogo();
+    await pg.click('#appDialogOk');
+    await z(400);
+    const n3 = await pg.evaluate(async () => (await AVDB.modelosLer()).length);
+    checar(d3.valor === null && !d3.cancelar && /não tem momentos/.test(d3.msg) && n3 === 2,
+      'F · um cronograma sem momento: o toque EXPLICA e nada é salvo', JSON.stringify({ d3, n3 }));
+
+    // excluir "Meu culto" pela linha dele
+    await abrirGaveta();
+    if (!(await opcoes()).length) await pg.click('#cronoModelo');
+    await pg.evaluate(() => {
+      const li = [...document.querySelectorAll('#cronoLista .crono-modelo-opcao.meu')]
+        .find((x) => x.querySelector('.crono-item-nome').textContent === 'Meu culto');
+      li.querySelector('.crono-excluir').click();
+    });
+    await esperar(pg, () => document.getElementById('appDialog').classList.contains('open'));
+    await pg.click('#appDialogOk');
+    await z(500);
+    const fim = await pg.evaluate(async () => ({
+      m: (await AVDB.modelosLer()).map((m) => m.nome),
+      meus: [...document.querySelectorAll('#cronoLista .crono-modelo-opcao.meu .crono-item-nome')].map((x) => x.textContent),
+      ativo: document.getElementById('listTitle').textContent,
+    }));
+    checar(JSON.stringify(fim.m) === '["Sábado de manhã (2)"]' && fim.meus.join() === 'Sábado de manhã (2)' && fim.ativo === 'Meu culto',
+      'E · excluir o modelo pela linha dele (com pergunta) o tira da lista — e o cronograma criado com ele fica',
+      JSON.stringify(fim));
   }
 
   checar(erros.length === 0, 'nenhum erro de página', erros.join(' | '));

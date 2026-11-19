@@ -87,25 +87,35 @@ sermão e que Escola Sabatina e Culto Divino tenham **continuidade** — a
 transição marcada por um hino ([notícia oficial](https://noticias.adventistas.org/pt/aprovada-proposta-de-liturgia-de-cultos-da-igreja-adventista/)).
 Os modelos abaixo são a **nossa** sugestão de partida, editável item a item.
 
-**Sábado de manhã** — Escola Sabatina 9h + Culto Divino 11h (90 min no total):
+**Sábado de manhã** — Escola Sabatina 9h00–10h25 + Culto Divino 10h30–12h05 (refeito em 19/11, v1.14.79):
+
+A régua é do operador: *"o estudo da lição normalmente vai até 10h15 e o sermão em si mais perto
+das 11h15, fechando perto de 45 minutos ou mais até o meio-dia"*. A primeira versão desta tabela
+(Culto às 11h, com 1 h 05 vazia entre 9h50 e 10h55) contradizia isso. Fontes conferidas em 19/11:
+o programa da Escola Sabatina do *Crescer Mais* (início 9h00, "lição do dia" 30 min, conclusão
+10h30); a sugestão da Escola Sabatina da Igreja em Portugal (revisão da lição 35 min, a parte das
+unidades em 45 min); a notícia do voto de 2015 (acima: mais tempo para o sermão e o louvor, o hino
+de transição); e um cronograma de igreja local com o "Provai e Vede" às 10h30–10h40. O Culto aqui
+passa da 1h15 recomendada em 2015 (10h30–12h05): vale o uso real que o operador descreveu, e cada
+horário é editável.
 
 | quando | item | o sonoplasta precisa de |
 |---|---|---|
-| 9h00 | Prelúdio / música de acolhida | 1 música instrumental |
-| 9h05 | Boas-vindas e hino inicial da Escola Sabatina | letra do hino |
-| 9h12 | Oração inicial | — |
-| 9h15 | Recapitulação da lição (por unidades) | imagem do tema da lição |
-| 9h40 | Missões e ofertório da Escola Sabatina | vídeo/foto do projeto |
-| 9h50 | Avisos e encerramento | 1 arte |
-| 10h55 | **Transição** (hino de adoração) | letra do hino |
-| 11h00 | Entrada da Bíblia + hino inicial do Culto Divino | letra do hino |
-| 11h07 | Oração inicial | — |
-| 11h10 | Leitura bíblica | o texto no telão |
-| 11h15 | Hino de louvor | letra do hino |
-| 11h20 | Ofertório (música especial) | 1 música |
-| 11h28 | **Sermão** | o tema/slides, a Bíblia |
-| 12h00 | Hino final e oração final | letra do hino |
-| 12h10 | Bênção e pós-lúdio | 1 música |
+| 9h00 | Prelúdio e boas-vindas | 1 música instrumental |
+| 9h05 | Hino inicial e oração | letra do hino |
+| 9h12 | Informativo Mundial das Missões | o vídeo do Informativo (Biblioteca) |
+| 9h20 | **Estudo da lição** (nas unidades, até 10h15) | imagem do tema da lição |
+| 10h15 | Encerramento da Escola Sabatina | 1 arte de avisos |
+| 10h25 | **Transição** (hino de adoração) | letra do hino |
+| 10h30 | Doxologia e invocação | letra do hino |
+| 10h38 | Provai e Vede: dízimos e ofertas | o vídeo do Provai e Vede (Biblioteca) |
+| 10h48 | Leitura bíblica e oração intercessora | o texto no telão |
+| 10h58 | Hino de louvor | letra do hino |
+| 11h03 | Adoração infantil | 1 vídeo ou imagens |
+| 11h10 | Música especial | 1 música |
+| 11h15 | **Sermão** (45 min) | o tema/slides, a Bíblia |
+| 12h00 | Hino final e oração | letra do hino |
+| 12h05 | Bênção e poslúdio | 1 música |
 
 **Domingo à noite** — culto evangelístico (75 min):
 
@@ -579,3 +589,8 @@ limpos para o telão) e "Novo a partir de um modelo" (`#cronoModelo`) na gaveta.
 operador: o novo fica EM USO (a régua do 16.b; o oráculo da §3 dizia "o ativo não muda" — vale o
 que não muda é o CONTEÚDO do de antes) e os horários são os do modelo. A chave `modelos`, o
 "Salvar como modelo" e as dicas do que pôr em cada momento ficaram para o 16.e (fila).
+
+**16.e (19/11, v1.14.79, só web):** "Salvar como modelo" (só momentos; a chave `modelos`) e
+"Meus modelos" na lista dos modelos, com o pedido do operador de COMPACTAR a linha da gaveta:
+nome · enviar · `⋮`, e renomear / salvar como modelo / excluir na faixa do `⋮`. A "dica do que
+pôr em cada momento" (a coluna "o sonoplasta precisa de") não foi pedida e não entrou.

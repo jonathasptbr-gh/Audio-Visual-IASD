@@ -2697,39 +2697,46 @@ main {
   display: flex; flex-direction: column; gap: var(--sp-3);
   max-height: min(60vh, 28rem); overflow-y: auto; overscroll-behavior: contain;
 }
-/* ---------- A LINHA DE UM CRONOGRAMA: renomear · nome · excluir (v1.12.55) --
-   Pedido do operador: *"os demais botões individuais de cada cronograma, no
-   caso, renomear e excluir, deixe-os na própria lista um para cada item da
-   lista, sempre visíveis … deixando o botão de excluir em um dos lados e o de
-   renomear no outro extremo"*.
+/* ---------- A LINHA DE UM CRONOGRAMA: nome · enviar · ⋮ (Pacote 16, 16.e) --
+   Pedido do operador (19/11): *"renomear, salvar como modelo ou excluir, deve
+   ficar atrás de um botão de opções … Mantenha o botão de compartilhar sempre
+   visível na lista junto do botão de opções"*.
 
    É a LINHA DE LISTA do app (`.lib-item`/`.row-item`): cartão em `--camada`
    com `--radius-card`, o recuo da `.row` (.35rem .5rem) e os quadrados em
    `--thumb` — 51,2px de altura, a mesma de uma linha do Cronograma. O ATIVO é
    SELECIONADO numa lista: `--sel-fill`, a linguagem única de estado.
 
-   O NOME FICA NO EIXO por construção: os dois quadrados têm a MESMA largura, e
-   o miolo (`flex: 1`) fica com o resto — o centro dele é o centro da linha.
+   O NOME À ESQUERDA, como nas outras listas, e os dois quadrados à direita.
    `min-width: 0` no miolo e nas duas linhas de texto: um nome longo vira
    reticências em vez de empurrar um botão para fora.
+
+   AS OPÇÕES são a faixa `.row-acoes` de `montarAcoesDaLinha`: ela cobre o nome
+   e o enviar, da borda esquerda até o `⋮`, no fundo opaco da linha (`--linha`).
 
    ELA É UM BLOCO QUE HOSPEDA CONTROLES, e por isso responde só com a LUZ (a
    regra do `.lib-item`): o miolo é transparente e quem acende é o cartão; um
    toque num dos quadrados acende só o quadrado. */
 .crono-item {
+  --linha: var(--camada);
   position: relative; display: flex; align-items: center; gap: var(--sp-4);
   padding: .35rem .5rem; border-radius: var(--radius-card);
-  background: var(--camada); flex-shrink: 0;
+  background: var(--linha); flex-shrink: 0;
 }
-.crono-item.ativo { background: var(--sel-fill); }
+.crono-item.ativo { --linha: var(--sel-fill); }
+.crono-item > .row-acoes {
+  left: .5rem; right: calc(var(--thumb) + .5rem + var(--sp-4));
+  width: auto; min-width: 0; max-width: none;
+}
+.crono-item > .row-acoes > .row-btn { width: var(--thumb); height: var(--thumb); }
 .crono-item:active { filter: var(--press-luz); }
 .crono-item:has(.row-btn:active) { filter: none; }
 .crono-item > .row-btn { width: var(--thumb); height: var(--thumb); }
 .crono-trocar {
   flex: 1; min-width: 0; align-self: stretch;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
-  margin: 0; padding: 0; background: none; border: none; border-radius: var(--radius-btn);
-  color: var(--text); font: inherit; text-align: center; cursor: pointer;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px;
+  margin: 0; padding: 0 var(--sp-2); background: none; border: none; border-radius: var(--radius-btn);
+  color: var(--text); font: inherit; text-align: left; cursor: pointer;
   appearance: none; -webkit-appearance: none;
 }
 .crono-trocar > .row-name, .crono-trocar > .row-sub { flex: none; max-width: 100%; }
@@ -2737,14 +2744,14 @@ main {
 /* O EXCLUIR é o destrutivo da família: `--danger-strong` sobre `--btn-danger`,
    opaco — o par do `.coll-bar-rm` e do ✕ do card do editor. Confirmado por
    diálogo, como eles: quem nomeia o dano é a pergunta. */
-/* A CLASSE DOBRADA (`.crono-item > .crono-excluir`, 0,2,0) não é zelo: o
+/* A CLASSE DOBRADA (`.crono-item .crono-excluir`, 0,2,0) não é zelo: o
    `.row-btn { background: var(--surface) }` vem DEPOIS na folha com a mesma
    especificidade de uma classe só, e venceria calado. */
-.crono-item > .crono-excluir { background: var(--btn-danger); color: var(--danger-strong); }
+.crono-item .crono-excluir { background: var(--btn-danger); color: var(--danger-strong); }
 /* APAGADO = INDISPONÍVEL (o ÚNICO cronograma não se exclui), com o `title`
    dizendo por quê (a regra da v1.8.50). Pílula preenchida: a família do
    `--op-inativo`. */
-.crono-item > .crono-excluir:disabled { opacity: var(--op-inativo); cursor: default; }
+.crono-item .crono-excluir:disabled { opacity: var(--op-inativo); cursor: default; }
 /* ENVIAR ESTE CULTO: o sprite `#icoCompartilhar` na caixa do glifo dos vizinhos (`icoSprite`
    deixa o tamanho com o CSS). Vazio = apagado, como o excluir; preparando = a cor de ação. */
 .crono-item > .crono-enviar svg { width: var(--icon-sm); height: var(--icon-sm); }
@@ -2776,6 +2783,11 @@ main {
 .crono-modelo .crono-seta { transition: transform var(--dur-media) ease; }
 .crono-modelo[aria-expanded="true"] .crono-seta { transform: rotate(180deg); }
 .crono-modelo-opcao > .crono-trocar { min-height: var(--thumb); }
+/* "MEUS MODELOS": o rótulo de seção da lista (o par `--muted` em caixa alta dos rótulos do app). */
+.crono-modelos-rotulo {
+  padding: var(--sp-2) var(--sp-3) 0; color: var(--muted);
+  font-size: var(--fs-sm); font-weight: var(--fw-medio); text-transform: uppercase; letter-spacing: .04em;
+}
 /* A TRILHA 3 era um VÃO reservado (v5.309, para o título não sair do eixo
    quando o voltar aparece) e virou a casa da ENGRENAGEM na v1.2.0 — o vão
    previa isto por escrito. A trilha já mede `--hit`, que é a caixa do botão. */

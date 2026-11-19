@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.14.79",
+    "itens": [
+      "Na lista de cronogramas, cada linha mostra só Enviar e os três pontinhos; renomear e excluir estão nos três pontinhos.",
+      "Nos três pontinhos, \"Salvar como modelo\" guarda os momentos do cronograma (sem as mídias) para usar de novo.",
+      "Seus modelos aparecem em \"Novo a partir de um modelo\", em \"Meus modelos\"; a lixeira ao lado apaga um modelo.",
+      "O modelo \"Sábado de manhã\" foi refeito: a lição vai até 10h15 e o sermão começa às 11h15, até o meio-dia.",
+      "Um cronograma já criado com o modelo antigo não muda: crie de novo pelo modelo para ter os horários novos.",
+      "Não precisa instalar nada: chega pela atualização automática."
+    ]
+  },
+  {
     "versao": "1.14.78",
     "itens": [
       "Na lista de cronogramas, \"Novo a partir de um modelo\": sábado de manhã, domingo à noite ou quarta à noite.",
