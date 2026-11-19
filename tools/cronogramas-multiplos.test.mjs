@@ -439,17 +439,19 @@ try {
         { id: 'de-la-ativo', nome: 'Ativo de lá', ids: [] },
         { id: 'de-la-1', nome: 'Culto jovem', ids: ['nao-admitido', 'admitido'] },
       ] };
-      const n1 = await AVDB.cronoImportar(vindo, new Set(['admitido']));
+      const n1 = (await AVDB.cronoImportar(vindo, new Set(['admitido']))).mudou;
       const depois1 = (await AVDB.cronoLer()).itens.map((c) => c.nome + ':' + c.qtd);
-      const n2 = await AVDB.cronoImportar(vindo, new Set(['admitido']));
+      const r2 = await AVDB.cronoImportar(vindo, new Set(['admitido']));
+      const n2 = r2.mudou;
+      const idTocado = r2.id;
       const depois2 = (await AVDB.cronoLer()).itens.map((c) => c.nome + ':' + c.qtd);
-      return { n1, n2, depois1, depois2 };
+      return { n1, n2, idTocado, depois1, depois2 };
     });
     checar(r.depois1.includes('Culto jovem (2):1') && r.depois1.includes('Culto jovem:3')
       && !r.depois1.some((x) => /Ativo de lá/.test(x)),
       'K · um cronograma guardado do pacote entra como NOVO, com sufixo no nome que colide, '
       + 'só com os itens admitidos — e nunca substitui o daqui', JSON.stringify(r));
-    checar(r.n2 === 0 && JSON.stringify(r.depois2) === JSON.stringify(r.depois1),
+    checar(r.n2 === 0 && r.idTocado === 'de-la-1' && JSON.stringify(r.depois2) === JSON.stringify(r.depois1),
       'K · e importar DE NOVO não muda nada — o mesmo id é o mesmo cronograma', JSON.stringify(r));
   }
 

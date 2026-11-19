@@ -2609,7 +2609,16 @@ main {
 .crono-alerta { background: none; color: var(--warn); }
 /* O PAR nome + alerta ocupa a trilha do meio; o título sozinho continua
    centrado nela quando o alerta está escondido (o caso normal). */
-.list-header > .crono-par { grid-column: 2; justify-self: center; min-width: 0; }
+/* O PAR PRESO NA TRILHA (v1.14.77): centrado (`justify-self: center`) ele era do tamanho do
+   conteúdo, e um nome maior que "Cronograma" o fazia transbordar para os dois lados — o alerta
+   por cima da porta do itinerário (medido a 360: alerta em 28–62 sobre a porta em 13–47). A
+   margem negativa empresta só os dois vãos da grade (`--sp-2`), que ele já ocupava; além disso
+   quem cede é o espaçador do eixo (`::after` abaixo) e depois o NOME, em reticências. */
+.list-header > .crono-par {
+  grid-column: 2; justify-self: center; min-width: 0;
+  margin-inline: calc(-1 * var(--sp-2)); max-width: calc(100% + 2 * var(--sp-2));
+}
+.crono-par > .crono-alerta { flex: none; }
 .crono-par { display: flex; align-items: center; justify-content: center; gap: var(--sp-1); min-width: 0; }
 /* ---------- O TÍTULO É UM BOTÃO: o nome e a seta (v1.12.54) ----------
    Pedido do operador: *"o título 'cronograma' vai ser um título que pode ser
@@ -2638,8 +2647,12 @@ main {
    entre os dois. Sem essa compensação o nome andaria meio alerta para a direita,
    e o oráculo mede o eixo com ele VISÍVEL e ESCONDIDO — o `:has` garante que a
    compensação some junto com o ícone, então o nome não anda em nenhum dos dois. */
-.crono-par:has(.crono-alerta:not([hidden])) .crono-titulo {
-  padding-right: calc(var(--hit) + var(--sp-1));
+/* A COMPENSAÇÃO É UM ESPAÇADOR QUE CEDE PRIMEIRO (16, v1.14.77): com o par preso na trilha, um
+   `padding-right` fixo cortava até "CRONOGRAMA" a 360. O `::after` tem a mesma largura e encolhe
+   antes do nome (`flex-shrink` 1000 × 1): sobrando espaço o nome fica no eixo; faltando, ele sai do
+   eixo antes de virar reticências. */
+.crono-par:has(.crono-alerta:not([hidden]))::after {
+  content: ''; flex: 0 1000 auto; width: calc(var(--hit) + var(--sp-1)); min-width: 0;
 }
 .crono-titulo[aria-expanded="true"] .crono-seta { transform: rotate(180deg); }
 .crono-seta { transition: transform var(--dur-media) ease; }
@@ -12448,6 +12461,20 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 /* `pre-line`: as mensagens usam parágrafos (ex.: o aviso de dados móveis),
    e sem isto as quebras viravam um bloco único. */
 .dialog-msg { font-size: var(--fs-lg); color: var(--muted); line-height: 1.45; white-space: pre-line; }
+/* A BARRA DA FOLHA VIVA (a importação de um culto): a mesma régua de 3 px da linha da gaveta
+   (`.crono-item.enviando`), desenhada por `background-size` sobre `--accent` e escrita por
+   `cultoFolhaAndar`. Aqui ela é o assunto da folha, então tem corpo de barra: a trilha em
+   `--surface-sunk` e a cheia em `--accent`, sem cor literal. */
+.dialog-barra {
+  height: 4px; border-radius: 999px; overflow: hidden;
+  background: var(--surface-sunk);
+}
+.dialog-barra[hidden] { display: none; }
+.dialog-barra-cheia {
+  height: 100%; width: var(--pct, 0%);
+  background: var(--accent); border-radius: inherit;
+  transition: width var(--dur-media) ease;
+}
 /* ===== A LINHA DO TEMPO da atualização =====
    Ela é um `<ul>` de verdade, então o que aqui se faz é tirar o marcador do
    navegador e pôr o nosso — um ponto em `--accent` desenhado por

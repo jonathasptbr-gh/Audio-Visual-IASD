@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.14.77",
+    "itens": [
+      "Ao importar um culto, a tela de confirmação vira uma barra de progresso e termina numa frase curta.",
+      "O culto importado já abre e fica em uso; o que estava em uso continua guardado na gaveta.",
+      "Vídeos do YouTube, séries e hinos vão só como link: quem recebe baixa pelo aviso do cronograma.",
+      "Na capa do culto, os hinos do hinário antigo aparecem com (1996) depois do nome.",
+      "O aviso de itens não baixados não fica mais por cima do ícone do itinerário.",
+      "Não precisa instalar nada: chega pela atualização automática."
+    ]
+  },
+  {
     "versao": "1.14.76",
     "itens": [
       "Ao enviar um culto, a linha dele mostra o que está fazendo (juntando, desenhando as capas, gravando) e uma barra.",

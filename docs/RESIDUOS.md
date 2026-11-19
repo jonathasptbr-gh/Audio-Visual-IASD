@@ -45,6 +45,7 @@ medição em aparelho não é fino.**
 
 | quando · lote | onde | o que ficou | dono | por que não foi agora |
 |---|---|---|---|---|
+| 2026-11-18 · v1.14.77 | `pacotePlanoDoCulto` (`soLink`) × `pacoteBases` | o editado cujo original é faixa de coleção chega sem os bytes do original (ele não viaja mais): o trecho só toca depois que a faixa for baixada pelo aviso — e o aviso conta o EDITADO? não medido | medição | caso raro (trecho de hino num culto); medir num aparelho antes de mexer no `pacoteBases` |
 | 2026-11-18 · v1.14.76 | `cultoAvisar` | nenhum resíduo novo; a sensação de espera no aparelho (o tempo real de cada etapa num culto grande) só se confere com o APK v1.14.75 instalado | medição | o tempo depende do aparelho e do tamanho das mídias |
 | 2026-11-18 · v1.14.75 | porta de entrada e envio do culto (shell 90) | as medições que só o aparelho fecha: capas + `.avpkg` no WhatsApp (duas bolhas? o `.avpkg` com o mesmo tamanho?); o MIME `vnd.iasd.avpkg` atravessa e o toque do outro lado cai no app; o toque com o app vivo, minimizado e com o processo MORTO; a leitura por janelas sobre o `content:` do WhatsApp; a concessão de leitura durando a importação; o incômodo do "abrir com" de binários | medição | precisa do APK instalado em dois aparelhos |
 | 2026-11-18 · v1.14.75 | `docs/NUCLEO-TECNICO.md` (a ponte) | a conta "Superfície: 67 / serve 73" está velha (o `ponte-guarda-host` conta 79) | higienização | pré-existente, fora da cerca do lote |

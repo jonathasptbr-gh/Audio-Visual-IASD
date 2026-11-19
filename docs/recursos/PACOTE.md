@@ -841,6 +841,13 @@ pacote INTEIRO diante de um `t` desconhecido (`cabecalhoDeBytes`) e de `VERSAO >
 - **`pacoteLerCapa(fonte)` → `{ info, capas: Blob[] }`** lê só o `info` e as páginas logo depois
   (até 1 + 6 registros) e nunca lança: é a pergunta da PRÉVIA.
 
+### Só o link, a folha viva e o culto ativo (v1.14.77)
+
+- **Só o link** (decisão do operador, 18/11): o que se baixa de novo pelo id vai SEM bytes — `media` com `youtubeId` ou `kind: 'semana'` (`bytes: 0`) e a faixa de coleção só como `arquivo` (com o `opfsPath`, sem os `opfs`). `pacotePlanoDoCulto` → `escopo.soLink`; o `info` leva `baixarDepois: [ids]`. Mídia própria e editados continuam com os bytes. No destino, o aviso do cronograma (`faltaParaTocarSemRede`, que confere o DISCO da faixa de coleção) acusa e baixa.
+- **A prévia** conta "N vêm junto · M para baixar depois · K já no aparelho" (sem `baixarDepois`, a conta de antes).
+- **A folha viva:** o Importar não fecha a prévia (`ficaAberto`); ela vira a barra com "N%" e o "Parar" (`cultoFolhaEmCurso`/`cultoFolhaAndar`) e termina no fim curto (`cultoFolhaFim`) — sem o `pacoteRelatorio`, que é do acervo.
+- **O culto entra ATIVO:** `cronoImportar` devolve `{ mudou, id }` e o `importarPacote` faz `cronoTrocar(id)`; o que estava em uso vira guardado. Num culto, a falha do `cronoImportar` lança.
+
 ### A prévia do culto (v1.14.75)
 
 **NADA É GRAVADO ANTES DO "IMPORTAR"** — é o consentimento de quem recebe. Com `escopo: 'culto'`, o

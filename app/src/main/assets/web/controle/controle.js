@@ -493,7 +493,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.76';
+const WEB_VERSION = '1.14.77';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -20875,7 +20875,14 @@ async function faltaParaTocarSemRede(rec) {
   // OS BYTES. `opfsPath` conta como presente sem conferir o arquivo: a
   // varredura do OPFS a cada desenho custaria uma leitura por linha, e quem
   // apaga o arquivo por fora é o coletor, que leva o registro junto.
-  if (rec.blob || rec.opfsPath) return null;
+  if (rec.blob) return null;
+  // A FAIXA DE COLEÇÃO (`folder`) é conferida no DISCO: desde a 16.d um culto a traz só como catálogo,
+  // com o `opfsPath` de lá — presente se o destino já tinha a faixa, ausente se não. Uma leitura por
+  // faixa do cronograma, só quando a lista muda (`chaveDoCronograma`).
+  if (rec.opfsPath && rec.folder) {
+    try { await AVDB.opfsGetFile(rec.opfsPath); return null; } catch (_) { return 'hino'; }
+  }
+  if (rec.opfsPath) return null;
   if (Array.isArray(rec.pages) && rec.pages.length) return null;
   if (rec.youtubeId) return rec.kind === 'audio' ? 'audio' : 'video';
   return 'hino';
@@ -35484,6 +35491,23 @@ async function pacotePlanoDoCulto(escopo, aoAndar) {
   if (aoAndar) aoAndar(0.5);
   const naMidia = new Set(midia.map((m) => m.id));
   const midiaBytes = new Map(midia.map((m) => [m.id, m.bytes || 0]));
+  // ===== SÓ O LINK (16.d, decisão do operador em 18/11) =====
+  // O que se baixa de novo PELO ID viaja como o registro SEM os bytes: o YouTube (baixado ou link —
+  // `youtubeId`), o vídeo da semana (`kind: 'semana'`, que já não tinha bytes) e a faixa de coleção
+  // (`folder` de uma coleção do catálogo, fora das pastas do aparelho). Quem recebe baixa pelo aviso
+  // do cronograma (`faltaParaTocarSemRede`). A mídia PRÓPRIA (foto, vídeo do aparelho, PPTX, PDF) e o
+  // EDITADO continuam com os bytes. `soLink` vai no `info` como `baixarDepois`, para a prévia contar.
+  const soLink = new Set();
+  for (const m of midia) {
+    let rec = null;
+    try { rec = await AVDB.getMediaCru(m.id); } catch (_) { rec = null; }
+    if (!rec || rec.edicao) continue;
+    if (rec.youtubeId || rec.kind === 'semana') { soLink.add(m.id); midiaBytes.set(m.id, 0); }
+  }
+  let pastas = null;
+  try { pastas = await AVDB.getState('opfs-folders'); } catch (_) { pastas = null; }
+  const doAcervo = AVPacote.pastasDoAparelho(pastas);
+  const colecoes = new Set(allCollections().map((c) => c.id));
   const arquivos = [];
   const doDisco = [];
   const vistos = new Set();
@@ -35493,6 +35517,13 @@ async function pacotePlanoDoCulto(escopo, aoAndar) {
     try { rec = await AVDB.fileGet(id); } catch (_) { rec = null; }
     if (!rec || arquivos.some((a) => a.id === id)) continue;
     arquivos.push(rec);
+    // A FAIXA DE COLEÇÃO vai só como catálogo: o `opfsPath` é determinístico (`folders/<coleção>/…`),
+    // então no destino que já tem a faixa ele aponta para o arquivo de lá, e no que não tem o aviso
+    // a acusa e a baixa (`baixarUmFaltante`, tipo 'hino').
+    if (rec.folder && colecoes.has(rec.folder) && rec.opfsPath && doAcervo(rec.opfsPath)) {
+      soLink.add(id);
+      continue;
+    }
     for (const caminho of pacoteCaminhosDoArquivo(rec)) {
       if (vistos.has(caminho) || AVDB.ehCaminhoDeBase(caminho)) continue;
       vistos.add(caminho);
@@ -35512,7 +35543,7 @@ async function pacotePlanoDoCulto(escopo, aoAndar) {
     estado, midia, porGrupo, nomes: new Map(), ids: new Set(allCollections().map((c) => c.id)),
     caminhoViaja: () => true, grupos, folha: null,
     midiaPorGrupo: new Map([['midia', naMidia]]), midiaBytes, seriesIds: new Set(),
-    escopo: { arquivos },
+    escopo: { arquivos, soLink },
   };
 }
 
@@ -36457,7 +36488,9 @@ async function pacoteEscreverRegistros(esc, plano, sel, bases, total, tarefa, ex
       // que a leitura resolvida traria junto). O original vai pelo `pacoteBases`.
       try { rec = await AVDB.getMediaCru(m.id); } catch (_) { continue; }
       if (!rec) continue;
-      const corpo = rec.blob || null;
+      // SÓ O LINK num culto (`plano.escopo.soLink`, 16.d): o registro vai, os bytes não.
+      const corpo = (plano.escopo && plano.escopo.soLink && plano.escopo.soLink.has(m.id))
+        ? null : (rec.blob || null);
       // `grupos`: de QUE grupos da folha este item é — é o que deixa a IMPORTAÇÃO por
       // marcas decidir sobre ele (um vídeo de série não está em lista nenhuma do
       // `state`, e só o grupo da série o nomeia). Um leitor antigo ignora o campo.
@@ -36826,6 +36859,14 @@ function cultoTipoLegivel(rec) {
  * (a hora PREVISTA — sem `itin.desloc`, que é o ajuste do dia DESTE aparelho); mídia →
  * `{ tipo:'midia', titulo, sub }`. Um id sem registro não vira linha.
  */
+// O HINÁRIO ANTIGO NA CAPA (decisão do operador, 18/11): a capa é só imagem, e "010 — Título" não diz
+// de qual hinário. O NOVO (2022) predomina e fica só com o número; o de 1996 é a exceção e ganha
+// " (1996)" no fim. Sem sigla: a CPB não tem uma oficial para o novo, e "HASD" serve aos dois títulos.
+// A coleção vem da faixa (`folder`) ou da cena de letra (`data.collId`).
+function cultoMarcaDoHinario(rec) {
+  const coll = rec && (rec.folder || (rec.cue === 'songlyrics' && rec.data && rec.data.collId));
+  return coll === 'hymnal-1996' ? ' (1996)' : '';
+}
 async function cultoLinhasDaCapa(ids) {
   const linhas = [];
   for (const id of ids) {
@@ -36837,7 +36878,8 @@ async function cultoLinhasDaCapa(ids) {
       linhas.push({ tipo: 'momento', hora: itinMinValido(min) ? createStage.itinHora(Math.round(min)) : '',
         titulo: String(rec.name || '').trim() || 'Momento' });
     } else {
-      linhas.push({ tipo: 'midia', titulo: String(rec.name || '').trim() || 'Item', sub: cultoTipoLegivel(rec) });
+      const titulo = (String(rec.name || '').trim() || 'Item') + cultoMarcaDoHinario(rec);
+      linhas.push({ tipo: 'midia', titulo, sub: cultoTipoLegivel(rec) });
     }
   }
   return linhas;
@@ -36961,7 +37003,7 @@ async function exportarCulto(id) {
       try {
         await pacoteEscreverRegistros(esc, plano, sel, bases, total, tarefa, {
           info: { escopo: 'culto', culto: { id: novoId, nome: culto.nome }, grupos: [culto.nome],
-            capas: capas.length },
+            capas: capas.length, baixarDepois: [...plano.escopo.soLink] },
           capas,
         });
         await esc.descarregar();
@@ -37259,36 +37301,135 @@ async function cultoResumoDoPacote(fonte) {
   return out;
 }
 
+// ===== A FOLHA DO CULTO: A PRÉVIA, O PROGRESSO E O FIM NA MESMA FOLHA (16.a) =====
+//
+// O pedido do operador: *"pode usar a mesma tela de confirmação de importação, e apenas fazer uma
+// barra de progresso ou animação para o processo de importação após confirmação"*. Então o Importar
+// NÃO fecha a folha (`ficaAberto`): ela vira o progresso (`cultoFolhaEmCurso`/`cultoFolhaAndar`) e
+// termina na frase curta (`cultoFolhaFim`). O censo das coleções (`pacoteRelatorio`) é do ACERVO —
+// num culto ele responde "quantas músicas existem no hinário", que não é o que foi importado.
+let cultoFolhaViva = false;
+let cultoFolhaPct = -1;
+let cultoFolhaEstagio = '';
+
+/** A folha virou PROGRESSO: a barra nasce, o % assume a mensagem, o OK vira o "Parar". */
+function cultoFolhaEmCurso() {
+  cultoFolhaViva = true;
+  cultoFolhaPct = -1;
+  cultoFolhaEstagio = '';
+  appDialogBarraEl.hidden = false;
+  appDialogBarraCheiaEl.style.setProperty('--pct', '0%');
+  appDialogMsgEl.textContent = '0%';
+  appDialogMsgEl.hidden = false;
+  appDialogRodapeEl.textContent = 'Preparando…';
+  appDialogRodapeEl.hidden = false;
+  // O MESMO "PARAR" DO TILE: o toque no botão que trabalha é a saída que o app já ensina, e a folha
+  // cobre a grade — sem ele, um culto grande ficaria sem saída até o fim.
+  appDialogCancelEl.hidden = true;
+  appDialogOkEl.hidden = false;
+  appDialogOkEl.textContent = 'Parar';
+  appDialogOkEl.classList.remove('primary');
+  appDialogAcao = () => {
+    pacoteCancelarImport = true;
+    appDialogOkEl.disabled = true;
+    appDialogOkEl.textContent = 'Parando…';
+  };
+  // O Esc NÃO fecha uma folha em curso: ele sairia da tela e a importação continuaria sem dono. Quem
+  // para é o botão — e o fim (ou a interrupção) volta a abrir a saída.
+  document.removeEventListener('keydown', onAppDialogKey);
+}
+
+/** A barra e o estágio. No-op fora de uma folha viva (o acervo continua com o tile e a notificação). */
+function cultoFolhaAndar(fracao, estagio) {
+  if (!cultoFolhaViva) return;
+  if (estagio && estagio !== cultoFolhaEstagio) {
+    cultoFolhaEstagio = estagio;
+    appDialogRodapeEl.textContent = estagio;
+    appDialogRodapeEl.hidden = false;
+  }
+  const pct = Math.round(Math.min(1, Math.max(0, Number(fracao) || 0)) * 100);
+  // SÓ QUANDO O NÚMERO MUDA, pela mesma razão do `pacoteFalarPercentual`: ele é chamado por registro.
+  if (pct === cultoFolhaPct) return;
+  cultoFolhaPct = pct;
+  appDialogMsgEl.textContent = pct + '%';
+  appDialogBarraCheiaEl.style.setProperty('--pct', pct + '%');
+}
+
+/**
+ * A folha vira o FIM CURTO e espera o OK. Sem folha viva (um diálogo de outro assunto a fechou no meio),
+ * o mesmo texto sai no diálogo de sempre — o desfecho nunca é mudo.
+ */
+function cultoFolhaFim(titulo, texto) {
+  if (!cultoFolhaViva) {
+    return openAppDialog({ title: titulo, message: texto, okText: 'OK', cancelText: null, fixo: true });
+  }
+  cultoFolhaViva = false;
+  appDialogAcao = null;
+  appDialogBarraEl.hidden = true;
+  appDialogRodapeEl.textContent = '';
+  appDialogRodapeEl.hidden = true;
+  appDialogMsgEl.textContent = texto;
+  appDialogMsgEl.hidden = !texto;
+  appDialogOkEl.disabled = false;
+  appDialogOkEl.textContent = 'OK';
+  appDialogOkEl.classList.add('primary');
+  appDialogOkEl.hidden = false;
+  appDialogCancelEl.hidden = true;
+  document.addEventListener('keydown', onAppDialogKey);
+  return new Promise((resolve) => { appDialogResolve = resolve; });
+}
+
+/** A SAÍDA (cancelou, falhou): a folha volta a ser a de sempre e some — o aviso vem no diálogo dele. */
+function cultoFolhaFechar() {
+  if (!cultoFolhaViva) return;
+  cultoFolhaViva = false;
+  appDialogAcao = null;
+  appDialogOkEl.disabled = false;
+  closeAppDialog(false);
+}
+
 /**
  * A PRÉVIA DO CULTO — o consentimento (pedido do operador, P3): a capa ("1 de N"), o nome, a conta
- * ("N itens · X MB") e quantos já estão no aparelho × vêm junto. `true` = Importar; `false` =
- * Cancelar, Esc ou voltar, e aí NADA foi gravado (até aqui só se leram cabeçalhos).
+ * ("N itens · X MB") e quantos já estão no aparelho × vêm junto. `true` = Importar, e aí a MESMA
+ * folha fica e vira progresso; `false` = Cancelar, Esc ou voltar, e NADA foi gravado (até aqui só se
+ * leram cabeçalhos).
  */
 async function cultoPrevia(fonte, sobre, nome) {
   const { ids } = await cultoResumoDoPacote(fonte);
   let aqui = 0;
+  const presentes = new Set();
   for (const id of ids) {
     let tem = null;
-    try { tem = (await AVDB.getMediaCru(id)) || (await AVDB.fileGet(id)); } catch (_) { tem = null; }
-    if (tem) aqui++;
+    try { tem = await AVDB.getMediaCru(id); } catch (_) { tem = null; }   // cai em `fileGet` sozinho
+    if (tem) { aqui++; presentes.add(id); }
   }
   const bytes = sobre.info && Number(sobre.info.bytes) > 0 ? Number(sobre.info.bytes) : fonte.size;
   const conta = (ids.length ? (ids.length === 1 ? '1 item' : ids.length + ' itens') + ' · ' : '')
     + fmtBytes(bytes);
-  const vem = ids.length - aqui;
+  // "PARA BAIXAR DEPOIS" À PARTE (16.d): o `info.baixarDepois` do exportador diz o que chega sem bytes;
+  // um pacote de antes dele não tem o campo e a conta é a de sempre.
+  const soLink = new Set(sobre.info && Array.isArray(sobre.info.baixarDepois) ? sobre.info.baixarDepois.map(String) : []);
+  let depois = 0;
+  for (const id of ids) if (soLink.has(id) && !presentes.has(id)) depois++;
+  const vem = ids.length - aqui - depois;
   const partes = ids.length
-    ? [vem === 1 ? '1 vem junto' : vem + ' vêm junto', aqui === 1 ? '1 já está no aparelho' : aqui + ' já no aparelho']
+    ? [vem === 1 ? '1 vem junto' : vem + ' vêm junto']
+      .concat(depois ? [depois === 1 ? '1 para baixar depois' : depois + ' para baixar depois'] : [])
+      .concat([aqui === 1 ? '1 já está no aparelho' : aqui + ' já no aparelho'])
     : [];
-  return openAppDialog({
+  const abriu = await openAppDialog({
     title: nome,
     message: conta + (partes.length ? '\n' + partes.join(' · ') : ''),
-    rodape: 'Entra como um cronograma guardado; nada do que já está no aparelho é substituído.',
+    rodape: 'Entra e fica em uso; o que estava em uso continua na gaveta. Nada é substituído.',
     capas: sobre.capas,
     okText: 'Importar',
     cancelText: 'Cancelar',
     fixo: true,
     classe: 'previa-culto',
+    ficaAberto: true,
   });
+  if (abriu) cultoFolhaEmCurso();
+  return !!abriu;
 }
 
 /**
@@ -37718,11 +37859,17 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
   await escoarEstado();
   if (cronosDoPacote && !pacoteCancelarImport) {
     try {
-      const n = await AVDB.cronoImportar(cronosDoPacote, filtro && filtro.admitidos ? filtro.admitidos : null);
-      if (n) contagem.chaves += 1;
-      contagem.cronos = n;
+      const r = await AVDB.cronoImportar(cronosDoPacote, filtro && filtro.admitidos ? filtro.admitidos : null);
+      if (r.mudou) contagem.chaves += 1;
+      // `cronoId` é o guardado que esta importação TOCA (novo ou já existente): é ele que o fim de um
+      // CULTO deixa selecionado e ativo (`cronoTrocar`), sem uma segunda varredura por nome.
+      contagem.cronos = r.mudou;
+      contagem.cronoId = r.id;
     } catch (e) {
       if (pacoteSemEspaco(e)) throw new Error(PACOTE_SEM_ESPACO);
+      // NUM CULTO O CRONOGRAMA É O PACOTE INTEIRO: calar aqui faria o fim anunciar "entrou e está em
+      // uso" sobre um culto que não entrou. No acervo a mídia já vale por si, e a frase de hoje basta.
+      if (contagem.culto) throw e;
       console.warn('[crono] importar falhou:', e);
     }
   }
@@ -38324,9 +38471,11 @@ async function importarPacote(entrada) {
       // INTEIRO: durante a conferência ele não diz "copiei tantos bytes", diz
       // "andei tanto do trabalho, medido no tamanho do arquivo". É monotônico e
       // nunca volta a zero.
+      let estagio = 'Conferindo o pacote…';
       const andarNaBarra = (fracao) => {
         bgTaskBytes(tarefa, Math.round(fracao * fonte.size), fonte.size);
         pacoteFalarPercentual(pacoteImportarTileEl, fracao);
+        cultoFolhaAndar(fracao, estagio);   // no-op fora da folha do culto
       };
       // O PACOTE INTEIRO É CONFERIDO ANTES DE UMA LINHA SER GRAVADA. Ver
       // `pacoteConferir`: é o que faz um arquivo cortado no meio ser recusado
@@ -38348,6 +38497,7 @@ async function importarPacote(entrada) {
         // faz a segunda etapa CONTINUAR de onde a primeira ficou.
         bgTaskStep(tarefa, Math.round(PACOTE_FATIA_CONFERE * fonte.size),
           'Importando para a Biblioteca');
+        estagio = 'Importando…';
         const viuFim = await pacoteAplicarFluxo(pacoteCursor(fonte), contagem, (pos, nome) => {
           if (nome) bgItemStart(tarefa, nome);
           andarNaBarra(pacoteFatia(PACOTE_FATIA_CONFERE, 1 - PACOTE_FATIA_CONFERE,
@@ -38378,6 +38528,8 @@ async function importarPacote(entrada) {
     pacoteCalar(pacoteImportarTileEl);
     pacoteRenderTiles();
   }
+  cultoFolhaAndar(1);
+  if (pacoteCancelarImport || erro) cultoFolhaFechar();
   if (pacoteCancelarImport) {
     pacoteCancelarImport = false;
     // PARAR NÃO É FALHAR, e o app não recarrega: o que entrou está certo e
@@ -38419,7 +38571,7 @@ async function importarPacote(entrada) {
         : (filtro
           ? 'O arquivo do pacote foi apagado — com o que não estava marcado.'
           : contagem.culto
-            ? 'O arquivo do pacote foi apagado — o culto agora está na gaveta dos cronogramas.'
+            ? 'O arquivo recebido foi apagado.'
             : 'O arquivo do pacote foi apagado — o acervo agora está na biblioteca.');
     } catch (_) {
       consumo = 'O arquivo do pacote continua no aparelho.';
@@ -38440,6 +38592,32 @@ async function importarPacote(entrada) {
   // e agora ela roda ANTES do diálogo — numa falha o relatório se perde junto.
   // É a troca certa: aquele caminho é a emergência, e o relatório errado é o
   // caso NORMAL do aparelho que o recurso existe para servir.
+  // ===== O FIM DE UM CULTO (16.a/16.b): ATIVO e FRASE CURTA =====
+  // O censo das coleções (`pacoteRelatorio`) é do ACERVO; num culto ele lista o hinário inteiro. O
+  // guardado que a importação tocou (`contagem.cronoId`, novo ou o mesmo id de uma vez anterior) vira
+  // o ATIVO — `cronoTrocar` guarda o que estava em uso como um guardado, nada se perde — e o
+  // `reidratar` (o `load()`) mostra a lista dele.
+  if (contagem.culto) {
+    if (contagem.cronoId) {
+      cronoAntesDeTrocar();
+      try { await AVDB.cronoTrocar(contagem.cronoId); } catch (e) { console.warn('[crono] ativar o culto falhou:', e); }
+    }
+    await reidratarDepoisDaImportacao();
+    if (libraryEl) libraryEl.scrollTop = 0;
+    const nomeAqui = (cronoPorId(contagem.cronoId) || {}).nome || contagem.culto;
+    const linhas = ['“' + nomeAqui + '” ' + (contagem.cronos ? 'entrou e está em uso.'
+      : 'já estava no aparelho e está em uso.')];
+    let depois = 0;
+    try { depois = (await itensQueNaoTocamSemRede()).length; } catch (_) { depois = 0; }
+    if (depois) {
+      linhas.push(depois === 1 ? '1 item vem para baixar: toque no aviso do cronograma.'
+        : depois + ' itens vêm para baixar: toque no aviso do cronograma.');
+    }
+    if (contagem.recusadas) linhas.push(contagem.recusadas + ' ajuste(s) do outro aparelho foram recusados.');
+    if (consumo) linhas.push(consumo);
+    await cultoFolhaFim('Culto importado', linhas.join('\n'));
+    return;
+  }
   await reidratarDepoisDaImportacao();
   await openAppDialog({
     title: contagem.culto ? 'Culto importado' : 'Acervo importado',
@@ -41817,12 +41995,21 @@ let appDialogResolve = null;
 // `fixo`: o toque no fundo NÃO cancela (a atualização: um toque por acidente valia "Deixar para
 // depois" e calava a pergunta pela sessão). A recusa DELIBERADA — o botão e o Esc/voltar — continua.
 let appDialogFixo = false;
+// A FOLHA VIVA — a importação de um CULTO é a única: o Importar RESOLVE e a folha FICA
+// (`ficaAberto`), porque a mesma folha vira o progresso e o fim. `appDialogAcao` é o dono do botão
+// enquanto ela está viva (hoje o "Parar" do progresso): com ele posto, o OK executa a ação em vez de
+// fechar. Sem ele, o diálogo é o de sempre.
+let appDialogFicaAberto = false;
+let appDialogAcao = null;
 // AS CAPAS (a prévia do culto): `capas: Blob[]` vira um trilho que rola de lado, uma página por
 // vez, com "1 de N". As URLs dos Blobs morrem com o diálogo.
 const appDialogCardEl = appDialogEl.querySelector('.dialog-card');
 const appDialogCapasEl = document.getElementById('appDialogCapas');
 const appDialogCapasTrilhoEl = document.getElementById('appDialogCapasTrilho');
 const appDialogCapasContaEl = document.getElementById('appDialogCapasConta');
+// A BARRA DA FOLHA VIVA (a importação de um culto): ver `cultoFolhaEmCurso`.
+const appDialogBarraEl = document.getElementById('appDialogBarra');
+const appDialogBarraCheiaEl = document.getElementById('appDialogBarraCheia');
 let appDialogCapasUrls = [];
 let appDialogClasse = '';
 
@@ -41859,6 +42046,12 @@ function closeAppDialog(result) {
   document.removeEventListener('keydown', onAppDialogKey);
   appDialogEl.classList.remove('open');
   appDialogCapas(null);
+  // A FOLHA VIVA MORRE AQUI: quem a segurou (`cultoFolhaViva`) confere depois, e um `abrirFolha` de
+  // outro diálogo por cima não pode deixar um progresso escrevendo numa folha que não é dele.
+  appDialogFicaAberto = false;
+  appDialogAcao = null;
+  appDialogBarraEl.hidden = true;
+  cultoFolhaViva = false;
   if (appDialogClasse) { appDialogCardEl.classList.remove(appDialogClasse); appDialogClasse = ''; }
   const r = appDialogResolve; appDialogResolve = null;
   if (r) r(result);
@@ -41872,12 +42065,15 @@ function onAppDialogKey(e) {
 }
 function openAppDialog(opts) {
   const { title, message, okText, cancelText, input, value, placeholder, fixo, itens, rodape, perigo,
-    capas, classe } = opts || {};
+    capas, classe, ficaAberto } = opts || {};
   return new Promise((resolve) => {
     // Se já houver um diálogo aberto, resolve o anterior como cancelado.
     if (appDialogResolve) closeAppDialog(input ? null : false);
     appDialogResolve = resolve;
     appDialogFixo = !!fixo;
+    appDialogFicaAberto = !!ficaAberto;
+    appDialogAcao = null;
+    appDialogBarraEl.hidden = true;
     appDialogCapas(capas);
     if (classe) { appDialogClasse = String(classe); appDialogCardEl.classList.add(appDialogClasse); }
     appDialogTitleEl.textContent = title || '';
@@ -41928,7 +42124,19 @@ function appConfirm(opts) { return openAppDialog({ okText: 'Confirmar', cancelTe
 // prompt → resolve o texto (OK) / null (cancelar/fora/Esc)
 function appPrompt(opts) { return openAppDialog({ okText: 'OK', cancelText: 'Cancelar', ...opts, input: true }); }
 
-appDialogOkEl.addEventListener('click', () => closeAppDialog(appDialogInputEl.hidden ? true : appDialogInputEl.value));
+// O OK DE UMA FOLHA VIVA: com `appDialogAcao` posto, o botão é do chamador ("Parar"); com
+// `ficaAberto`, ele RESOLVE e a folha FICA (é o Importar da prévia do culto). Sem os dois, fecha.
+appDialogOkEl.addEventListener('click', () => {
+  if (appDialogAcao) { const a = appDialogAcao; a(); return; }
+  if (appDialogFicaAberto) {
+    appDialogFicaAberto = false;
+    document.removeEventListener('keydown', onAppDialogKey);
+    const r = appDialogResolve; appDialogResolve = null;
+    if (r) r(appDialogInputEl.hidden ? true : appDialogInputEl.value);
+    return;
+  }
+  closeAppDialog(appDialogInputEl.hidden ? true : appDialogInputEl.value);
+});
 appDialogCancelEl.addEventListener('click', () => closeAppDialog(appDialogInputEl.hidden ? false : null));
 appDialogEl.addEventListener('click', (e) => {
   if (e.target !== appDialogEl || appDialogFixo) return;

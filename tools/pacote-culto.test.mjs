@@ -38,6 +38,7 @@ new Function(fs.readFileSync(path.join(RAIZ, 'controle', 'pacote.js'), 'utf8')).
 const P = g_.AVPacote;
 
 let pacoteServido = null;
+let pacoteAtraso = 0;   // ms por pedido: segura a importação para a foto do PROGRESSO (bloco L)
 const servidor = servirEstatico(RAIZ, (req, res) => {
   const u = new URL(req.url, 'http://x');
   if (u.pathname !== '/pacote-de-teste') return false;
@@ -45,8 +46,11 @@ const servidor = servirEstatico(RAIZ, (req, res) => {
   const m = /^(\d+)-(\d+)$/.exec(u.searchParams.get('r') || '');
   if (!m) { res.writeHead(416).end('sem faixa'); return true; }
   const fatia = pacoteServido.subarray(Number(m[1]), Math.min(pacoteServido.length, Number(m[2]) + 1));
-  res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Cache-Control': 'no-store' });
-  res.end(Buffer.from(fatia));
+  const responder = () => {
+    res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Cache-Control': 'no-store' });
+    res.end(Buffer.from(fatia));
+  };
+  if (pacoteAtraso) setTimeout(responder, pacoteAtraso); else responder();
   return true;
 });
 
@@ -210,13 +214,20 @@ async function seguir(pg, opts) {
       await pg.evaluate(() => window.__fim).catch(() => {});
       return { abriu, previa, cancelado: true };
     }
+    if (o.durante) await o.durante(pg);
+    // 16.a: a MESMA folha vira progresso e termina no fim curto (barra oculta, o OK de volta); um erro
+    // fecha a folha e abre o aviso (sem a classe da prévia).
     abriu = await esperar(pg, () => {
       const d = document.getElementById('appDialog');
-      return d.classList.contains('open') && !d.querySelector('.dialog-card').classList.contains('previa-culto');
+      if (!d.classList.contains('open')) return false;
+      if (!d.querySelector('.dialog-card').classList.contains('previa-culto')) return true;
+      return document.getElementById('appDialogBarra').hidden
+        && document.getElementById('appDialogOk').textContent === 'OK';
     }, null, 60000);
   }
   const msg = await pg.evaluate(() => (document.getElementById('appDialogMsg') || {}).textContent || '');
   const titulo = await pg.evaluate(() => (document.getElementById('appDialogTitle') || {}).textContent || '');
+  if (o.antesDoOk) await o.antesDoOk(pg);
   if (abriu === true) await pg.click('#appDialogOk');
   await pg.evaluate(() => window.__fim).catch(() => {});
   return { abriu, msg, titulo, previa };
@@ -622,13 +633,14 @@ try {
   + 'aparelho", com Importar (primário) e Cancelar', JSON.stringify(pv));
   checar(pv.imports === 0 && !pv.midA && pv.guardados === (antesB.lido ? antesB.lido.itens.length : 0),
   'P · com a prévia aberta NADA foi gravado (nem cronograma, nem lista, nem mídia)', JSON.stringify({ pv, antesB }));
-  checar(impB.abriu === true && /Culto importado/.test(impB.titulo) && /entrou como um cronograma guardado/.test(impB.msg),
-    'C · aparelho limpo: o Importar de hoje aceita o pacote do culto e diz que entrou como guardado',
+  checar(impB.abriu === true && impB.titulo === 'Culto Sábado'
+    && impB.msg === '“Culto Sábado” entrou e está em uso.\nO arquivo recebido foi apagado.'
+    && !/músicas|Total/.test(impB.msg),
+    '16.a · o fim é a frase CURTA na mesma folha ("entrou e está em uso"), sem o censo das coleções',
     JSON.stringify(impB));
-  checar(guardB && guardB.id !== depoisB.gaveta.ativo && rawB && rawB.ids.length === 4
-    && depoisB.imports.length === 0 && antesB.imports.length === 0
-    && depoisB.gaveta.itens.length === 2,
-  'C · aparelho limpo: vira um GUARDADO novo com os 4 itens; o ativo continua vazio e é outro',
+  checar(guardB && guardB.id === depoisB.gaveta.ativo && rawB && depoisB.imports.length === 4
+    && antesB.imports.length === 0 && depoisB.gaveta.itens.length === 2,
+  '16.b · aparelho limpo: o culto entra com os 4 itens e fica SELECIONADO e ATIVO (a lista à vista é ele)',
   JSON.stringify({ antesB, depoisB }));
   checar(temB.mid && temB.orig && temB.edit && temB.hino && temB.audio === 1200 && temB.fundo === 500
     && !temB.outro && temB.lyricsFont == null && temB.bible == null,
@@ -661,23 +673,25 @@ try {
   const depoisC = await estadoCronos(C.pg);
   const novoC = depoisC.lido.itens.find((x) => x.nome === 'Culto Sábado (2)');
   const velhoC = depoisC.lido.itens.find((x) => x.id === 'cr-g');
-  checar(impC.abriu === true && novoC && novoC.ids.length === 4 && novoC.id !== 'cr-c',
-    'C · com outro ativo: o culto vira um guardado NOVO "Culto Sábado (2)" com os 4 itens — as '
+  const meuC = depoisC.lido.itens.find((x) => x.id === 'cr-c');
+  checar(impC.abriu === true && novoC && novoC.id !== 'cr-c' && depoisC.lido.ativo === novoC.id
+    && depoisC.imports.length === 4 && /“Culto Sábado \(2\)” entrou e está em uso/.test(impC.msg),
+    'C · com outro ativo: o culto entra como "Culto Sábado (2)" com os 4 itens e fica ATIVO — as '
     + 'marcas do Transferir não o filtram', JSON.stringify({ impC, itens: depoisC.lido.itens }));
-  checar(depoisC.lido.ativo === 'cr-c' && JSON.stringify(depoisC.imports) === JSON.stringify(antesC.imports)
-    && JSON.stringify(depoisC.imports) === '["c-item"]'
+  checar(JSON.stringify(antesC.imports) === '["c-item"]' && meuC && JSON.stringify(meuC.ids) === '["c-item"]'
     && velhoC && velhoC.nome === 'Culto Sábado' && JSON.stringify(velhoC.ids) === '["c-item"]'
     && depoisC.lido.itens.length === 3,
-  'C · o ativo "Meu culto" e o conteúdo dele INTOCADOS, o guardado de mesmo nome também: nada substituído',
-  JSON.stringify({ antesC, depoisC }));
+  'C · nada substituído: o que estava em uso ("Meu culto") vira guardado COM o conteúdo dele, e o '
+  + 'guardado de mesmo nome fica intocado', JSON.stringify({ antesC, depoisC }));
   // Importar o MESMO arquivo de novo não duplica.
   const deNovoImp = await importar(C.pg, comCapa);
   const deNovo = await estadoCronos(C.pg);
   checar(deNovoImp.previa && /0 vêm junto · 4 já no aparelho/.test(deNovoImp.previa.msg),
     'P · de novo: a prévia conta "0 vêm junto · 4 já no aparelho"', JSON.stringify(deNovoImp.previa));
-  checar(deNovo.lido.itens.length === 3 && JSON.stringify(deNovo.imports) === '["c-item"]',
-    'C · importar o MESMO arquivo de novo não cria outro guardado nem toca no ativo',
-    JSON.stringify(deNovo.lido.itens.map((x) => x.nome)));
+  checar(deNovo.lido.itens.length === 3 && deNovo.lido.ativo === novoC.id && deNovo.imports.length === 4
+    && /já estava no aparelho e está em uso/.test(deNovoImp.msg),
+    'C · importar o MESMO arquivo de novo não cria outro guardado, e o fim diz que ele já estava e está em uso',
+    JSON.stringify({ itens: deNovo.lido.itens.map((x) => x.nome), msg: deNovoImp.msg }));
   await C.ctx.close();
 
   // ===== P · A PRÉVIA COM 3 CAPAS (as fotos), o CANCELAR, e a ENTREGA POR VIEW =====
@@ -730,8 +744,8 @@ try {
   const posView = await Pv.pg.evaluate(async () => ({ c: await AVDB.getState('cronogramas'),
     mid: !!(await AVDB.getMediaCru('mid-a')), cham: window.__chamadas.slice() }));
   checar(porView.previa && porView.previa.titulo === 'Culto Sábado' && porView.previa.capas.length === 3
-    && /Culto importado/.test(porView.titulo) && posView.mid
-    && posView.c && posView.c.itens.some((x) => x.nome === 'Culto Sábado' && x.ids.length === 4)
+    && porView.titulo === 'Culto Sábado' && /entrou e está em uso/.test(porView.msg) && posView.mid
+    && posView.c && posView.c.itens.some((x) => x.nome === 'Culto Sábado' && x.id === posView.c.ativo)
     && !posView.cham.includes('consumir'),
   'P · pela PORTA (VIEW → takeShare { pacote }): a prévia abre mesmo com um acervo pronto, o Importar grava '
   + 'como hoje, e o arquivo da conversa NÃO é consumido', JSON.stringify({ porView, posView }));
@@ -751,6 +765,114 @@ try {
     'P · lerPacotePronto ignora o pronto com nome de CULTO (os dois saneamentos) e adota o do acervo',
     JSON.stringify(prontos));
   await Pv.ctx.close();
+
+
+  // ===== L · SÓ O LINK (16.d) e a FOLHA VIVA (16.a): prévia → progresso → fim, fotos a 360 =====
+  // O YouTube (baixado) e a faixa de coleção viajam SEM bytes; a foto do aparelho, com. No destino, os
+  // dois chegam "para baixar depois" e o aviso do cronograma (`itensQueNaoTocamSemRede`) os acusa.
+  const foto = (n) => path.join(process.env.HOME, 'tmp', n);
+  const L = await aparelho(null);
+  await L.pg.evaluate(async () => {
+    const bl = (n, v, t) => new Blob([new Uint8Array(n).fill(v)], { type: t });
+    const base = { url: null, pages: null, videos: null, cue: null, data: null, height: null, seconds: 30,
+      canal: null, createdAt: 1, thumb: bl(40, 9, 'image/jpeg') };
+    await AVDB.mediaAdd(Object.assign({}, base, { id: 'yt-1', name: 'Vídeo do YouTube', kind: 'video',
+      type: 'video/mp4', blob: bl(4000, 1, 'video/mp4'), youtubeId: 'abcdefghijk' }));
+    await AVDB.mediaAdd(Object.assign({}, base, { id: 'foto-1', name: 'Foto do aparelho', kind: 'image',
+      type: 'image/jpeg', blob: bl(3000, 2, 'image/jpeg'), youtubeId: null }));
+    await AVDB.opfsWriteFile('folders/hinario-cat/010.m4a', bl(1500, 3, 'audio/mp4'));
+    await AVDB.fileAdd({ id: 'arq-cat', folder: 'hinario-cat', opfsPath: 'folders/hinario-cat/010.m4a',
+      srcName: '010-Cantado', name: '010 — Hino do catálogo', type: 'audio/mp4', kind: 'audio', size: 1500,
+      thumb: null, blob: null, url: null, addedAt: 1 });
+    for (const id of ['yt-1', 'foto-1', 'arq-cat']) await AVDB.listAdd('imports', id);
+    await AVDB.setState('cronogramas', { ativo: 'cr-l', itens: [{ id: 'cr-l', nome: 'Culto com links', ids: [], usado: 0 }] });
+  });
+  await recarregar(L.pg);
+  // SEM REDE o catálogo do LouvorJA não carrega: `hinario-cat` passa a ser uma coleção conhecida.
+  await L.pg.evaluate(() => {
+    const o = allCollections;
+    window.allCollections = () => o().concat([{ id: 'hinario-cat', name: 'Hinário de teste' }]);
+    window.__saida = []; window.__chamadas = [];
+    exportarCulto(cronos.ativo);
+  });
+  await esperar(L.pg, () => window.__chamadas.some((c) => /^compartilhar/.test(c)), null, 60000);
+  const soLink = await saidaDe(L.pg);
+  await L.ctx.close();
+  const rL = registros(soLink);
+  const infoL = JSON.parse(txt(rL[0].corpo));
+  const mL = (id) => rL.find((r) => r.cab.t === 'media' && r.cab.rec.id === id);
+  const arqL = rL.filter((r) => r.cab.t === 'arquivo').map((r) => r.cab.rec);
+  const opfsL = rL.filter((r) => r.cab.t === 'opfs').map((r) => r.cab.caminho);
+  checar(mL('yt-1') && mL('yt-1').cab.bytes === 0 && mL('yt-1').cab.rec.youtubeId === 'abcdefghijk'
+    && mL('foto-1') && mL('foto-1').cab.bytes === 3000,
+  '16.d · o vídeo do YouTube vai SÓ como registro (0 bytes, com o youtubeId); a foto do aparelho vai com os bytes',
+  JSON.stringify(rL.filter((r) => r.cab.t === 'media').map((r) => [r.cab.rec.id, r.cab.bytes])));
+  checar(arqL.length === 1 && arqL[0].id === 'arq-cat' && arqL[0].opfsPath === 'folders/hinario-cat/010.m4a'
+    && opfsL.length === 0,
+  '16.d · a faixa de coleção vai só como catálogo (com o caminho de lá), sem os bytes', JSON.stringify({ arqL, opfsL }));
+  checar(JSON.stringify((infoL.baixarDepois || []).slice().sort()) === '["arq-cat","yt-1"]',
+    '16.d · o `info` diz o que chega sem bytes (`baixarDepois`)', JSON.stringify(infoL));
+
+  const L2 = await aparelho(soLink);
+  await L2.pg.setViewportSize({ width: 360, height: 640 });
+  let duranteL = null;
+  pacoteAtraso = 250;
+  const impL = await importar(L2.pg, soLink, {
+    antesDeTocar: async (pg) => { await pg.waitForTimeout(300); await pg.screenshot({ path: foto('folha-1-previa-360.png') }); },
+    durante: async (pg) => {
+      await esperar(pg, () => !document.getElementById('appDialogBarra').hidden
+        && /^\d+%$/.test(document.getElementById('appDialogMsg').textContent), null, 30000);
+      await pg.waitForTimeout(400);
+      duranteL = await pg.evaluate(() => ({
+        aberta: document.getElementById('appDialog').classList.contains('open'),
+        mesma: document.querySelector('#appDialog .dialog-card').classList.contains('previa-culto'),
+        capas: !document.getElementById('appDialogCapas').hidden,
+        titulo: document.getElementById('appDialogTitle').textContent,
+        msg: document.getElementById('appDialogMsg').textContent,
+        rodape: document.getElementById('appDialogRodape').textContent,
+        ok: document.getElementById('appDialogOk').textContent,
+        cancelOculto: document.getElementById('appDialogCancel').hidden,
+        largura: document.getElementById('appDialogBarra').getBoundingClientRect().width,
+      }));
+      await pg.screenshot({ path: foto('folha-2-progresso-360.png') });
+    },
+    antesDoOk: async (pg) => { await pg.waitForTimeout(250); await pg.screenshot({ path: foto('folha-3-fim-360.png') }); },
+  });
+  pacoteAtraso = 0;
+  const pvL = impL.previa || {};
+  checar(/^3 itens · /.test(pvL.msg) && /1 vem junto · 2 para baixar depois · 0 já no aparelho/.test(pvL.msg),
+    '16.d · a prévia conta à parte: "1 vem junto · 2 para baixar depois · 0 já no aparelho"', JSON.stringify(pvL));
+  checar(duranteL && duranteL.aberta && duranteL.mesma && duranteL.capas && duranteL.titulo === 'Culto com links'
+    && /^\d+%$/.test(duranteL.msg) && duranteL.ok === 'Parar' && duranteL.cancelOculto && duranteL.largura > 100,
+  '16.a · depois do Importar a MESMA folha (as capas e o título) vira progresso: a barra, o "N%" e o "Parar"',
+  JSON.stringify(duranteL));
+  const posL = await L2.pg.evaluate(async () => ({
+    ativo: (await AVDB.cronoLer()).ativo, nomes: (await AVDB.cronoLer()).itens.map((x) => x.nome),
+    falta: (await itensQueNaoTocamSemRede()).map((x) => x.item.id + ':' + x.tipo).sort(),
+    alerta: !document.getElementById('cronoAlerta').hidden,
+    fotoBytes: ((await AVDB.getMediaCru('foto-1')) || {}).blob ? 3000 : 0,
+    topo: (() => {
+      document.getElementById('itinBarBtn').hidden = false;
+      const R = (id) => document.getElementById(id).getBoundingClientRect();
+      return { itin: R('itinBarBtn').right, alerta: R('cronoAlerta').left, titulo: R('cronoTitulo').right,
+        gear: R('settingsBtn').left };
+    })(),
+    siglas: [cultoMarcaDoHinario({ folder: 'hymnal-2022' }), cultoMarcaDoHinario({ cue: 'songlyrics',
+      data: { collId: 'hymnal-1996' } }), cultoMarcaDoHinario({ folder: 'hymnal-1996' })],
+  }));
+  checar(posL.topo.alerta >= posL.topo.itin && posL.topo.titulo <= posL.topo.gear,
+    '16 · a 360, com um nome longo e o alerta à vista, o alerta NÃO cobre a porta do itinerário e o '
+    + 'nome não passa da engrenagem (o par preso na trilha)', JSON.stringify(posL.topo));
+  checar(JSON.stringify(posL.siglas) === '[""," (1996)"," (1996)"]',
+    '16 · na capa o hinário NOVO fica só com o número e o de 1996 ganha " (1996)" — pela faixa ou pela cena de letra',
+    JSON.stringify(posL.siglas));
+  checar(impL.msg === '“Culto com links” entrou e está em uso.\n2 itens vêm para baixar: toque no aviso do cronograma.'
+    + '\nO arquivo recebido foi apagado.',
+    '16.a · o fim é curto e diz quantos itens ficam para baixar pelo aviso', JSON.stringify(impL.msg));
+  checar(JSON.stringify(posL.falta) === '["arq-cat:hino","yt-1:video"]' && posL.alerta && posL.fotoBytes === 3000,
+    '16.d · no destino o aviso do cronograma acusa o vídeo e a faixa (conferida no DISCO); a foto toca',
+    JSON.stringify(posL));
+  await L2.ctx.close();
 
   // ===== Q · PACOTE SEM ESCOPO DE CULTO: o import de hoje, sem prévia =====
   const semEscopo = (() => {

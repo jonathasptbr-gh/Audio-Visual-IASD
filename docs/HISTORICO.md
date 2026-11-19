@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.77** — o Pacote 16, itens 16.a/16.b/16.d: a importação do culto vira progresso na mesma folha e termina curta, o culto entra ATIVO, e o pacote do culto leva só o link do que se baixa de novo (só web, sem `shellTag`).
 - **v1.14.76** — o envio do culto mostra a etapa: a conta da linha vira "Juntando as mídias…", "Desenhando as capas…", "Gravando… N%", com barra (só web, sem `shellTag`).
 - **v1.14.75** — o Pacote 16, lotes P3+P4: a prévia do culto recebido, a porta de entrada (`ACTION_VIEW`) e as capas junto no compartilhar (shell mudou: `SHELL_VERSION` 90, Release v1.14.75).
 - **v1.14.74** — o Pacote 16, lotes P1+P2: "Enviar" um culto da gaveta dos cronogramas, com a capa em páginas dentro do `.avpkg` (só web, sem `shellTag`).
@@ -809,6 +810,29 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.77 — o Pacote 16, itens 16.a/16.b/16.d: a importação do culto na mesma folha, o culto ativo, e "só o link"
+
+**O PEDIDO** (operador, 18/11, 21h46, com print da v1.14.76): o fim de um culto importado mostrava o
+censo do acervo (`pacoteRelatorio`: "Hinário Adventista 2022: 601 de 601 músicas…"); pedia a MESMA
+tela da confirmação com progresso (16.a), o cronograma importado selecionado e ativo (16.b) e, por
+decisão de 18/11 ("Só o link"), o pacote do culto sem os bytes do que se baixa de novo pelo id (16.d).
+
+| peça | o que ficou |
+|---|---|
+| a folha viva (16.a) | `openAppDialog({ ficaAberto })`: o Importar RESOLVE e a folha fica; `cultoFolhaEmCurso` põe a barra (`#appDialogBarra`, `--pct`, trilha `--surface-sunk`, cheia `--accent`), o "N%" na mensagem, o estágio no rodapé e o OK vira "Parar" (`appDialogAcao` → `pacoteCancelarImport`); `cultoFolhaAndar` anda com o `andarNaBarra` do `importarPacote`; `cultoFolhaFim` é o fim curto que espera o OK; cancelou/falhou → `cultoFolhaFechar` e o aviso de sempre. O Esc não fecha a folha em curso. O acervo não muda |
+| o fim curto | "“<nome>” entrou e está em uso." (ou "já estava no aparelho e está em uso." numa repetição), "N itens vêm para baixar: toque no aviso do cronograma." pela MESMA régua do aviso (`itensQueNaoTocamSemRede`), e "O arquivo recebido foi apagado." quando consumido |
+| o culto ATIVO (16.b) | `AVDB.cronoImportar` devolve `{ mudou, id }` (o guardado TOCADO, novo ou o mesmo id); o `importarPacote` faz `cronoTrocar(id)` + `reidratar`. Nada se perde: o que estava em uso vira guardado com o conteúdo dele. Num culto, a falha do `cronoImportar` agora LANÇA (antes era um `console.warn` e o fim anunciava sucesso). A prévia diz "Entra e fica em uso; o que estava em uso continua na gaveta. Nada é substituído." |
+| o "“Cronograma” já estava na gaveta" do print | NÃO era defeito: o operador importou no MESMO aparelho que exportou e o mesmo arquivo mais de uma vez; o id novo por arquivo deu "Cronograma (2)" na primeira, e a repetição une (`mudou` 0). Confirmado por ele em 18/11, 22h04 |
+| só o link (16.d) | `pacotePlanoDoCulto` monta `escopo.soLink`: `media` com `youtubeId` ou `kind: 'semana'` (não editados) vão com `bytes: 0` (o escritor zera o corpo), e a faixa de coleção (`folder` do catálogo, fora das pastas do aparelho) vai só como `arquivo` — SEM os `opfs`, COM o `opfsPath` (determinístico: no destino que já tem a faixa, ele aponta para o arquivo de lá). O `info` leva `baixarDepois: [ids]`; a prévia conta "N vêm junto · M para baixar depois · K já no aparelho" (pacote antigo sem o campo: a conta de sempre). O aviso confere o DISCO para a faixa de coleção (`faltaParaTocarSemRede`: `opfsPath` + `folder` → `opfsGetFile`), e baixar troca o id da lista pelo novo (`trocarLinkPeloArquivo`). Foto, vídeo do aparelho, PPTX, PDF e editados continuam com os bytes |
+| o topo do Cronograma | MEDIDO a 360: com um nome maior que "Cronograma" e o alerta à vista, o `.crono-par` transbordava a trilha e cobria a porta do itinerário (alerta 28–62 sobre a porta 13–47). Agora ele é preso na trilha (`max-width` + margem negativa dos dois vãos `--sp-2`), e a compensação do eixo é um `::after` que encolhe antes do nome (`flex-shrink` 1000); só depois o nome vira reticências. "Cronograma" continua no eixo (o `cronograma-pronto` A) |
+| o hinário antigo na capa | decisão do operador: sem sigla (a CPB usa "HASD" para o de 1996 e nenhuma para o de 2022 — pesquisa de 18/11); o NOVO fica só com o número e o de 1996 ganha " (1996)" (`cultoMarcaDoHinario`, pela `folder` da faixa ou o `data.collId` da cena de letra) |
+
+**16.c:** medido pelo operador em 18/11, 22h04 — o toque no `.avpkg` abre o app na prévia (APK v1.14.75).
+
+Oráculos: `pacote-culto` (o bloco L novo — só o link, a folha viva com as fotos `folha-1/2/3` a 360, o
+aviso no destino, o topo, a marca do hinário; o C reescrito para o culto ativo e o fim curto) e o
+`cronogramas-multiplos` K (`{ mudou, id }`). Só web, sem `shellTag`.
 
 ## v1.14.76 — o envio do culto mostra a etapa: a conta da linha vira "Juntando as mídias…", "Desenhando as capas…", "Gravando… N%", com barra
 

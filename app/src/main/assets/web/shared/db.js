@@ -1763,19 +1763,24 @@
    * (sufixo se colidir) — e NUNCA substitui um daqui. O mesmo id é o mesmo
    * cronograma (uma importação repetida): os itens se UNEM, e o nome local fica.
    * `admitidos` (a seleção da janela) filtra os ids, como nas listas.
-   * Devolve quantos cronogramas mudaram.
+   * Devolve `{ mudou, id }`: `mudou` é quantos cronogramas mudaram (0 = o mesmo arquivo de novo, e aí
+   * nada foi duplicado) e `id` é o guardado que esta importação TOCA — o novo, ou o que já existia com
+   * o mesmo id e foi unido. É esse id que o chamador deixa ATIVO (`cronoTrocar`), e por isso ele sai
+   * daqui e não de uma segunda varredura da gaveta por nome.
    */
   async function cronoImportar(vindo, admitidos) {
     const fora = vindo && Array.isArray(vindo.itens) ? vindo.itens : [];
     const [st, tx] = await cronoTx();
     const c = await cronoLerEm(st);
     let mudou = 0;
+    let refTocado = null;
     for (const v of fora) {
       if (!v || typeof v.id !== 'string' || !v.id || v.id === vindo.ativo) continue;
       let ids = Array.isArray(v.ids) ? v.ids.filter((x) => typeof x === 'string') : [];
       if (admitidos) ids = ids.filter((x) => admitidos.has(x));
       const local = c.itens.find((x) => x.id === v.id);
       if (local) {
+        if (!refTocado) refTocado = local;
         if (local.id === c.ativo) {
           const atual = await readListIn(st, 'imports');
           const novos = ids.filter((x) => !atual.includes(x));
@@ -1787,13 +1792,15 @@
         continue;
       }
       const nome = (typeof v.nome === 'string' && v.nome.trim()) ? v.nome.trim().slice(0, 60) : CRONO_PADRAO;
-      c.itens.push({ id: v.id, nome: cronoNomeLivre(nome, c.itens.map((x) => x.nome)), ids, usado: 0 });
+      const novo = { id: v.id, nome: cronoNomeLivre(nome, c.itens.map((x) => x.nome)), ids, usado: 0 };
+      c.itens.push(novo);
       delete c.virgem;
+      if (!refTocado) refTocado = novo;
       mudou++;
     }
     if (mudou) await cronoGravarEm(st, c);
     await txDone(tx);
-    return mudou;
+    return { mudou, id: refTocado ? refTocado.id : '' };
   }
 
   /**
