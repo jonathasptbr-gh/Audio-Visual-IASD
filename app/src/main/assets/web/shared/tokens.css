@@ -98,18 +98,17 @@
    Os valores OFICIAIS entram quase todos verbatim, e não por sorte: os dezoito
    foram desenhados para pousar sobre BRANCO, que é o fundo dos cartões deste
    tema. O denim é o accent sem ajuste (7,70:1 sobre o painel). Escurecer só foi
-   preciso onde a cor pousa sobre o CINZA da página, e ali a matiz é preservada
-   com o derivado declarado.
+   preciso onde a cor pousava sobre o CINZA da página (#dfe3e7 até a v1.14.80), e
+   ali a matiz é preservada com o derivado declarado — os derivados ficaram, e
+   sobre a página BRANCA de hoje medem o mesmo que sobre o painel.
 
    O DEGRAU DE ELEVAÇÃO SE INVERTE: no escuro "mais fundo na árvore" é "mais
    claro"; aqui o painel já é branco, então `--panel-2` DESCE (recesso, a
    convenção de toda UI clara). Direção oposta, REGRA a mesma — cada nível se
    afasta do anterior —, e é por isso que a folha não precisa saber o tema.
-   Consequência: `--panel-2` fica perto do `--bg` (1,09:1). Deliberado e sem
-   custo: os dois nunca se encostam, porque um nível 2 está sempre DENTRO de um
-   nível 1, que aqui é branco.
-   Piso de 1,30:1 entre superfícies grandes: fundo × painel 1,29:1 (um
-   centésimo abaixo, assumido desde a v5.192) e painel × painel-2 1,41:1. */
+   Desde a v1.14.80 a página É branca (`--bg` = `--panel`): o nível 1 não se
+   separa da página por tom, e sim pela SOMBRA (`--elev-*`, regra em
+   controle.css, "O CLARO SEPARA POR SOMBRA"). Painel × painel-2 continua 1,41:1. */
   --stage-accent: #8fb1f3;               /* = o --brand do tema escuro; 9,75:1 sobre o preto */
   --stage-accent-glow: rgba(143, 177, 243, .32);
   --stage-on-accent: #0e1215;            /* texto SOBRE o acento preenchido; 8,65:1 */
@@ -724,7 +723,8 @@
      mesma decisão que deixou o `scarlett` fora do mosaico da Bíblia.
 
      MEDIDO no Chromium com o par de cada token contra o `--bg` do tema: no
-     escuro o pior é **6,00:1** e no claro **5,00:1** — a hora é texto e passa
+     escuro o pior é **6,00:1** e no claro **6,45:1** (5,00 até a página virar
+     branca, v1.14.80) — a hora é texto e passa
      AA com folga, e a linha, que é objeto gráfico (piso 3:1), herda o mesmo
      número. Sobre a FOTO de uma capa o contraste não é prometível nem com a cor
      saturada: ali a linha se sustenta por ser a cor de identidade do grupo, e a
@@ -771,6 +771,14 @@
   --tour-mov: .34s;
   --tour-fade: .12s;
   --tour-curva: cubic-bezier(.22, .61, .36, 1);
+  /* A ELEVAÇÃO POR SOMBRA (v1.14.80): no claro a página é branca e o cartão se
+     separa dela pela sombra; aqui TRANSPARENTE — o escuro se separa por tom e a
+     regra da folha pinta nada. Par perto/longe: a aresta e o halo. */
+  --elev-perto: transparent;
+  --elev-longe: transparent;
+  /* O RECESSO (miniatura vazia, trilho, detalhe): era `--bg`, e no claro o `--bg`
+     virou o branco do cartão. No escuro continua sendo ele. */
+  --recesso: var(--bg);
 }
 
   /* O ACENTO DO PALCO — ele existe por um defeito medido (v5.218).
@@ -785,14 +793,15 @@
      `tools/smoke.mjs` mede pelo RENDERIZADO (cor computada de cada camada nos
      dois temas), não pelo nome do token. */
 :root[data-tema="claro"] {
-  --bg: #dfe3e7;
+  /* BRANCO desde a v1.14.80 (era #dfe3e7): o cinza da página pesava, e o que
+     separa o cartão da página passou a ser a SOMBRA (`--elev-*`), não o tom. */
+  --bg: #ffffff;
   --bar: #ffffff;
   --panel: #ffffff;
   /* 1,41:1 contra o painel (era #dee2e8, 1,30:1). Ele desceu na v5.267 pela
      mesma razão do escuro: é o degrau entre a seção da Biblioteca e o card de
-     álbum dentro dela, e virou o único. Ele fica 1,09:1 do `--bg`, e isso não
-     é acidente nem problema — os dois nunca se encostam, porque um nível 2 está
-     sempre DENTRO de um nível 1, que é branco. */
+     álbum dentro dela, e virou o único. Com a página branca (v1.14.80) ele mede
+     o mesmo 1,41:1 contra o `--bg`. */
   --panel-2: #d4dae2;
   /* (`--fav-bg` saiu na v5.282, nos dois temas — ver o bloco do escuro.)
      (`--line` saiu na v1.5.14, nos dois temas — ver o bloco do escuro.) */
@@ -804,15 +813,12 @@
      MEDIDO sobre ele: preto 14,69:1 · `--muted` 4,66:1 · `--accent` 5,39:1 ·
      `--live-strong` 4,79:1 — os quatro passam AA. */
   --poco: #cbe0f6;
-  /* O SINAL é o mesmo do tema escuro: o controle FLUTUA sobre a página e
-     AFUNDA dentro do cartão. O que muda é o lado do branco em que cada um
-     está — sobre a página cinza o overlay é branco (o botão sobe até quase o
-     branco do cartão), e dentro do cartão branco ele é preto (o campo recua).
-     Medido: 1,23:1 do botão contra a página e 1,14:1 / 1,25:1 dos afundados
-     contra o painel. São degraus pequenos, e o que anuncia o controle aqui é o
-     próprio degrau — desde a v1.5.14 não há linha nenhuma no app. */
-  --surface-alta: rgba(255, 255, 255, .70);
-  --surface-2-alta: rgba(255, 255, 255, .92);
+  /* O FLUTUANTE AFUNDA AQUI (v1.14.80). No escuro o controle flutua sobre a
+     página e afunda no cartão; com a página BRANCA, flutuar em branco é sumir
+     (1,00:1), e ele afunda nos dois lugares — os mesmos .14/.20 do par `-sunk`
+     (era branco .70/.92 sobre o cinza da página). */
+  --surface-alta: rgba(0, 0, 0, .14);
+  --surface-2-alta: rgba(0, 0, 0, .20);
   --surface: var(--surface-alta);
   --surface-2: var(--surface-2-alta);
   /* Os afundados subiram de .06/.10 na v5.207, e o motivo está medido: sobre o
@@ -911,11 +917,11 @@
      cinza com a matiz do denim e um degrau a menos de luminância. Ele ESCURECEU
      mais um degrau na v5.267 (#5c636c → #565d66): com o painel-2 mais fundo, o
      valor antigo dava 4,32:1 ali e reprovava. */
-  --text: #000000;                       /* PRETO (v1.5.12) — 21:1 painel · 16,28:1 fundo */
-  --muted: #565d66;                      /* 6,66:1 painel · 5,16:1 fundo · 4,73:1 painel-2 */
+  --text: #000000;                       /* PRETO (v1.5.12) — 21:1 painel e fundo */
+  --muted: #565d66;                      /* 6,66:1 painel e fundo · 4,73:1 painel-2 */
 
   /* denim OFICIAL nos três papéis do accent: como texto/borda ele dá 7,70:1
-     sobre o painel e 5,97:1 sobre a página; como preenchimento recebe o BRANCO
+     sobre o painel e a página; como preenchimento recebe o BRANCO
      oficial por cima, 7,70:1 — o par que a identidade adventista recomenda.
      No tema claro `--accent` e `--accent-fill` coincidem porque a mesma cor
      serve aos dois papéis; os dois tokens continuam existindo porque no escuro
@@ -931,7 +937,7 @@
   /* O `-strong` é o scarlett oficial ESCURECIDO: o oficial pousado sobre um
      wash da própria família dá 4,17:1 e reprova, e é justamente sobre esse wash
      que a regra do tema escuro manda vesti-lo. Medido no derivado: 4,63:1 sobre
-     o wash, 5,30:1 sobre a página, 6,84:1 sobre o painel.
+     o wash, 6,84:1 sobre o painel e a página.
      (`--live`, `--on-live` e `--live-soft` saíram na v1.8.89 com o microfone ao
       vivo — ver o bloco do tema escuro. O `--danger-soft`, que é o wash com
       consumidor, ficou: os dois SOFT subiram de .08 para .14 na v5.267, e a
@@ -946,13 +952,17 @@
   /* campfire e treefrog escurecidos pelo mesmo motivo: o oficial passa sobre
      BRANCO (4,62:1 e 4,71:1) e reprova sobre a página cinza. Matizes 21° e 101°
      preservadas. `--warn` é ícone/borda e responde ao piso de 3:1. */
-  --warn: #bd520a;                       /* 3,99:1 sobre --btn-warn · 3,72:1 sobre o fundo */
+  --warn: #bd520a;                       /* 3,99:1 sobre --btn-warn · 4,80:1 sobre o fundo */
   --warn-text: #934410;                  /* 5,68:1 sobre --btn-warn */
   --ok: #216900;                         /* 5,27:1 sobre --ok-fill · 6,81:1 sobre o painel */
 
   /* o véu segue o --bg deste tema, pela mesma regra do escuro */
-  --veil: rgba(223, 227, 231, .55);
-  --veil-solid: rgba(223, 227, 231, .92);
+  --veil: rgba(255, 255, 255, .55);
+  --veil-solid: rgba(255, 255, 255, .92);
+  /* Sombra com a matiz do denim, não preto: preto sobre branco lê como sujeira. */
+  --elev-perto: rgba(20, 38, 64, .16);
+  --elev-longe: rgba(20, 38, 64, .12);
+  --recesso: #dfe3e7;                    /* o cinza da página antiga: 1,29:1 no cartão */
 
   /* Bíblia: as MESMAS dez matizes, com a tinta invertida — ladrilho claro e
      rótulo em `--text`. **Os ladrilhos NÃO foram retocados na v1.5.12**, e não
@@ -981,7 +991,8 @@
      é traço sobre a miniatura clara. A saturação caiu de 72% para **50%** — abaixo
      dos ~60% dos ladrilhos porque eles são PASTEL (luminosidade 79–91%) e a hora
      daqui é TEXTO escuro, que precisa do contraste que o pastel não dá; é o mais
-     perto do ladrilho que os 5:1 permitem. O par medido continua **5,00:1**. */
+     perto do ladrilho que os 5:1 permitem. Calibrados a 5,00:1 contra o cinza de
+     antes; sobre a página branca (v1.14.80) o pior é **6,45:1**. */
   --momento-1:#316192;
   --momento-2:#85522c;
   --momento-3:#246b3c;

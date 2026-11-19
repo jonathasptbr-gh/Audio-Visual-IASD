@@ -131,7 +131,7 @@ class GuiaSomDialog(
         super.onCreate(savedInstanceState)
         val ctx = context
         val fundo = ctx.getColor(R.color.app_bg)
-        val texto = ctx.getColor(R.color.app_bg_claro)
+        val texto = ctx.getColor(R.color.guia_texto)
         val raiz = FrameLayout(ctx).apply { setBackgroundColor(fundo) }
 
         val w = WebViewFactory.createGuia(ctx)

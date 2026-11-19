@@ -1241,9 +1241,12 @@ try {
   checar(tema.escuro.palcoPintado === tema.claro.palcoPintado,
     'nem uma vírgula do que o palco PINTA — nenhuma camada dele lê um token de tema',
     'escuro: ' + tema.escuro.palcoPintado + '\n        claro:  ' + tema.claro.palcoPintado);
+  // No claro a página é BRANCA como o cartão desde a v1.14.80: o controle afunda
+  // nos dois lugares, e o flutuante É o afundado — divergir ali seria um botão
+  // branco sobre a página branca (1,00:1).
   checar(tema.escuro.superficie !== tema.escuro.afundada
-    && tema.claro.superficie !== tema.claro.afundada,
-    'a superfície afunda dentro do cartão NOS DOIS temas'
+    && tema.claro.superficie === tema.claro.afundada,
+    'a superfície afunda dentro do cartão no escuro, e no claro (página branca) afunda em toda parte'
     + ' (escuro ' + tema.escuro.superficie + ' → ' + tema.escuro.afundada
     + ' · claro ' + tema.claro.superficie + ' → ' + tema.claro.afundada + ')');
   checar(tema.escuro.accent !== tema.escuro.fill,
@@ -2245,7 +2248,8 @@ for (const tema of ['escuro', 'claro']) {
     // A página é cinza e o nível 1 é branco (a convenção de toda UI clara, e a
     // que a paleta adota desde a v5.192), então o primeiro degrau sobe e os
     // seguintes só podem descer — folha #dfe3e7 → seção #ffffff → card #d4dae2,
-    // com folha × card em 1,09:1. Isso não se lê como ambiguidade porque os dois
+    // com folha × card em 1,09:1 (a página é BRANCA desde a v1.14.80; o piso
+    // de 1,05 continua sendo o que vale para o par que não se encosta). Isso não se lê como ambiguidade porque os dois
     // NUNCA se encostam: entre eles há sempre a moldura branca da seção. Exigir
     // monotonia aqui reprovaria um desenho correto (verificado: foi o que a
     // primeira versão deste caso fez).

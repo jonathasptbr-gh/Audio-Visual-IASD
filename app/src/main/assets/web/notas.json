@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.14.80",
+    "itens": [
+      "No tema claro, o fundo das telas agora é branco, sem o cinza de antes.",
+      "Os cards do Cronograma e da tela simples ganharam uma sombra suave que marca as bordas.",
+      "Os botões azuis (Bíblia, Ferramentas, Conectar uma TV e outros) também têm sombra sobre o branco.",
+      "O tema escuro não mudou.",
+      "Chega pela atualização, mas o app vai pedir para instalar a versão nova: a tela de abertura também fica branca."
+    ]
+  },
+  {
     "versao": "1.14.79",
     "itens": [
       "Na lista de cronogramas, cada linha mostra só Enviar e os três pontinhos; renomear e excluir estão nos três pontinhos.",

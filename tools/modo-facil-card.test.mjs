@@ -110,7 +110,7 @@ const medir = (pg) => pg.evaluate(() => {
     depoisDaPlaca: card && lyr && (card.compareDocumentPosition(lyr) & Node.DOCUMENT_POSITION_PRECEDING) !== 0,
     nomeDentro: card && card.contains(nome),
     tempoDentro: card && card.contains(tempo),
-    bg: cs.backgroundColor, raio: cs.borderTopLeftRadius,
+    bg: cs.backgroundColor, raio: cs.borderTopLeftRadius, sombra: cs.boxShadow,
     bgPlaca: getComputedStyle(lyr).backgroundColor, raioPlaca: getComputedStyle(lyr).borderTopLeftRadius,
     bgApp: getComputedStyle(document.getElementById('simpleMode')).backgroundColor,
     gapApp: parseFloat(getComputedStyle(document.getElementById('simpleMode')).rowGap),
@@ -139,9 +139,13 @@ try {
       checar(m.nomeDentro && m.tempoDentro,
         'B1 · ' + tema + ' · o NOME e a BARRA moram dentro dele', JSON.stringify({ n: m.nomeDentro, t: m.tempoDentro }));
       const transparente = /rgba\(\s*\d+,\s*\d+,\s*\d+,\s*0\s*\)|transparent/.test(m.bg);
-      checar(!transparente && m.bg === m.bgPlaca && m.bg !== m.bgApp,
-        'B2 · ' + tema + ' · o card PINTA a superfície das vizinhas (a da placa da letra) e ela difere do '
-        + 'fundo do app — um cartão, e não texto solto', JSON.stringify({ card: m.bg, placa: m.bgPlaca, app: m.bgApp }));
+      // O QUE SEPARA O CARD DA PÁGINA (v1.14.80): no escuro o TOM; no claro a página é
+      // branca como o card, e quem separa é a SOMBRA (`--elev-cartao`) — exigida ali.
+      const separa = tema === 'claro' ? m.sombra !== 'none' : m.bg !== m.bgApp;
+      checar(!transparente && m.bg === m.bgPlaca && separa,
+        'B2 · ' + tema + ' · o card PINTA a superfície das vizinhas (a da placa da letra) e se separa do '
+        + 'fundo do app (pelo tom no escuro, pela sombra no claro) — um cartão, e não texto solto',
+        JSON.stringify({ card: m.bg, placa: m.bgPlaca, app: m.bgApp, sombra: m.sombra }));
       checar(m.raio === m.raioPlaca && parseFloat(m.raio) > 0,
         'B2 · ' + tema + ' · e tem o MESMO raio de cartão da placa da letra', m.raio + ' contra ' + m.raioPlaca);
 
@@ -155,7 +159,9 @@ try {
         'B4 · ' + tema + ' · o vão entre a placa e o card é o das outras seções desta tela (um só)',
         JSON.stringify({ vao: m.card.t - m.lyr.b, secoes: m.gapApp }));
 
-      checar(m.trilho === m.sunk && m.sunk !== m.flutuante,
+      // No claro o flutuante É o afundado desde a v1.14.80 (a página branca): ali a
+      // segunda metade não tem o que distinguir, e vale a primeira.
+      checar(m.trilho === m.sunk && (tema === 'claro' || m.sunk !== m.flutuante),
         'B5 · ' + tema + ' · dentro do card a superfície AFUNDA: o trilho da barra é o `--surface-sunk` e não '
         + 'o `--surface` flutuante de fora do cartão (que sobre ele pinta outro tom)', JSON.stringify({ trilho: m.trilho, sunk: m.sunk, flutuante: m.flutuante }));
 

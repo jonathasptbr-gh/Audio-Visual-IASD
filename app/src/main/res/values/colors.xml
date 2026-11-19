@@ -34,7 +34,7 @@
          PRIMEIRO quadro só pode vir de uma preferência guardada. O tema do APK
          (themes.xml) continua apontando para o escuro, que é o padrão de quem
          nunca escolheu nada. -->
-    <color name="app_bg_claro">#dfe3e7</color>
+    <color name="app_bg_claro">#ffffff</color>
     <!-- Fundo do ícone adaptativo. É o MESMO `bg` do tema ESCURO, e não segue
          a escolha do operador: o ícone vive na gaveta do sistema, é desenhado
          quando o app está fechado e não há como repintá-lo por tema. A razão
@@ -47,4 +47,9 @@
          WebView carregar, de modo que abrir o app expande o fundo do próprio
          ícone. -->
     <color name="ic_launcher_background">#0b1219</color>
+    <!-- O texto do aviso do Guia de sonoplastia, sobre o app_bg escuro. Ele lia o
+         app_bg_claro, que era um off-white; desde a v1.14.80 aquele é BRANCO
+         pleno (o claro ficou com a página branca), e o aviso guarda o tom de
+         antes com nome proprio. -->
+    <color name="guia_texto">#dfe3e7</color>
 </resources>

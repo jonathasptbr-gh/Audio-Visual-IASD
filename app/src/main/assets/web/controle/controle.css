@@ -652,7 +652,10 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    Ela NÃO entra na lista acima (que valeria para os dois temas) porque no
    escuro `--bar` é bem mais escura que os botões e o degrau claro funciona:
    inverter ali trocaria a aparência do transporte inteiro para resolver um
-   problema que só existe no claro. */
+   problema que só existe no claro.
+   (Desde a v1.14.80 o `--surface-alta` do claro JÁ é o par afundado — a página
+   ficou branca —, e esta regra passou a reafirmar o que o token dá. Fica: ela é
+   a que segura o transporte se o flutuante do claro voltar a ser branco.) */
 /* (O cabeçalho do Cronograma entrou aqui na v1.8.61, quando virou uma barra de
    `--bar`: a aritmética é a MESMA — a badge de versão pinta `--surface-2`,
    branco com alfa, e sobre a barra branca do tema claro ela media 1,00:1. Com o
@@ -670,6 +673,38 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
    uma superfície de botão e 1,17:1 sobre o preenchido — este é o mais fraco
    dos dois temas, e é onde o RECUO de 2px carrega a resposta. */
 :root[data-tema="claro"] { --press-luz: brightness(.88); }
+
+/* ---------- O CLARO SEPARA POR SOMBRA (v1.14.80) ----------
+   Pedido do operador: página BRANCA no claro (o cinza pesava) e sombra para
+   demarcar cartões e botões azuis. Com `--bg` = `--panel` o tom deixou de
+   separar o nível 1 da página; quem separa é `--elev-*` (transparente no
+   escuro, que segue separando por tom). Dois pesos: CARTÃO e BOTÃO. */
+:root {
+  --elev-cartao: 0 1px 3px var(--elev-perto), 0 3px 12px var(--elev-longe);
+  --elev-botao: 0 1px 2px var(--elev-perto), 0 2px 6px var(--elev-longe);
+}
+/* Os cartões que pousam direto na página: as linhas do Cronograma e os blocos do
+   Modo Fácil (placa da letra, card do nome, teclas, a barra de busca fechada). */
+:root[data-tema="claro"] :is(#library > :is(.lib-item, .crono-item):not(.momento), .simple-conn,
+  .simple-lyrics, .simple-nowplaying, .simple-key),
+:root[data-tema="claro"] body.mode-simple.simples-barra .popup-backdrop--lib .popup-sheet--lib {
+  box-shadow: var(--elev-cartao);
+}
+/* Os botões azuis. As PORTAS só no `.livre`: com a lista correndo por baixo elas
+   mantêm a sombra de sobreposição de sempre (`--shadow-card`, v1.12.19), e é aqui,
+   sem lista, que antes não havia nenhuma. O `+` da faixa do itinerário fica de
+   fora: ele mora dentro de um cartão que já sombreia, ao lado de botões que não. */
+:root[data-tema="claro"] :is(.cast-acao-linha, .cast-acao,
+  .dialog-btn.primary, .chrono-btn.primary,
+  .qs-tile.qs-on, .misc-chip.active, .cast-rede.active, .dest-btn.on, .fit-opt.active),
+:root[data-tema="claro"] .list-foot.livre :is(.tools-btn, .lib-foot-btn) {
+  box-shadow: var(--elev-botao);
+}
+/* A linha do cast já sombreia; o botão dentro dela não repete. Os dois são 0,4,0
+   e vence a ORDEM — por isso o `.livre` (0,5,0) mora fora do `:is`. */
+:root[data-tema="claro"] .cast-acao-linha > .cast-acao { box-shadow: none; }
+/* A caixa de controles encosta na lista, as duas brancas: a sombra sobe. */
+:root[data-tema="claro"] .bottombar { position: relative; z-index: 2; box-shadow: 0 -2px 12px var(--elev-longe); }
 
 /* ---------- Feedback de toque (regra única) ----------
    O `*` acima zera o `-webkit-tap-highlight-color`, então um controle SEM
@@ -4227,7 +4262,7 @@ main {
    destoando de tudo. */
 /* `position: relative` porque ela hospeda duas coisas por cima: o anel de
    download (`.baixando`) e, desde a v5.259, o "Tirar do ar". */
-.thumb { position: relative; width: var(--thumb); height: var(--thumb); flex-shrink: 0; border-radius: var(--radius-btn); overflow: hidden; background: var(--bg); display: flex; align-items: center; justify-content: center; }
+.thumb { position: relative; width: var(--thumb); height: var(--thumb); flex-shrink: 0; border-radius: var(--radius-btn); overflow: hidden; background: var(--recesso); display: flex; align-items: center; justify-content: center; }
 .thumb--icon .msym { font-size: var(--icon-lg); color: var(--muted); }
 /* O item da SEMANA desenha o TIPO (a fita de filme, v1.13.34) no lugar do ▶, no
    degrau e no tom da nota musical das outras miniaturas-ícone. */
@@ -10013,7 +10048,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   display: flex; flex-wrap: wrap; gap: var(--sp-5); align-items: flex-start;
   margin: 0 .55rem .55rem; padding: .5rem .6rem;
   border-radius: var(--radius-btn);
-  background: var(--bg);
+  background: var(--recesso);
 }
 /* `aspect-ratio` com largura fixa RESERVA a altura antes de a imagem chegar, e
    isso não é estética: o acordeão mede `offsetHeight` no instante em que abre
@@ -11317,7 +11352,7 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .edicao-trilho, .edicao-trecho {
   position: absolute; top: 50%; height: .5rem; margin-top: -.25rem; border-radius: 999px;
 }
-.edicao-trilho { left: 0; right: 0; background: var(--bg); }
+.edicao-trilho { left: 0; right: 0; background: var(--recesso); }
 .edicao-trecho {
   left: calc(var(--r1, 0) * (100% - 1.5rem) + .75rem);
   right: calc((1 - var(--r2, 1)) * (100% - 1.5rem) + .75rem);

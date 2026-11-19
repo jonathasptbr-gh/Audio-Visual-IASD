@@ -515,6 +515,7 @@ duras:
 - **O PALCO NÃO TEM TEMA:** nada pintado no palco lê token redeclarado em `[data-tema]` (a preview existe para espelhar o telão).
 - **Não há contorno em lugar nenhum**, salvo as quatro exceções NOMEADAS uma a uma no oráculo.
 - **Nunca branco literal** (`#fff`) em `controle.css`/`display.css`; as três exceções estão declaradas em `tokens.css`.
+- **No claro a página é BRANCA (v1.14.80) e o nível 1 se separa por SOMBRA** (`--elev-*`, transparente no escuro; a regra em `controle.css`, "O CLARO SEPARA POR SOMBRA"); cartão novo que pousa direto na página entra na lista dela.
 - **Fundos de ESTADO e superfícies de AÇÃO são OPACOS**; tinta com alfa empilha. Os `-soft` são só wash.
 - **Uma linguagem de estado:** ESCOLHIDO e LIGADO = `--btn-accent` + `--accent`; SELECIONADO numa lista = `--sel-fill`; ABERTO não é cor; o denim `--accent-fill` + `--on-accent` é só dos BOTÕES. Cor de texto nunca carrega estado sozinha.
 - **Apagado = INDISPONÍVEL** (`--op-inativo` .35 + `disabled`, com `title` dizendo por quê), nunca "desligado"; o que não tem função agora é apagado, não inerte; abaixo de 2:1 é AUSENTE.

@@ -83,8 +83,10 @@ subir, então `--panel-2` DESCE (um campo dentro de um cartão é um recesso, a
 convenção de toda UI clara). A consequência é que `--panel-2` e `--bg` ficam
 praticamente na mesma luminância — deliberado, e o mesmo que Material e iOS
 fazem. O piso de 1,30:1 entre superfícies grandes foi escrito para um salão no
-ESCURO, onde sombra não se vê; no claro ele vale só para o par que importa, fundo
-× painel (1,29:1).
+ESCURO, onde sombra não se vê. **No claro, desde a v1.14.80, a página é BRANCA**
+(`--bg` = `--panel`): o nível 1 se separa dela pela SOMBRA (`--elev-cartao` /
+`--elev-botao`, cor em `--elev-perto`/`--elev-longe` — transparentes no escuro),
+e não pelo tom. A regra mora em `controle.css`, "O CLARO SEPARA POR SOMBRA".
 
 ### As três famílias
 
@@ -137,14 +139,16 @@ só uma, o token está no bloco COMPARTILHADO e vale nos dois.
 
 | Token | Escuro | Claro | Uso |
 |---|---|---|---|
-| `--bg` | `#0b1219` | `#dfe3e7` | fundo do app. A matiz é a do denim (211°) em vez de um cinza puro: um cinza neutro ao lado de um accent azul lê como esverdeado |
+| `--bg` | `#0b1219` | `#ffffff` | fundo do app (no claro, BRANCO desde a v1.14.80 — o cartão se separa pela sombra `--elev-*`). A matiz é a do denim (211°) em vez de um cinza puro: um cinza neutro ao lado de um accent azul lê como esverdeado |
 | `--bar` | `#1b2632` | `#ffffff` | bottombar / trilho de abas |
 | `--panel` / `--panel-2` | `#212f3d` / `#304254` | `#ffffff` / `#dee2e8` | cartões e linhas de lista / o item ativo ou selecionado. **A direção se inverte no claro** (ver "A montagem dos dois temas") |
 | `--poco` | `#34475b` | `#cbe0f6` | **a segunda e última superfície** (v1.5.14). A Biblioteca tem quatro níveis e a escada tem três degraus; em vez de empilhar um quarto tom (impossível — ver "A escada"), o nível 1 veste o poço e o nível 2 volta ao PAPEL. Duas superfícies, profundidade ilimitada. 1,43:1 contra a janela no escuro, 1,36:1 no claro. No claro é o `--btn-accent` (o "azul fraco" pedido na v1.5.10) aprofundado até o degrau ser real — aquele mede só 1,21:1 |
 | ~~`--line`~~ | — | — | **SAIU na v1.5.14.** Removida a moldura da Biblioteca, ficou com zero consumidores. O comentário dele dizia que *"o que ele NÃO pode voltar a ser é um filete"* enquanto ele era o único filete do app |
 | `--divisoria` | `rgba(255,255,255,.20)` | `rgba(0,0,0,.28)` | **a divisória entre faixas IRMÃS** (v1.5.16), a quarta exceção nomeada da regra de contorno — e a única que é um traço. Desde a v1.5.14 a faixa é transparente sobre `--panel`: o vão de 4px entre duas faixas mede **1,00:1** contra os dois lados, que é separação nenhuma. Estes valores dão **1,88:1** e **1,99:1** sobre a placa, contra os 1,78:1 e 2,51:1 da moldura removida. Alfa e não valor fixo porque a placa muda de tom entre os temas; mais forte no claro porque sobre branco o mesmo alfa rende menos (.20 mediria 1,61:1). Consumidor ÚNICO, cobrado por oráculo nos dois sentidos — uma DECLARAÇÃO só, hoje com dois seletores (a faixa de um álbum e a linha de um favorito, v1.5.18) |
-| `--surface` / `--surface-2` | `rgba(255,255,255,.12)` / `.18` | `rgba(255,255,255,.70)` / `.92` | botão / chip-campo-badge **sobre o fundo do app** (ver R1). Branco com alfa nos DOIS temas: o controle FLUTUA sobre a página |
+| `--surface` / `--surface-2` | `rgba(255,255,255,.12)` / `.18` | `rgba(0,0,0,.14)` / `.20` | botão / chip-campo-badge **sobre o fundo do app** (ver R1). No escuro o controle FLUTUA sobre a página; no claro (página branca, v1.14.80) ele AFUNDA em toda parte — o flutuante é o par `-sunk` |
 | `--surface-sunk` / `--surface-2-sunk` | `rgba(0,0,0,.24)` / `.14` | `rgba(0,0,0,.14)` / `.20` | os mesmos dois **dentro de um cartão**, onde o sinal se inverte e o controle AFUNDA. Eram literais em `controle.css` até a v5.192 — os últimos pedaços de cor fora da fonte única, e o tema claro herdaria um recesso de 24% de preto sobre um cartão branco |
+| `--recesso` | `var(--bg)` | `#dfe3e7` | o fundo do que é RECESSO dentro de um cartão — a miniatura vazia (`.thumb`), o `.item-detalhe`, o trilho da edição (v1.14.80). Era `--bg`; com a página branca do claro ele viraria o branco do cartão, e ficou com o cinza da página antiga (1,29:1 sobre o cartão) |
+| `--elev-perto` / `--elev-longe` | `transparent` | `rgba(20,38,64,.16)` / `.12` | a COR da sombra que separa o nível 1 da página branca no claro (v1.14.80); a geometria (`--elev-cartao`, `--elev-botao`) mora no `:root` de `controle.css`. Matiz do denim: preto sobre branco lê como sujeira |
 | `--text` / `--muted` | `#dce0e5` / `#b6bdc6` | `#000000` / `#565d66` | texto (14,19:1 sobre o fundo · 9,52:1 sobre painel no escuro; 16,28:1 · 21:1 no claro) / secundário. **No claro o `--text` é PRETO desde a v1.5.12** — o ÚNICO desvio declarado da paleta oficial, a pedido do operador (*"use a cor preta pra os textos e não cinza como me parece ser hoje"*): ele era o `night` OFICIAL (#4a4a4a), que É um cinza escuro e se lia como texto apagado sob a luz de um salão. `--muted` NÃO acompanhou — é ele que mantém a regra NOME × NÚMERO da v1.5.11, e o par abriu de 1,33:1 para 3,15:1. Ele é derivado porque o `winter` oficial (#717171) passa sobre branco (4,88:1) e cai para 3,81:1 sobre o cinza da página |
 | `--accent` | `#95b5f4` | `#2f557f` | o azul como **texto e ícone**. No escuro é o `bluejay` CLAREADO (o oficial dá 3,97:1 sobre o fundo e reprova): 9,17:1 sobre o fundo, 6,64:1 sobre painel (medidos contra o fundo DENIM PROFUNDO da v1.5.14). No claro é o `denim` OFICIAL: 7,70:1 sobre painel, 5,97:1 sobre a página |
 | `--accent-fill` | `#2f557f` | `#2f557f` | o **`denim` OFICIAL** como fundo de elemento preenchido, nos dois temas. 2,44:1 contra o fundo escuro — exatamente o peso que o preenchido âmbar tinha (2,59:1). **Desde a v1.8.95 ele é SÓ DE BOTÃO** (primário e ação de destaque): ESCOLHIDO entre alternativas desceu para `--btn-accent` + `--accent`, e `tokens.test.mjs` reprova o denim sob um seletor de escolha |
@@ -886,8 +890,9 @@ da caixa passa a SER o meio do vão. **A conta é por LISTA, não uma constante*
 (v1.5.18): nos favoritos o `gap` é `--sp-3`, e a mesma receita entra com esse
 número — repetir o do álbum reintroduziria o desvio no outro lugar.
 
-No tema CLARO a escada **não é monotônica**, e isso é aritmética e não descuido:
-a página é cinza e o nível 1 é branco (a convenção de toda UI clara), então o
+No tema CLARO a escada **não é monotônica**, e isso é aritmética e não descuido
+(medida quando a página ainda era cinza; desde a v1.14.80 ela é branca e o
+primeiro degrau é a sombra): a página era cinza e o nível 1 é branco (a convenção de toda UI clara), então o
 primeiro degrau sobe e os seguintes só podem descer — `#dfe3e7` → `#ffffff` →
 `#d4dae2`. Folha e card ficam a 1,09:1 um do outro e isso não se lê como
 ambiguidade, porque os dois **nunca se encostam**: entre eles há sempre o poço

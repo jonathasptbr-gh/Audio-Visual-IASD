@@ -948,15 +948,18 @@ try {
       return {
         tema: document.documentElement.dataset.tema || 'escuro',
         bg: cf.backgroundColor, bgCard: cn.backgroundColor, raio: cf.borderTopLeftRadius, raioCard: cn.borderTopLeftRadius,
+        sombra: cf.boxShadow,
         folha: caixa(folha), song: caixa(document.querySelector('.simple-song')), np: caixa(np),
         fundoPagina: getComputedStyle(document.body).backgroundColor,
       };
     });
     checar(u.tema === tema, 'U0 · PREMISSA (' + tema + '): o tema é o que se pediu', JSON.stringify(u));
     const opaco = /^rgb\(/.test(u.bg) || /rgba\([^)]*,\s*1\)$/.test(u.bg);
-    checar(opaco && u.bg === u.bgCard && u.bg !== u.fundoPagina && u.raio === u.raioCard,
+    // No claro a página é branca como o card (v1.14.80): quem o separa é a SOMBRA.
+    const separa = tema === 'claro' ? u.sombra !== 'none' : u.bg !== u.fundoPagina;
+    checar(opaco && u.bg === u.bgCard && separa && u.raio === u.raioCard,
       'U1 · (' + tema + ') FECHADA, a barra de busca e sorteio está num CARD: fundo opaco, o mesmo do card '
-      + 'do nome e diferente do fundo da tela, com o mesmo raio', JSON.stringify(u));
+      + 'do nome, separado da tela (pelo tom no escuro, pela sombra no claro), com o mesmo raio', JSON.stringify(u));
     checar(u.folha.alt > 20 && Math.abs(u.folha.esq - u.song.esq) <= 1 && Math.abs(u.folha.dir - u.song.dir) <= 1
       && Math.abs(u.folha.esq - u.np.esq) <= 1 && Math.abs(u.folha.dir - u.np.dir) <= 1,
       'U2 · (' + tema + ') e as bordas laterais do card da barra são as da placa da letra e do card do nome',

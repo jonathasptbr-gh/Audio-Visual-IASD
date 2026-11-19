@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.80** — o tema claro com página BRANCA e separação por SOMBRA (`--elev-*`); `app_bg_claro` acompanha (`shellTag`, APK).
 - **v1.14.79** — o Pacote 16 fecha: o modelo "Sábado de manhã" refeito (lição até 10h15, sermão das 11h15 ao meio-dia), "Salvar como modelo" / "Meus modelos" e a linha da gaveta compactada em nome · enviar · ⋮ (só web, sem `shellTag`).
 - **v1.14.78** — o Pacote 16, P5: "Novo a partir de um modelo" na gaveta, com os três modelos de fábrica (só web, sem `shellTag`).
 - **v1.14.77** — o Pacote 16, itens 16.a/16.b/16.d: a importação do culto vira progresso na mesma folha e termina curta, o culto entra ATIVO, e o pacote do culto leva só o link do que se baixa de novo (só web, sem `shellTag`).
@@ -812,6 +813,39 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.80 — o tema claro: página branca, e a sombra separa o cartão
+
+**O PEDIDO** (operador, 19/11, laço de design na prévia visual): *"no modo claro … estamos com pouco
+contraste e na tela principal do cronograma, o fundo cinza deixa muito feio. Vamos experimentar usar
+fundo branco e usar sombras para destacar/demarcar os cards … os botões azuis ficarem com sombras
+quando colocados sobre o branco"*. Aprovado na prévia: *"pode aplicar como padrão do design do tema
+claro"*.
+
+| peça | antes | agora |
+|---|---|---|
+| `--bg` (claro) | `#dfe3e7` | `#ffffff` — `= --panel`; `--veil*` acompanham |
+| `--surface-alta` / `-2-alta` (claro) | branco .70/.92 (flutuar sobre o cinza) | preto .14/.20 = o par `-sunk`: sobre a página branca, flutuar em branco era 1,00:1 |
+| `--elev-perto` / `--elev-longe` (novos) | — | `transparent` no escuro; `rgba(20,38,64,.16/.12)` no claro (matiz do denim) |
+| `--recesso` (novo) | os três recessos liam `--bg` | `.thumb`, `.item-detalhe`, `.edicao-trilho`: `var(--bg)` no escuro, `#dfe3e7` no claro (1,29:1 sobre o cartão — o mesmo de antes) |
+| `controle.css` "O CLARO SEPARA POR SOMBRA" | — | `--elev-cartao` nas linhas de nível 1 do `#library` (fora `.momento`), `.simple-conn`, `.simple-lyrics`, `.simple-nowplaying`, `.simple-key` e a barra fechada do Modo Fácil; `--elev-botao` nos azuis (`.cast-acao(-linha)`, `.dialog-btn.primary`, `.chrono-btn.primary`, `.qs-tile.qs-on`, `.misc-chip.active`, `.cast-rede.active`, `.dest-btn.on`, `.fit-opt.active`) e nas portas SÓ no `.livre`; `.bottombar` com sombra para cima |
+| `res/values/colors.xml` | `app_bg_claro` `#dfe3e7` | `#ffffff` (o espelho do `tokens.test`); `GuiaSom` lia `app_bg_claro` como TEXTO do aviso e passou a `guia_texto` (`#dfe3e7`), para não virar branco pleno |
+
+**DECISÕES.** As portas com lista correndo por baixo mantêm a sombra de sobreposição de sempre
+(`0 2px 8px --shadow-card`, v1.12.19/v1.8.64 — o `sombra-de-rolagem` T mede a direção); só no
+`.livre`, onde antes não havia nenhuma, entra `--elev-botao`. O `+` da faixa do itinerário
+(`.itin-b.itin-novo`) fica SEM: mora num cartão que já sombreia, ao lado de botões que não — e a
+sombra dele caía no pixel que o `sombra-de-rolagem` R mede como a cor da aba. O escuro foi
+comparado pixel a pixel (Cronograma, Modo Fácil, Ferramentas, Configurações) contra o HEAD: igual.
+
+**ORÁCULOS QUE MUDARAM DE PREMISSA**, e nenhum afrouxou no escuro: `modo-facil-card` B2 e
+`modo-simples-corpo` U1 exigiam card ≠ página pelo TOM — no claro passam a exigir a SOMBRA
+(`boxShadow !== 'none'`); `modo-facil-card` B5 e o `smoke` ("a superfície afunda") exigiam
+flutuante ≠ afundado nos dois temas — no claro agora são iguais por construção, e o `smoke` cobra a
+igualdade. Comentários de medida "sobre a página" do claro em `tokens.css` refeitos (texto 21:1,
+`--muted` 6,66, `--accent` 7,70, `--live-strong` 6,84, `--warn` 4,80, momentos ≥ 6,45:1).
+
+**SHELL:** `colors.xml` e `GuiaSom.kt` ⇒ `shellTag` `v1.14.80` e Release.
 
 ## v1.14.79 — o Pacote 16 fecha: o Sábado refeito, "Salvar como modelo" e a linha da gaveta com ⋮
 
