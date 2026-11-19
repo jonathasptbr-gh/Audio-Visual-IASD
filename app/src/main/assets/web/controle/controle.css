@@ -2737,6 +2737,15 @@ main {
 .crono-item > .crono-enviar svg { width: var(--icon-sm); height: var(--icon-sm); }
 .crono-item > .crono-enviar:disabled { opacity: var(--op-inativo); cursor: default; }
 .crono-item > .crono-enviar.trabalhando { opacity: 1; color: var(--accent); }
+/* O ENVIO EM CURSO: a etapa no lugar da conta, e a barra de andamento no pé da linha
+   (`--pct`, escrito por `cultoAvisar`). Fundo em camada, por cima da cor da linha. */
+.crono-item.enviando {
+  background-image: linear-gradient(var(--accent), var(--accent));
+  background-size: var(--pct, 0%) 3px; background-repeat: no-repeat;
+  background-position: left bottom;
+  transition: background-size var(--dur-media) ease;
+}
+.crono-item.enviando .crono-item-qtd { color: var(--accent); font-variant-numeric: tabular-nums; }
 /* "NOVO CRONOGRAMA" É A ÚLTIMA LINHA, com o conteúdo CENTRADO: ícone + rótulo,
    o par discreto de criar do app (`--surface` + `--accent`, o do "Refazer" da
    Verificação) na altura de um botão de faixa (`--quad-faixa`). */

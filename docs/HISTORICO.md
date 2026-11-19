@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.76** — o envio do culto mostra a etapa: a conta da linha vira "Juntando as mídias…", "Desenhando as capas…", "Gravando… N%", com barra (só web, sem `shellTag`).
 - **v1.14.75** — o Pacote 16, lotes P3+P4: a prévia do culto recebido, a porta de entrada (`ACTION_VIEW`) e as capas junto no compartilhar (shell mudou: `SHELL_VERSION` 90, Release v1.14.75).
 - **v1.14.74** — o Pacote 16, lotes P1+P2: "Enviar" um culto da gaveta dos cronogramas, com a capa em páginas dentro do `.avpkg` (só web, sem `shellTag`).
 - **v1.14.73** — o operador conferiu os 50 pontos de medição e nada estava quebrado: as 55 linhas que dependiam dele saem fechadas, a `Faixa` do YouTube perde os cinco campos sem leitor, e a publicação do OTA passa a REPROVAR versão igual com conteúdo diferente (shell mudou, Release v1.14.73).
@@ -808,6 +809,24 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.76 — o envio do culto mostra a etapa: a conta da linha vira "Juntando as mídias…", "Desenhando as capas…", "Gravando… N%", com barra
+
+**O PEDIDO** (operador, 18/11, testando a v1.14.74): ao tocar em Enviar na gaveta
+dos cronogramas não havia retorno nenhum — `pacotePlano`, as capas e a criação
+do arquivo levam segundos SEM byte, e o `bgTask` só nascia depois deles. Parecia
+app travado.
+
+**O CONSERTO:** `cultoEtapa` + `cultoAvisar(texto, fracao)`. Enquanto
+`cultoEnviando` é o culto da linha, `renderCronoGaveta` troca a conta pela etapa
+(`#cronoEtapa`) e põe `.enviando` com `--pct` (a barra no pé da linha, camada de
+fundo em `--accent`); o `cultoAvisar` mexe só nesse nó, sem redesenhar a gaveta a
+cada bloco do escritor (trocaria o botão — o ✕ do cancelar — sob o dedo). Etapas:
+juntar as mídias (2%), desenhar as capas (8%), preparar o arquivo (12%),
+"Gravando… N%" (12–92%, pelo escritor) e abrir o compartilhar (95%). No fim, a
+linha volta à conta.
+
+**Só web:** o shell não mudou desde a tag v1.14.75 — sem `shellTag`.
 
 ## v1.14.75 — o Pacote 16, lotes P3+P4: a prévia do culto recebido, a porta de entrada (`ACTION_VIEW`) e as capas junto no compartilhar
 

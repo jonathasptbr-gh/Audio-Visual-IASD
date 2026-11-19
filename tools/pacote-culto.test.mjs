@@ -19,6 +19,9 @@
 //   E · `pacoteLerCapa`: `{ info, capas }` com 1 e 3 páginas em ordem, `[]` sem, nulos no lixo.
 //   F · o botão na gaveta: entre o nome e o excluir, desabilitado com cronograma vazio,
 //       e o nome não espremido a 360 px.
+//   I · a ETAPA do envio na linha (`cultoAvisar`): com o canal segurado, antes do fim, a conta
+//       vira a etapa, a linha tem `.enviando` e "Gravando… N%" com `--pct` acima do início;
+//       no fim volta a "N itens". Foto a 360×640 em ~/tmp/enviando-360.png.
 //
 //   node tools/pacote-culto.test.mjs
 // ============================================================================
@@ -484,6 +487,87 @@ try {
     && !h.dialogo && h.depois === 'Enviar “Culto Sábado”',
   'H · enquanto prepara, o enviar vira o ✕ "Cancelar o envio": o toque apaga o parcial (pacoteCancelar), '
   + 'não fecha nem compartilha, e não abre diálogo de erro', JSON.stringify(h));
+
+  // ===== I · A ETAPA DO ENVIO na linha (`cultoAvisar`): o operador vê andar, não um app travado =====
+  // O CANAL SEGURA os blocos binários num portão que o teste abre: enquanto ele está fechado
+  // o envio NÃO PODE terminar (o `fim`, o `fechar` e o compartilhar vêm depois), e o que a linha
+  // mostra é o MEIO. Um MutationObserver anota cada etapa; `waitForFunction` amostra o estado.
+  await A.pg.setViewportSize({ width: 360, height: 640 });
+  if (!(await A.pg.evaluate(() => document.getElementById('cronoGaveta').classList.contains('aberta')))) {
+    await A.pg.click('#cronoTitulo');
+    await esperar(A.pg, () => document.getElementById('cronoGaveta').classList.contains('aberta'));
+  }
+  await A.pg.waitForTimeout(350);
+  const iIni = await A.pg.evaluate(() => {
+    window.__saida = []; window.__chamadas = []; window.__retidos = 0; window.__etapas = [];
+    const canal = window.__avPacote;
+    window.__postOriginal = canal.postMessage;
+    let abrir;
+    const portao = new Promise((r) => { abrir = r; });
+    window.__abrirPortao = abrir;
+    canal.postMessage = function (m) {
+      if (typeof m === 'string') return window.__postOriginal.call(canal, m);
+      window.__retidos++;
+      portao.then(() => window.__postOriginal.call(canal, m));
+    };
+    const anotar = () => {
+      const el = document.getElementById('cronoEtapa');
+      const t = el ? el.textContent : '';
+      if (t && window.__etapas.at(-1) !== t) window.__etapas.push(t);
+    };
+    window.__obs = new MutationObserver(anotar);
+    window.__obs.observe(document.getElementById('cronoLista'), { subtree: true, childList: true, characterData: true });
+    const li = [...document.querySelectorAll('#cronoLista .crono-item')]
+      .find((x) => x.querySelector('.crono-item-nome').textContent === 'Culto Sábado');
+    li.querySelector('.crono-enviar').click();
+    const el = document.getElementById('cronoEtapa');
+    const linha = el && el.closest('.crono-item');
+    return { texto: el ? el.textContent : null, enviando: !!linha && linha.classList.contains('enviando'),
+      pct: linha ? parseFloat(linha.style.getPropertyValue('--pct')) : NaN };
+  });
+  const ETAPAS = /^(Juntando as mídias…|Desenhando as capas…|Preparando o arquivo…|Gravando… \d+%|Abrindo o compartilhar…)$/;
+  checar(ETAPAS.test(iIni.texto || '') && iIni.enviando && iIni.pct >= 0,
+    'I · no toque, #cronoEtapa já mostra uma ETAPA no lugar da conta e a linha ganha `.enviando`', JSON.stringify(iIni));
+  let viuGravando = true;
+  try {
+    await A.pg.waitForFunction(() => {
+      const el = document.getElementById('cronoEtapa');
+      return window.__retidos > 0 && !!el && /^Gravando… \d+%$/.test(el.textContent);
+    }, null, { timeout: 15000, polling: 50 });
+  } catch (_) { viuGravando = false; }
+  const iMeio = await A.pg.evaluate(() => {
+    const el = document.getElementById('cronoEtapa');
+    const linha = el && el.closest('.crono-item');
+    return { texto: el ? el.textContent : null, enviando: !!linha && linha.classList.contains('enviando'),
+      pct: linha ? parseFloat(linha.style.getPropertyValue('--pct')) : NaN,
+      nome: linha ? linha.querySelector('.crono-item-nome').textContent : null,
+      barra: linha ? getComputedStyle(linha).backgroundImage : '',
+      retidos: window.__retidos, cham: window.__chamadas.slice(), etapas: window.__etapas.slice() };
+  });
+  if (viuGravando) await A.pg.screenshot({ path: path.join(process.env.HOME, 'tmp', 'enviando-360.png') });
+  checar(viuGravando && iMeio.nome === 'Culto Sábado' && iMeio.enviando && /^Gravando… \d+%$/.test(iMeio.texto)
+    && iMeio.pct > iIni.pct && /gradient/.test(iMeio.barra)
+    && !iMeio.cham.includes('fechar') && !iMeio.cham.some((c) => /^compartilhar/.test(c)),
+  'I · ANTES DO FIM (canal segurado, nada fechado nem compartilhado): a linha mostra "Gravando… N%", '
+  + 'tem `.enviando` com a barra, e o `--pct` passou do do início', JSON.stringify({ viuGravando, iIni, iMeio }));
+  await A.pg.evaluate(() => window.__abrirPortao());
+  const iFim = await esperar(A.pg, () => window.__chamadas.includes('compartilharCulto')
+    && !document.getElementById('cronoEtapa'), null, 60000);
+  const iDepois = await A.pg.evaluate(() => {
+    window.__obs.disconnect();
+    window.__avPacote.postMessage = window.__postOriginal;
+    const li = [...document.querySelectorAll('#cronoLista .crono-item')]
+      .find((x) => x.querySelector('.crono-item-nome').textContent === 'Culto Sábado');
+    return { qtd: li.querySelector('.crono-item-qtd').textContent, enviando: li.classList.contains('enviando'),
+      etapa: !!document.getElementById('cronoEtapa'), etapas: window.__etapas.slice(),
+      dialogo: document.getElementById('appDialog').classList.contains('open') };
+  });
+  checar(iFim === true && /^\d+ itens$/.test(iDepois.qtd) && !iDepois.enviando && !iDepois.etapa && !iDepois.dialogo,
+    'I · no fim a linha volta a "N itens", sem `.enviando` nem #cronoEtapa', JSON.stringify({ iFim, iDepois }));
+  checar(iDepois.etapas.every((t) => ETAPAS.test(t)) && iDepois.etapas.indexOf('Desenhando as capas…') >= 0
+    && iDepois.etapas.findIndex((t) => /^Gravando/.test(t)) > iDepois.etapas.indexOf('Desenhando as capas…'),
+  'I · as etapas anotadas são só as do envio, e "Gravando…" vem depois de "Desenhando as capas…"',
+  JSON.stringify(iDepois.etapas));
   await A.ctx.close();
 
   // ===== E · pacoteLerCapa =====

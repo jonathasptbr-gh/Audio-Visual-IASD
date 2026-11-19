@@ -1,5 +1,12 @@
 [
   {
+    "versao": "1.14.76",
+    "itens": [
+      "Ao enviar um culto, a linha dele mostra o que está fazendo (juntando, desenhando as capas, gravando) e uma barra.",
+      "Não precisa instalar nada: chega pela atualização automática."
+    ]
+  },
+  {
     "versao": "1.14.75",
     "itens": [
       "Instale o APK novo: é ele que traz as novidades abaixo.",

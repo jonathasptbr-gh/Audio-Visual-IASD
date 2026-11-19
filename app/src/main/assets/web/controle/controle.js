@@ -493,7 +493,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.75';
+const WEB_VERSION = '1.14.76';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -21561,6 +21561,15 @@ function renderCronoGaveta() {
     qtd.className = 'row-sub crono-item-qtd';
     const n = ativo ? libItems.length : c.qtd;
     qtd.textContent = n === 1 ? '1 item' : n + ' itens';
+    // ENQUANTO ENVIA, A CONTA VIRA A ETAPA (`cultoAvisar`), e a linha ganha a barra de andamento:
+    // juntar as mídias e desenhar as capas levam segundos sem byte nenhum, e um botão parado
+    // parece app travado (pedido do operador, 18/11).
+    if (cultoEnviando === c.id) {
+      qtd.id = 'cronoEtapa';
+      qtd.textContent = cultoEtapa.texto || 'Preparando o envio…';
+      li.classList.add('enviando');
+      li.style.setProperty('--pct', Math.round(cultoEtapa.fracao * 100) + '%');
+    }
     troca.append(nome, qtd);
     troca.addEventListener('click', () => { trocarCronograma(c.id); });
 
@@ -36868,6 +36877,18 @@ function cultoBase64(blob) {
   });
 }
 
+/** A ETAPA DO ENVIO na linha do culto: o texto e a fração (0–1) da barra. Mexe só no nó da
+ *  linha — redesenhar a gaveta a cada bloco do escritor trocaria o botão sob o dedo. */
+let cultoEtapa = { texto: '', fracao: 0 };
+function cultoAvisar(texto, fracao) {
+  cultoEtapa = { texto, fracao: Math.max(0, Math.min(1, fracao || 0)) };
+  const el = document.getElementById('cronoEtapa');
+  if (!el) return;
+  el.textContent = texto;
+  const li = el.closest('.crono-item');
+  if (li) li.style.setProperty('--pct', Math.round(cultoEtapa.fracao * 100) + '%');
+}
+
 async function exportarCulto(id) {
   const c = pacoteCanal();
   if (!c || pacoteEmCurso) return;
@@ -36887,6 +36908,7 @@ async function exportarCulto(id) {
   pacoteEmCurso = true;
   pacoteCancelar = false;
   cultoEnviando = id;
+  cultoEtapa = { texto: 'Juntando as mídias…', fracao: 0.02 };
   pacoteRenderTiles();
   renderCronoGaveta();
   let erro = '';
@@ -36911,7 +36933,9 @@ async function exportarCulto(id) {
     let bases = [];
     try { bases = await pacoteBases(plano, sel); } catch (_) { bases = []; }
     const total = Math.max(pacoteBytesDe(plano, sel) + bases.reduce((t, b) => t + b.tamanho, 0), 1);
+    cultoAvisar('Desenhando as capas…', 0.08);
     const capas = await cultoCapas(culto.nome, culto.ids);
+    cultoAvisar('Preparando o arquivo…', 0.12);
     const espaco = await AVNative.pacoteEspaco();
     cabeLocal = espaco > 0 && espaco - total > PACOTE_FOLGA_BYTES;
     const arq = AVPacote.nomeDoCulto(culto.nome, new Date());
@@ -36925,9 +36949,14 @@ async function exportarCulto(id) {
       const tarefa = bgTaskStart('Enviando o culto', 1, 'enviar');
       bgItemOnly(tarefa, culto.nome);
       let feitos = 0;
+      // As CAPAS passam pelo escritor (e contam em `feitos`) mas não estão em `total`: sem elas
+      // no alvo, um culto leve marcava "Gravando… 100%" logo nas capas, antes das mídias.
+      const alvo = total + capas.reduce((t, b) => t + ((b && b.size) || 0), 0);
       const esc = pacoteEscritor((ab) => pacoteBloco(c, ab), (n) => {
         feitos += n;
         bgTaskBytes(tarefa, Math.min(feitos, total), total);
+        const f = Math.min(feitos, alvo) / alvo;
+        cultoAvisar('Gravando… ' + Math.round(f * 100) + '%', 0.12 + f * 0.8);
       }, () => pacoteCancelar);
       try {
         await pacoteEscreverRegistros(esc, plano, sel, bases, total, tarefa, {
@@ -36946,6 +36975,7 @@ async function exportarCulto(id) {
     // AS CAPAS VÃO AO LADO, para a conversa mostrar a imagem (shell 90): o PNG cru, em base64.
     // Uma página que não grava não derruba o envio — o pacote já leva a capa dentro.
     else if (cabeLocal && proprio) {
+      cultoAvisar('Abrindo o compartilhar…', 0.95);
       for (let i = 0; i < capas.length; i++) {
         let n = -1;
         try { n = await AVNative.pacoteCapa(i + 1, await cultoBase64(capas[i])); } catch (_) { n = -1; }
@@ -36963,6 +36993,7 @@ async function exportarCulto(id) {
     pacoteEmCurso = false;
     pacoteCancelar = false;
     cultoEnviando = '';
+    cultoEtapa = { texto: '', fracao: 0 };
     pacoteRenderTiles();
     renderCronoGaveta();
   }
