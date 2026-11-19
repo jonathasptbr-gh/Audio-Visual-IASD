@@ -1139,18 +1139,21 @@ try {
         lista: lib.top, corpoTopo: corpo.top, tela: innerWidth,
         sp3: parseFloat(raiz.getPropertyValue('--sp-3')) * parseFloat(raiz.fontSize),
         base: parseFloat(document.querySelector('.list-body').style.getPropertyValue('--itin-barra-base')),
+        // A MARGEM DE BAIXO DA FAIXA (v1.14.81): o vão entre ela e a lista.
+        mb: parseFloat(getComputedStyle(document.getElementById('itinBar')).marginBottom),
       };
     });
     const centro = (z.bar.l + z.bar.r) / 2;
     const desceu = z.lista - antes.lista;
-    checar(Math.abs(desceu - (z.bar.h + z.sp3)) <= 0.5
+    checar(z.mb >= 4 && Math.abs(desceu - (z.bar.h + z.sp3 + z.mb)) <= 0.5
       && Math.abs(z.bar.w - antes.gav) <= 1
       && Math.abs(centro - z.tela / 2) <= 1
       && Math.abs((z.bar.t - z.corpoTopo) - z.sp3) <= 0.5
-      && Math.abs(z.lista - z.bar.b) <= 0.5
+      && Math.abs(z.lista - (z.bar.b + z.mb)) <= 0.5
       && Math.abs(z.base - (z.sp3 + z.bar.h)) <= 0.5,
       'Z · a faixa DESLOCA a lista: abrir moveu o topo do `#library` ' + desceu.toFixed(1) + 'px (a altura da faixa + o '
-      + '`--sp-3`), e a lista agora começa na BORDA DE BAIXO dela (nada coberto). A largura é a da gaveta dos cronogramas ('
+      + '`--sp-3` de cima + a margem de baixo, ' + z.mb + 'px), e a lista agora começa a essa MARGEM da borda de baixo dela '
+      + '(nada coberto; v1.14.81: o corte rente à faixa). A largura é a da gaveta dos cronogramas ('
       + z.bar.w.toFixed(1) + 'px), centrada, e a âncora da sub-aba é a borda de baixo da faixa', { antes, z });
   }
   // E AS DUAS ABAS SÃO CONCORRENTES: abrir uma fecha a outra. O caminho da gaveta

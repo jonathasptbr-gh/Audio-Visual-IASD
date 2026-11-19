@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.81** — ajustes do claro: margem sob a faixa do itinerário, sombra nos blocos do POÇO (Biblioteca, Histórico, Transferir/Editar mídia), a sombra do glifo da prévia recolhida só no mudo e a borda da Biblioteca no `.sorteio-campo` (só web).
 - **v1.14.80** — o tema claro com página BRANCA e separação por SOMBRA (`--elev-*`); `app_bg_claro` acompanha (`shellTag`, APK).
 - **v1.14.79** — o Pacote 16 fecha: o modelo "Sábado de manhã" refeito (lição até 10h15, sermão das 11h15 ao meio-dia), "Salvar como modelo" / "Meus modelos" e a linha da gaveta compactada em nome · enviar · ⋮ (só web, sem `shellTag`).
 - **v1.14.78** — o Pacote 16, P5: "Novo a partir de um modelo" na gaveta, com os três modelos de fábrica (só web, sem `shellTag`).
@@ -813,6 +814,17 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.81 — ajustes do tema claro: a faixa do itinerário, as listas, a prévia recolhida e o campo da edição
+
+**O PEDIDO** (operador, 19/11, com captura, depois da v1.14.80), quatro pontos:
+
+| pedido | o que mudou |
+|---|---|
+| *"adicione na base das configurações do itinerário uma margem, pois ele está cortando o scroll muito próximo"* | `.itin-bar` `margin: --sp-3 auto --sp-3` (era `… 0`): o `#library` começa a uma margem da faixa, e o corte com a sombra de rolagem cai no vão. `sombra-de-rolagem` R mede vão = `margin-bottom` (≥ 4px) em vez de vão 0 |
+| *"aplique as sombras às coleções na biblioteca … a todo tipo de listagem comum, como histórico, transferências, editar mídia"* | `--elev-cartao` no claro para os blocos que pintam `--poco`: `#hymnResults.acervo > (.hymnal-card, .coll-group, .semana-raiz, .folder-opfs)`, os filhos de `.coll-group-corpo`, `.pacote-grupo` de `#songMenuList`/`#pacoteLista`/`#edicaoLista`, `.hist-sessao`, `.edicao-bloco`, `.teste-erro`; `--elev-botao` no `.lib-importar-btn` |
+| *"nos controles que ficam sobre a preview, no modo claro, na versão compactada, estão ficando todos com sombras"* | DEFEITO: `--pv-mute-sombra` era declarada na `.pv-fab` da prévia recolhida, e o `filter: var(--pv-mute-sombra, none)` dos cinco SVGs a lia por herança — os quatro vizinhos do mudo saíam com `drop-shadow`. A declaração (com o `--pv-mute-halo: none`) foi para a `.pv-fab--mute` da mesma regra; nos dois temas |
+| *"No editor de mídia, na caixa de texto da busca … precisa de uma borda igual a caixa de buscas da biblioteca"* | `.sorteio-campo .lib-search` (os três moradores: o tema do sorteio, a busca e o nome da edição) veste a receita do `#hymnSearchInput` — `border: 2px solid var(--surface)`, `padding-box`, `border-box` — no lugar da sombra de 1px. É a QUINTA exceção nomeada do contorno, recortada à mão no `tokens.test` |
 
 ## v1.14.80 — o tema claro: página branca, e a sombra separa o cartão
 

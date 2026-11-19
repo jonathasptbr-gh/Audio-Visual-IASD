@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.14.81",
+    "itens": [
+      "As opções do itinerário ganharam um espaço embaixo: a lista não é mais cortada colada nelas.",
+      "No tema claro, as coleções da Biblioteca e os grupos do Histórico, Transferir e Editar mídia têm sombra.",
+      "Com a prévia recolhida, só o ícone de volume tem sombra; os outros botões ficaram iguais aos controles.",
+      "A caixa de busca do Editar mídia e do sorteio ganhou a mesma borda da busca da Biblioteca.",
+      "Não precisa instalar nada: chega pela atualização automática."
+    ]
+  },
+  {
     "versao": "1.14.80",
     "itens": [
       "No tema claro, o fundo das telas agora é branco, sem o cinza de antes.",

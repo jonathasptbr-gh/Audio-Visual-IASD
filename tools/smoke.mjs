@@ -764,6 +764,9 @@ try {
     const varrer = () => {
       for (const el of document.querySelectorAll('*')) {
         if (el.id === 'hymnSearchInput') continue;
+        // A SEGUNDA, pelo NOME também (v1.14.81): o campo do sorteio e da edição
+        // veste a mesma borda, a pedido — `.lib-search` dentro de `.sorteio-campo`.
+        if (el.matches('.sorteio-campo .lib-search')) continue;
         // A MOLDURA DA BIBLIOTECA (v1.5.9): a autoridade que o operador deu é
         // um ESCOPO, e é ele que sai da varredura — a lista do acervo e o que
         // vive dentro dela. Uma borda em qualquer outro lugar continua

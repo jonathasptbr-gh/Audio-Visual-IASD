@@ -690,11 +690,23 @@ input, textarea { user-select: text !important; -webkit-user-select: text !impor
 :root[data-tema="claro"] body.mode-simple.simples-barra .popup-backdrop--lib .popup-sheet--lib {
   box-shadow: var(--elev-cartao);
 }
+/* AS LISTAS (v1.14.81): *"aplique as sombras às coleções na biblioteca … a todo tipo de
+   listagem comum, como histórico, transferências, editar mídia"*. São os blocos que pintam
+   o POÇO (`--poco`, o azul) — a coleção, o álbum e a liturgia da Biblioteca (na raiz e
+   dentro de uma coleção aberta), a pasta do aparelho, a sessão do Histórico, o grupo do
+   Transferir/Enviar/Editar mídia, o bloco da edição e o erro da Verificação. */
+:root[data-tema="claro"] :is(
+  #hymnResults.acervo > :is(.hymnal-card, .coll-group, .semana-raiz, .folder-opfs),
+  .acervo .coll-group-corpo > :is(.hymnal-card, .coll-group),
+  :is(#songMenuList, #pacoteLista, #edicaoLista) > .pacote-grupo,
+  .hist-sessao, .edicao-bloco, .teste-erro) {
+  box-shadow: var(--elev-cartao);
+}
 /* Os botões azuis. As PORTAS só no `.livre`: com a lista correndo por baixo elas
    mantêm a sombra de sobreposição de sempre (`--shadow-card`, v1.12.19), e é aqui,
    sem lista, que antes não havia nenhuma. O `+` da faixa do itinerário fica de
    fora: ele mora dentro de um cartão que já sombreia, ao lado de botões que não. */
-:root[data-tema="claro"] :is(.cast-acao-linha, .cast-acao,
+:root[data-tema="claro"] :is(.cast-acao-linha, .cast-acao, .lib-importar-btn,
   .dialog-btn.primary, .chrono-btn.primary,
   .qs-tile.qs-on, .misc-chip.active, .cast-rede.active, .dest-btn.on, .fit-opt.active),
 :root[data-tema="claro"] .list-foot.livre :is(.tools-btn, .lib-foot-btn) {
@@ -1675,9 +1687,13 @@ body.mode-simple .vol-pill.na-previa .vol-pill-trilho { max-height: 12rem; }
   grid-row: 1; position: relative; width: auto; height: auto; min-height: 0; margin: 0;
   padding: .45rem 0; border-radius: var(--radius-btn);
   background: var(--surface); color: var(--text);
-  /* O MUDO NÃO TEM PALCO ATRÁS AQUI: a célula é `--surface` com tema, e o contorno de tinta do
-     número (a `--pv-mute-halo` do `.pv-fab--mute`) viraria sujeira sob o dígito. A sombra do
-     glifo fica, mas só a de elevação: é ela que mantém o "está na frente" sobre o número. */
+}
+/* O MUDO NÃO TEM PALCO ATRÁS AQUI: a célula é `--surface` com tema, e o contorno de tinta do
+   número (a `--pv-mute-halo` do `.pv-fab--mute`) viraria sujeira sob o dígito. A sombra do
+   glifo fica, mas só a de elevação: é ela que mantém o "está na frente" sobre o número.
+   SÓ NO MUDO (v1.14.81): declarada na `.pv-fab` ela herdava para os cinco, e o `filter` dos
+   SVGs abaixo lê a variável — os quatro vizinhos saíam com sombra, ao contrário dos `.t-btn`. */
+.preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)) .pv-fab--mute {
   --pv-mute-halo: none;
   --pv-mute-sombra: drop-shadow(0 1px 2px rgba(0, 0, 0, .45));
 }
@@ -7504,7 +7520,10 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
 .itin-bar {
   container-type: inline-size;
   position: relative; flex: none; z-index: 7;
-  margin: var(--sp-3) auto 0; width: min(100%, 24rem);
+  /* A MARGEM DE BAIXO (v1.14.81): *"está cortando o scroll muito próximo"*. Sem ela o
+     `#library` começava colado na base da faixa e a linha rolada era cortada rente ao
+     cartão; com ela o corte (e a sombra de rolagem) cai num vão, como o de cima. */
+  margin: var(--sp-3) auto var(--sp-3); width: min(100%, 24rem);
   /* QUEBRA EM DUAS LINHAS quando não cabe (a fonte do sistema em 1,25× ou mais, ou uma tela
      estreita): a alternativa era esconder o `+` atrás da borda, sem rolagem nenhuma para
      chegar a ele. Quem desce são as SEÇÕES inteiras (`.itin-secao`). O vão ENTRE elas
@@ -9692,7 +9711,8 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    a mesma regra do palco num lugar pequeno. */
 #hymnSearchInput {
   background: var(--field-bg); color: var(--field-text);
-  /* A ÚNICA BORDA DO APP. Ela é NOMEADA no `tokens.test.mjs`, ao lado dos dois
+  /* A PRIMEIRA BORDA DO APP (a segunda é o campo do sorteio/edição, v1.14.81, com
+     esta mesma receita). Ela é NOMEADA no `tokens.test.mjs`, ao lado dos dois
      DESENHOS que já passavam — a lista de exceções é escrita à mão de propósito,
      porque uma heurística deixaria a próxima entrar chamando-se exceção. */
   /* DOIS PIXELS (v1.5.7), a pedido do operador: *"engrosse a borda da caixa de
@@ -10441,13 +10461,21 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    nenhuma delas já dizia — quatro regras, nenhuma cor nova. */
 /* O CAMPO DO TEMA. Ele veste o mesmo `--field-*` do campo da Biblioteca: é a
    MESMA pergunta ("que palavra?") na mesma sequência de telas, e um segundo
-   desenho para ela leria como outro tipo de busca. A elevação vem junto pelo
-   motivo do original: no tema claro o campo é branco sobre um cartão branco. */
+   desenho para ela leria como outro tipo de busca.
+   E A BORDA TAMBÉM (v1.14.81), no lugar da sombra que ele vestia: *"no editor de
+   mídia, na caixa de texto da busca … precisa de uma borda igual a caixa de buscas
+   da biblioteca"*. É a receita do `#hymnSearchInput` — 2px de `--surface` com
+   `padding-box` e `border-box` —, e a SEGUNDA exceção nomeada à regra do contorno
+   (`tokens.test.mjs`), pela mesma razão da primeira: campo branco sobre cartão
+   branco. Vale para os três moradores (o tema do sorteio, a busca e o nome da
+   edição): a mesma pergunta, o mesmo desenho. */
 .sorteio-campo { padding: .1rem 0 .35rem; }
 .sorteio-campo .lib-search {
   height: var(--campo-alt); padding: 11px 14px 11px 38px; font-size: var(--fs-xl);
   background: var(--field-bg); color: var(--field-text);
-  box-shadow: 0 1px 3px -1px var(--shadow-ink);
+  border: 2px solid var(--surface);
+  background-clip: padding-box;
+  box-sizing: border-box;
 }
 .sorteio-campo .lib-search::placeholder { color: var(--field-muted); }
 .sorteio-campo .lib-search-lupa { color: var(--field-muted); }

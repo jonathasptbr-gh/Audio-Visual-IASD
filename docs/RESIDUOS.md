@@ -45,6 +45,7 @@ medição em aparelho não é fino.**
 
 | quando · lote | onde | o que ficou | dono | por que não foi agora |
 |---|---|---|---|---|
+| 2026-11-19 · v1.14.81 | `.sorteio-campo .lib-search` no ESCURO | a borda de `--surface` dentro da folha é o recesso escuro sobre o painel, e o contraste dela contra o campo branco não foi medido (no claro é o cinza dos botões, como na Biblioteca) | medição | conferir no aparelho, tema escuro, Editar mídia |
 | 2026-11-19 · v1.14.80 | `controle.css` "O CLARO SEPARA POR SOMBRA" | a lista de cartões e botões sombreados foi feita pelo que a prévia mostrou (Cronograma, Modo Fácil, Ferramentas, Configurações); Biblioteca, Bíblia e as outras folhas não foram fotografadas no claro, e outro `--btn-accent` que pouse direto na página branca fica a 1,21:1 sem sombra | medição | conferir no aparelho; cada achado é uma linha a mais na lista |
 | 2026-11-19 · v1.14.79 | `MODELOS_DE_FABRICA` (o Sábado) | os horários são uma sugestão da pesquisa + a régua do operador, e só o uso num sábado real confirma | medição | depende da igreja; cada horário é editável |
 | 2026-11-19 · v1.14.79 | `modelos` × o pacote do CULTO | os modelos do operador não viajam no "Enviar" de um culto (só no pacote do acervo inteiro, unidos por id); e a "dica do que pôr em cada momento" (a coluna "o sonoplasta precisa de" do estudo) não existe | operador | nenhum dos dois foi pedido; decidir se o modelo deve viajar sozinho (enviar um modelo) e se a dica vale a tela |

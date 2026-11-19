@@ -677,7 +677,7 @@ decisão é irreversível era a única em que a cor não dizia isso, enquanto
 ### Só preenchimento, nenhum contorno
 
 Nenhuma regra do app desenha `border`/`outline` para SEPARAR caixas. O que
-sobrevive são **quatro exceções, nomeadas uma a uma no oráculo** — nunca
+sobrevive são **cinco exceções, nomeadas uma a uma no oráculo** — nunca
 detectadas por heurística, porque uma heurística deixaria a próxima borda entrar
 chamando-se desenho.
 
@@ -689,7 +689,7 @@ chamando-se desenho.
 - o ✓ do `.song-menu-check` (duas bordas em L, giradas 45°) — é o glifo que falta
   no subset da fonte de ícones.
 
-**Duas foram PEDIDAS**, e as duas por aritmética, não por gosto:
+**Três foram PEDIDAS**, e as três por aritmética, não por gosto:
 
 - **o campo de busca da Biblioteca** (`#hymnSearchInput`, v1.5.5): *"abra uma
   única exceção ao conceito de sem bordas do app, para poder fazer a caixa de
@@ -698,6 +698,10 @@ chamando-se desenho.
   na tela. A cor sai de `var(--surface)` (v1.5.8: *"o mesmo cinza dos botões a
   sua volta"*), composta sobre a MESMA base por um `background-clip: padding-box`
   — sem ele a tinta comporia sobre o branco do campo e sumiria no tema escuro;
+- **o campo do sorteio e da edição** (`.sorteio-campo .lib-search`, v1.14.81):
+  *"no editor de mídia, na caixa de texto da busca … precisa de uma borda igual a
+  caixa de buscas da biblioteca"*. A MESMA receita (2px de `--surface`,
+  `padding-box`, `border-box`), no lugar da sombra de 1px que ele vestia;
 - **a divisória entre faixas irmãs** (v1.5.16): *"a criação de um elemento de
   linha divisória (não borda inteira), na listagem do itens propriamente dos
   álbuns"*. Ela **não é uma `border`** — é um `::before` de 1px pintado em

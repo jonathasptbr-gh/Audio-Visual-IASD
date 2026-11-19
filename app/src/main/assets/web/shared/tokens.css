@@ -235,8 +235,9 @@
      Ele existe com NOME PRÓPRIO em vez de a folha citar `--accent-fill`: o
      nome diz a que superfície ele pertence, e é isso que impede o próximo
      controle sobre o campo de repetir a conta errada. */
-  /* (`--field-borda` SAIU na v1.5.8. A borda do campo de busca CONTINUA sendo a
-     única exceção declarada à regra do "sem contorno" — o que mudou é de onde
+  /* (`--field-borda` SAIU na v1.5.8. A borda do campo de busca CONTINUA sendo
+     exceção declarada à regra do "sem contorno" (com o campo do sorteio/edição,
+     que veste a mesma receita desde a v1.14.81) — o que mudou é de onde
      sai a cor dela: `var(--surface)`, o MESMO token que os botões ao lado
      pintam, composto sobre a MESMA base por um `background-clip: padding-box`.
      Pedido do operador: *"ele deve ser o mesmo cinza dos botões a sua volta"*.

@@ -235,6 +235,9 @@ checar(orfaos.length === 0,
     // escrito à mão —, e é o nome que mantém a lista curta.
     .replace(/\.song-menu-check\.parcial::after\s*\{[^}]*\}/g, '')
     .replace(/#hymnSearchInput\s*\{[^}]*\}/g, '')
+    // O CAMPO DO SORTEIO E DA EDIÇÃO (v1.14.81) veste a MESMA borda do campo da
+    // Biblioteca, a pedido do operador — a segunda exceção, pelo mesmo motivo.
+    .replace(/\.sorteio-campo \.lib-search\s*\{[^}]*\}/g, '')
     // (O RECORTE POR ESCOPO `.acervo` saiu na v1.5.14, com a moldura. Ele era a
     // única exceção deste oráculo que não nomeava uma peça — e uma exceção por
     // escopo é a que mais barato se alarga: bastava um seletor novo começar com

@@ -513,7 +513,7 @@ duras:
 - **Só COR entra em `tokens.css`**; raio, escala de ícone, curva de toque e medidas ficam no `:root` de `controle.css`.
 - **Três blocos, nesta ordem:** o que não muda, o ESCURO (padrão, sem atributo) e `[data-tema="claro"]` como DELTA — token só no claro não existe no padrão (`tokens.test.mjs`).
 - **O PALCO NÃO TEM TEMA:** nada pintado no palco lê token redeclarado em `[data-tema]` (a preview existe para espelhar o telão).
-- **Não há contorno em lugar nenhum**, salvo as quatro exceções NOMEADAS uma a uma no oráculo.
+- **Não há contorno em lugar nenhum**, salvo as cinco exceções NOMEADAS uma a uma no oráculo.
 - **Nunca branco literal** (`#fff`) em `controle.css`/`display.css`; as três exceções estão declaradas em `tokens.css`.
 - **No claro a página é BRANCA (v1.14.80) e o nível 1 se separa por SOMBRA** (`--elev-*`, transparente no escuro; a regra em `controle.css`, "O CLARO SEPARA POR SOMBRA"); cartão novo que pousa direto na página entra na lista dela.
 - **Fundos de ESTADO e superfícies de AÇÃO são OPACOS**; tinta com alfa empilha. Os `-soft` são só wash.

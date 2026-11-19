@@ -178,7 +178,9 @@ try {
       // RECOLHIDA, o `#library` encosta na barra do topo; ABERTA, ele começa na
       // BORDA DE BAIXO da faixa (v1.14.55: a faixa está no fluxo, ela desloca a
       // lista), e a faixa nasce `--sp-3` abaixo do cabeçalho.
-      colada: tem ? Math.abs(rl.top - rb.bottom) <= 1.5 : Math.abs(rl.top - rc.bottom) <= 1.5,
+      // (v1.14.81: aberta, entre as duas há a MARGEM DE BAIXO da faixa.)
+      colada: tem ? Math.abs(rl.top - (rb.bottom + parseFloat(getComputedStyle(b).marginBottom))) <= 1.5
+        && parseFloat(getComputedStyle(b).marginBottom) >= 4 : Math.abs(rl.top - rc.bottom) <= 1.5,
       deslocou: tem ? Math.abs(rb.top - (rc.bottom + sp3)) <= 1.5 && rb.height > 0 : false,
       faixa: tem ? [+rb.top.toFixed(2), +rb.bottom.toFixed(2)] : null,
       cabecalhoBase: +rc.bottom.toFixed(2), listaTopo: +rl.top.toFixed(2) };
@@ -195,7 +197,7 @@ try {
   const faixaIt = await medirFaixa();
   checar(faixaIt.aberta === 'true' && faixaIt.tem && faixaIt.colada && faixaIt.deslocou,
     'aberta pela porta, a faixa do Itinerário (`#itinBar`) fica `--sp-3` abaixo do cabeçalho e DESLOCA a lista: o topo '
-    + 'do `#library` passa a ser a borda de baixo dela (v1.14.55)', faixaIt);
+    + 'do `#library` passa a ser a borda de baixo dela mais a margem de baixo (v1.14.55; a margem, v1.14.81)', faixaIt);
   await pg.click('#toolsBtn');
   await assentar(pg, '#toolsSheet');
   const dentro = await pg.evaluate(() => {

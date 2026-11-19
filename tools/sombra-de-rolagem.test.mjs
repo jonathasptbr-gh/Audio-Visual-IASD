@@ -1252,6 +1252,8 @@ try {
         // na BORDA DE BAIXO da faixa com ela aberta — desde a v1.14.55 a faixa está
         // no fluxo e é ela que desloca a lista.
         vao: +(l.top - (f ? f.bottom : c.bottom)).toFixed(2),
+        // A MARGEM DE BAIXO DA FAIXA (v1.14.81): aberta, o vão até a lista é ELA.
+        margemFaixa: f ? parseFloat(getComputedStyle(fx).marginBottom) : 0,
         simple: document.body.classList.contains('mode-simple') };
     });
     const mesma = (a, b) => !!a && !!b
@@ -1287,12 +1289,13 @@ try {
     const corLista = pixel(imgA, ra.xFaixa != null ? ra.xFaixa : ra.x, ra.yLista);
     const corControlesA = pixel(imgA, ra.x, ra.yBarra);
     const centroA = ra.faixa ? (ra.faixa.esq + ra.faixa.dir) / 2 : -1;
-    checar(ra.aberta === 'true' && !!ra.faixa && Math.abs(ra.vao) <= 1
+    checar(ra.aberta === 'true' && !!ra.faixa && ra.margemFaixa >= 4 && Math.abs(ra.vao - ra.margemFaixa) <= 1
       && ra.faixa.larg < ra.tela && Math.abs(centroA - ra.tela / 2) <= 1
       && mesma(corFaixa, corControlesA) && !mesma(corFaixa, corLista),
       'R · ' + tema + ': ABERTA (clique no `#itinBarBtn`), a faixa é um CARTÃO centrado, com a largura da aba dos '
-      + 'cronogramas e não mais de borda a borda, que DESLOCA a lista: o topo do `#library` começa na borda de baixo '
-      + 'dela (vão ' + ra.vao + 'px), e ela pinta a COR DA ABA — a mesma da caixa de controles, e não o fundo da lista '
+      + 'cronogramas e não mais de borda a borda, que DESLOCA a lista: o topo do `#library` começa a uma MARGEM da '
+      + 'borda de baixo dela (vão ' + ra.vao + 'px, margem ' + ra.margemFaixa + 'px — v1.14.81: o corte rente '
+      + 'ao cartão), e ela pinta a COR DA ABA — a mesma da caixa de controles, e não o fundo da lista '
       + '(v1.14.55)', JSON.stringify({ ...ra, cor: corFaixa, lista: corLista, controles: corControlesA }));
     await ctx.close();
   }
