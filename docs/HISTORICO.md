@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.87** — aplicar um modelo e importar um culto forçam os momentos À VISTA (`mostrarMomentos`) (só web).
 - **v1.14.86** — a linha de criar da gaveta: "+ Novo" (rótulo curto, `title` "Novo cronograma") e "Modelos" na MESMA largura (`.crono-criar` em grade `repeat(2, minmax(0, 1fr))`, sem quebra); o J do `cronogramas-multiplos` mira fora da gaveta e o `aoSair` remede a sombra da borda depois de zerar a altura (o Z do `itinerario` instável) (só web).
 - **v1.14.85** — a linha de criar da gaveta dos cronogramas: "Novo cronograma" e "Modelos ⌄" lado a lado (`.crono-criar`, quebra quando não cabe), no par PRIMÁRIO sólido (`--accent-fill`/`--on-accent`) (só web).
 - **v1.14.84** — a gaveta dos cronogramas: linhas `--panel` com `--elev-cartao` no claro e o "Novo cronograma"/"Novo a partir de um modelo" no par de AÇÃO (`--btn-accent`), nos dois temas (só web).
@@ -819,6 +820,12 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.87 — o modelo e o culto importado chegam com os momentos à vista
+
+**O PEDIDO** (operador, 19/11): *"Ao importar um itinerário, ou criar um com base em modelo, force a visualização ativa dos momentos, para que não se importe ou crie uma lista, para ser recebido por uma tela vazia e ter de ficar procurando onde tornar visível"*.
+
+O `itin.momentosOcultos` é do APARELHO (`state.itinerario`), não do cronograma: com ele ligado, um modelo — que só tem momentos — abria no estado vazio "Os momentos estão ocultos.", e um culto recebido sem as suas linhas de momento. `mostrarMomentos()` limpa o `itinRecolhidos` e, se ocultos, grava `momentosOcultos: false` (`saveItin`, aguardado); é chamado ANTES do `load()` em `novoCronogramaDeModelo` e no fim de um culto em `pacoteImportar` (antes do `reidratarDepoisDaImportacao`), para o `applyItin` já ler o estado novo — sem a animação de entrada, a lista inteira troca. O "Novo cronograma" vazio não força (não há momento para mostrar). `cronograma-modelos` C e `pacote-culto` 16.b cobram com os momentos ocultos antes; reversão medida (o corpo de `mostrarMomentos` anulado): os dois reprovam.
 
 ## v1.14.86 — "+ Novo" e "Modelos" da mesma largura
 

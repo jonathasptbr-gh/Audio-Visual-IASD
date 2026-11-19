@@ -1,5 +1,13 @@
 [
   {
+    "versao": "1.14.87",
+    "itens": [
+      "Ao criar um cronograma a partir de um modelo, os momentos já aparecem na lista.",
+      "Ao importar um culto recebido, os momentos também já aparecem, mesmo se estavam ocultos.",
+      "Não precisa instalar nada: chega pela atualização automática."
+    ]
+  },
+  {
     "versao": "1.14.86",
     "itens": [
       "Na lista de cronogramas, o botão de criar agora diz só \"+ Novo\".",

@@ -493,7 +493,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.86';
+const WEB_VERSION = '1.14.87';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -8824,6 +8824,18 @@ async function linhasSaem(alvo) {
 // então o desenho da faixa lê o PEDIDO enquanto ele corre: `itinMomentosPedido` é o estado
 // que o toque pediu, e `null` fora da troca.
 let itinMomentosPedido = null;
+// UM CRONOGRAMA QUE CHEGA COM MOMENTOS CHEGA COM ELES À VISTA (pedido do operador, 19/11):
+// *"ao importar um itinerário, ou criar um com base em modelo, force a visualização ativa dos
+// momentos"* — com o interruptor desligado, o modelo abria numa lista VAZIA. Quem chama é o
+// `novoCronogramaDeModelo` e o fim da importação de um culto, ANTES do `load()`: a gravação
+// volta antes da leitura, e o `applyItin` já lê o estado novo (sem a animação de entrada —
+// a lista inteira troca). Os grupos recolhidos (em memória) também se abrem.
+async function mostrarMomentos() {
+  itinRecolhidos.clear();
+  if (!itin.momentosOcultos) return;
+  itin.momentosOcultos = false;
+  await saveItin();
+}
 async function itinMomentosOcultar(v) {
   const quer = !!v;
   if (quer === !!itin.momentosOcultos || itinTrocando) return;
@@ -21836,6 +21848,7 @@ async function novoCronogramaDeModelo(m) {
   fecharCronoGaveta();
   cronoAntesDeTrocar();
   try { await AVDB.cronoCriar(m); } catch (e) { console.warn('[crono] modelo falhou:', e); }
+  await mostrarMomentos();
   await load();
   if (libraryEl) libraryEl.scrollTop = 0;
 }
@@ -38858,6 +38871,7 @@ async function importarPacote(entrada) {
       cronoAntesDeTrocar();
       try { await AVDB.cronoTrocar(contagem.cronoId); } catch (e) { console.warn('[crono] ativar o culto falhou:', e); }
     }
+    await mostrarMomentos();
     await reidratarDepoisDaImportacao();
     if (libraryEl) libraryEl.scrollTop = 0;
     const nomeAqui = (cronoPorId(contagem.cronoId) || {}).nome || contagem.culto;

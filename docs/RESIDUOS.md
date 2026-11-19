@@ -45,6 +45,7 @@ medição em aparelho não é fino.**
 
 | quando · lote | onde | o que ficou | dono | por que não foi agora |
 |---|---|---|---|---|
+| 2026-11-19 · v1.14.87 | `mostrarMomentos` | nenhum resíduo novo; o interruptor é do aparelho, então forçar à vista vale também para os outros cronogramas depois da troca — o mesmo que tocar no botão | — | é o comportamento pedido |
 | 2026-11-19 · v1.14.86 | `.crono-criar` | nenhum resíduo novo; a largura igual e o rótulo sem vazar foram medidos só no Chromium do arnês | medição | conferir no aparelho |
 | 2026-11-19 · v1.14.85 | `.crono-criar` | nenhum resíduo novo; a quebra do "Modelos" para a linha de baixo com a fonte do sistema maior foi medida só no Chromium do arnês | medição | conferir no aparelho com a fonte grande |
 | 2026-11-19 · v1.14.84 | `.crono-gaveta` no claro | nenhum resíduo novo; o ativo (`--sel-fill`) e os dois botões de criar (`--btn-accent`) são azuis próximos nos dois temas — o ativo se distingue pelo nome em negrito e pelo `⋮`; visto só no Chromium do arnês | medição | conferir no aparelho, nos dois temas |

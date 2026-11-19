@@ -123,7 +123,14 @@ try {
 
   // B + C · aplicar o Sábado: um cronograma novo em uso, o de antes intacto
   {
+    // OS MOMENTOS OCULTOS ANTES (19/11): aplicar um modelo força os momentos À VISTA — com o
+    // interruptor desligado, o modelo abria numa lista vazia.
+    await pg.evaluate(() => itinMomentosOcultar(true));
+    const oculto = await esperar(pg, () => itin.momentosOcultos === true);
     await aplicar('Sábado de manhã');
+    const vis = await pg.evaluate(async () => ({ mem: itin.momentosOcultos, gravado: (await AVDB.getState('itinerario') || {}).momentosOcultos }));
+    checar(oculto === true && vis.mem === false && vis.gravado === false,
+      'C · com os momentos OCULTOS, aplicar um modelo os põe À VISTA (na memória e gravado)', JSON.stringify({ oculto: porque(oculto) || oculto, vis }));
     const st = await pg.evaluate(async () => ({
       titulo: document.getElementById('listTitle').textContent,
       cronos: await AVDB.cronoLer(),

@@ -611,8 +611,18 @@ try {
     JSON.stringify({ lida2, lida3 }));
 
   // ===== C · IMPORTADO NUM APARELHO LIMPO =====
+  // OS MOMENTOS OCULTOS ANTES (19/11): o culto recebido chega com os momentos À VISTA.
+  await B.pg.evaluate(() => itinMomentosOcultar(true));
+  const ocultoB = await B.pg.evaluate(() => itin.momentosOcultos === true);
   const antesB = await estadoCronos(B.pg);
   const impB = await importar(B.pg, comCapa);
+  const visB = await B.pg.evaluate(async () => ({
+    mem: itin.momentosOcultos, gravado: (await AVDB.getState('itinerario') || {}).momentosOcultos,
+    linhas: document.querySelectorAll('#library li.momento').length,
+  }));
+  checar(ocultoB && visB.mem === false && visB.gravado === false && visB.linhas === 1,
+    '16.b · com os momentos OCULTOS, o culto importado chega com eles À VISTA (a linha do momento na lista)',
+    JSON.stringify({ ocultoB, visB }));
   const depoisB = await estadoCronos(B.pg);
   const guardB = depoisB.gaveta.itens.find((x) => x.nome === 'Culto Sábado');
   const rawB = depoisB.lido && depoisB.lido.itens.find((x) => x.nome === 'Culto Sábado');
