@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.90** — dois defeitos da tela de espera: o fim (horário ou ajuste) deixava a letra/capa do playback presa no telão e na preview (`media-clear` + `text-hide` na mesma janela de fade → `restoreSceneAfterText` remontava a cena); os avisos não se atualizavam com o cronograma (só web).
 - **v1.14.89** — Pacote 5.1, a TELA DE ESPERA do itinerário: `itinerario.espera = { avisos }` no descritor (contagem até o 1º momento efetivo, avisos em rodízio, tela limpa no horário) e o interruptor `#itinEsperaBtn` (8ª célula da `#itinBar`) com fila própria de playbacks baixados (só web).
 - **v1.14.88** — a lista dos modelos da gaveta abre e fecha animada (`cronoModelosAlternar`) e a gaveta cabe no `.list-body` (`max-height: calc(100% - 2 * --sp-3)`, coluna flex) — a sombra de baixo ficava sob a barra de controles (só web).
 - **v1.14.87** — aplicar um modelo e importar um culto forçam os momentos À VISTA (`mostrarMomentos`) (só web).
@@ -822,6 +823,17 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.90 — a tela de espera termina no wallpaper e acompanha as mensagens
+
+**O RELATO** (operador, 20/11, no aparelho): *"Ao adiantar o atraso até ele começar antes, o timer some e para a música, mas ao invés de ir para o wallpaper, o player e a tela ficam travados na imagem do playback que tava tocando, e mesmo que eu volte o atraso e religue a ampulheta, as vezes não toca mais playback"* e *"Se eu adiciono ou troco a mensagem que temos antes do primeiro momento, após já ter iniciado a contagem, então ele não atualiza a lista de mensagens"*.
+
+| defeito | causa e conserto |
+|---|---|
+| a cena presa no fim | `esperaDesligar` tirava a música por `pararMidia('media-clear')` e o `hideItin` mandava `text-hide` logo depois. No telão o `media-clear` com texto vira `clear-media` (`fadeOutToBlack`, ~600 ms com `current` vivo); o `text-hide` no meio → `hideText` → `restoreSceneAfterText` (display.js:1037) vê o playback esmaecendo, REMONTA a letra/capa e reconcilia a cortina para `'visual'`; o fade acaba com `current = null` e a letra presa sem wallpaper. A preview, igual (`hidePvText` → `restorePvSceneAfterText`). Valia para o ajuste E para o fim natural. Conserto: com o cartão saindo junto (`tela === 'esconder'` ou `fimDeCena`, que o `hideItin` passa), a espera sai como o Parar — `pararMidia('clear')` —, e o `hideItin` NÃO manda `text-hide` quando o `clear` já levou o cartão (`esperaMusicaNoAr()`). Cartão que fica (`'lista'`, outra projeção) segue `media-clear` |
+| os avisos parados | `itinSincronizar` só reempurrava se a assinatura dos MOMENTOS mudasse, e editar uma Mensagem salva nem chegava lá. A assinatura inclui `esperaAvisos()` com a espera ligada (o `load` → `renderLibrary` cobre acrescentar/trocar/mover/remover) e `saveMessages` chama `itinSincronizar` com a espera ligada. Reenvio pelo `pushItin`, o mesmo do ±5, sem reprojetar |
+
+`itinerario.test.mjs` E⁗ com a mídia REAL (WAV de 120 s com letra por `AVDB.mediaAdd`; `send`/`pararMidia` reais, só o `esperaPool` trocado), conferindo telão e preview: aviso acrescentado e Mensagem editada no descritor; −35 → wallpaper sem letra, sem `current`, sem cartão; religar toca; o fim natural, idem. Reprovavam ANTES (3 casos: os avisos ficavam no primeiro; `{cur:false, letra:true, wall:false}` nos dois fins). E‴ ajustado: o gravador de `pararMidia` guarda o tipo (e6 exige `'clear'` sem `text-hide` final; e4, `'media-clear'`). Reversão medida: 4 falhas. O "religar às vezes não toca" NÃO reproduziu (tocou antes e depois do conserto) — leitura: efeito do estado preso; fica como medição.
 
 ## v1.14.89 — a tela de espera antes do primeiro momento (Pacote 5.1)
 

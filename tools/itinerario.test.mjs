@@ -2846,7 +2846,7 @@ try {
         if (rec && rec.__falso) { window.__esp.sends.push(id); currentId = id; midiaNoAr = true; return Promise.resolve(); }
         return window.__realSend.apply(this, arguments);
       };
-      pararMidia = () => { window.__esp.parou++; midiaNoAr = false; return Promise.resolve(); };
+      pararMidia = (t) => { window.__esp.parou++; window.__esp.tipo = t; midiaNoAr = false; return Promise.resolve(); };
       const nomes = libItems.map((r) => r.name);
       const iMom = libItems.findIndex(ehMomento);
       const depois = libItems.slice(iMom).filter((r) => r.kind === 'cue' && r.cue === 'message').map((r) => r.data.text);
@@ -2857,7 +2857,7 @@ try {
     const estado = () => pg.evaluate(() => {
       const b = document.getElementById('itinEsperaBtn');
       const it = window.__cmds.filter((c) => c.type === 'text' && c.mode === 'itinerario').pop();
-      return { on: !!telaEspera, pressed: b && b.getAttribute('aria-pressed'), sends: window.__esp.sends.slice(), parou: window.__esp.parou,
+      return { on: !!telaEspera, pressed: b && b.getAttribute('aria-pressed'), sends: window.__esp.sends.slice(), parou: window.__esp.parou, tipo: window.__esp.tipo,
         pl: plItems.map((m) => m.id).join(), espera: it && it.itinerario.espera, desloc: it && it.itinerario.desloc,
         ultimo: (window.__cmds[window.__cmds.length - 1] || {}).type, noAr: itinProjecting() };
     });
@@ -2878,7 +2878,7 @@ try {
     checar(e3.on && e3.espera && e3.desloc === 5, 'E‴ · o +5 do itinerário NÃO desliga: o descritor segue com a espera, deslocado', e3);
     await pg.evaluate(() => { itinAjusteZerar(); projetarMensagemCue({ text: 'Projeção do operador' }, 'x'); });
     const e4 = await estado();
-    checar(!e4.on && e4.pressed === 'false' && e4.parou === 1,
+    checar(!e4.on && e4.pressed === 'false' && e4.parou === 1 && e4.tipo === 'media-clear',
       'E‴ · uma PROJEÇÃO do operador desliga a espera: a música sai e o interruptor apaga', e4);
     await pg.evaluate(() => { window.__esp.sends.length = 0; });
     await ligar();
@@ -2890,14 +2890,75 @@ try {
     await ctx.clock.setSystemTime(T(hm(ini.pri), 1));
     await pg.evaluate(() => { window.__cmds.length = 0; document.dispatchEvent(new Event('visibilitychange')); });
     const e6 = await estado();
-    checar(!e6.on && e6.parou === 3 && e6.ultimo === 'text-hide' && !e6.noAr && e6.sends.length === 1,
-      'E‴ · no HORÁRIO (conferido na volta do segundo plano) a espera TERMINA: a música para, o telão fica LIMPO e nada do 1º momento toca', e6);
+    checar(!e6.on && e6.parou === 3 && e6.tipo === 'clear' && e6.ultimo !== 'text' && !e6.noAr && e6.sends.length === 1,
+      'E‴ · no HORÁRIO (conferido na volta do segundo plano) a espera TERMINA: a música para por um `clear` só (fim de cena, sem `text-hide`), o telão fica LIMPO e nada do 1º momento toca', e6);
     await pg.click('#itinEsperaBtn');
     const e7 = await esperar(pg, () => [...document.querySelectorAll('.dialog-btn')].some((b) => b.textContent === 'Entendi'));
     const diz = await pg.evaluate(() => { const b = [...document.querySelectorAll('.dialog-btn')].find((x) => x.textContent === 'Entendi'); const t = b.closest('[role="dialog"], dialog, .dialog') || document.body; const msg = t.textContent; b.click(); return { on: !!telaEspera, msg }; });
     checar(e7 === true && !diz.on && /já passou/.test(diz.msg), 'E‴ · SEM momento futuro não liga, e diz por quê', { e7, diz });
     await pg.evaluate(() => { send = window.__realSend; pararMidia = window.__realParar; AVDB.getMedia = window.__realGet; esperaPool = window.__realPool;
       plItems = plItems.filter((m) => m.id !== 'op-1'); });
+
+    // ── E⁗. A ESPERA COM MÍDIA DE VERDADE (os defeitos do aparelho, v1.14.89) ──
+    // Sem gravador: o playback é um WAV COM LETRA no banco, `send`/`pararMidia` são
+    // os reais, e quem responde é o TELÃO (`tv`) e a preview. Só a escolha da fila
+    // (`esperaPool`) é trocada.
+    await pg.evaluate(async () => {
+      itinAjusteZerar();
+      const mk = (id) => {
+        const sr = 8000, n = sr * 120, buf = new ArrayBuffer(44 + n * 2), dv = new DataView(buf);
+        const wr = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+        wr(0, 'RIFF'); dv.setUint32(4, 36 + n * 2, true); wr(8, 'WAVEfmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true);
+        dv.setUint16(22, 1, true); dv.setUint32(24, sr, true); dv.setUint32(28, sr * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+        wr(36, 'data'); dv.setUint32(40, n * 2, true);
+        return AVDB.mediaAdd({ id, kind: 'audio', type: 'audio/wav', name: id, blob: new Blob([buf], { type: 'audio/wav' }),
+          lyrics: [{ time: 0, text: 'Estrofe do playback' }], createdAt: Date.now() });
+      };
+      await mk('pb-1'); await mk('pb-2');
+      esperaPool = () => [{ s: { fileIdPlayback: 'pb-1' } }, { s: { fileIdPlayback: 'pb-2' } }];
+    });
+    await ctx.clock.setSystemTime(T(hm(ini.pri - 30)));
+    const tocando = async () => (await esperar(tv, () => { const c = stage.getCurrent(); return !!c && /^pb-/.test(c.id) && !stage.hasEnded(); }, null, 10000)) === true
+      && (await pg.evaluate(() => midiaNoAr && /^pb-/.test(currentId)));
+    const limpo = async () => { await pg.waitForTimeout(2500); return {
+      tv: await tv.evaluate(() => { const w = getComputedStyle(document.getElementById('wallpaper')), t = getComputedStyle(document.getElementById('text'));
+        return { cur: !!stage.getCurrent(), letra: !document.getElementById('lyrics').hidden, wall: w.display !== 'none' && w.opacity === '1', texto: textActive || t.display !== 'none' && t.opacity !== '0' && !document.getElementById('text').hidden }; }),
+      pv: await pg.evaluate(() => { const w = getComputedStyle(pvWallEl); return { cur: !!preview.getCurrent(), letra: !pvLyricsEl.hidden, wall: w.display !== 'none' && w.opacity === '1', on: !!telaEspera, noAr: itinProjecting() }; }),
+    }; };
+    const ligarR = async () => { await abrirFaixa(); await pg.click('#itinEsperaBtn'); await esperar(pg, () => !!telaEspera && midiaNoAr, null, 10000); };
+    const ehLimpo = (r) => !r.tv.cur && !r.tv.letra && r.tv.wall && !r.tv.texto && !r.pv.cur && !r.pv.letra && r.pv.wall && !r.pv.on && !r.pv.noAr;
+    await ligarR();
+    const f0 = await tocando();
+    // DEFEITO 2: o aviso ACRESCENTADO (e a Mensagem salva EDITADA) com a espera no ar
+    // chega ao telão — o descritor é reempurrado.
+    const av = await pg.evaluate(async () => {
+      const ult = () => (window.__cmds.filter((c) => c.type === 'text' && c.mode === 'itinerario').pop() || { itinerario: {} }).itinerario.espera;
+      messages.push({ id: 'msg-esp', text: 'Mensagem salva' }); await saveMessages();
+      const c = await AVDB.addCue('message', { msgId: 'msg-esp', text: 'Mensagem salva' }, { name: 'Aviso S', list: 'imports' });
+      await load(); await moverNaListaPara('imports', c.id, 0); await load();
+      const a1 = (ult() || {}).avisos;
+      messages.find((m) => m.id === 'msg-esp').text = 'Mensagem editada';
+      await saveMessages();
+      const a2 = (ult() || {}).avisos;
+      return { a1, a2, cue: c.id };
+    });
+    checar(f0 && av.a1 && av.a1[0] === 'Mensagem salva' && av.a2 && av.a2[0] === 'Mensagem editada',
+      'E⁗ · com a espera no ar, o aviso ACRESCENTADO antes do 1º momento e a Mensagem salva EDITADA chegam ao telão', { f0, av });
+    // DEFEITO 1: o −35 põe o 1º momento no passado: a espera termina e o telão e a
+    // preview voltam ao WALLPAPER — nem a capa/letra do playback, nem o cartão.
+    await pg.evaluate(() => itinAjustar(-35));
+    const r1 = await limpo();
+    checar(ehLimpo(r1), 'E⁗ · o AJUSTE que passa o horário encerra a espera e deixa telão e preview no WALLPAPER (sem a letra/capa do playback)', r1);
+    await pg.evaluate(() => itinAjusteZerar());
+    await ligarR();
+    const f1 = await tocando();
+    checar(f1, 'E⁗ · e RELIGAR depois disso toca o playback de novo, no telão', f1);
+    await ctx.clock.setSystemTime(T(hm(ini.pri), 1));
+    await pg.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    const r2 = await limpo();
+    checar(ehLimpo(r2), 'E⁗ · o fim NATURAL no horário também deixa telão e preview no WALLPAPER', r2);
+    await pg.evaluate(async (id) => { esperaPool = window.__realPool; messages = messages.filter((m) => m.id !== 'msg-esp'); await saveMessages();
+      await AVDB.listRemove('imports', id); await load(); }, av.cue);
   }
 
   checar(erros.length === 0, 'nenhum erro de console', erros);

@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.14.90",
+    "itens": [
+      "Quando a tela de espera termina, pelo horário ou pelo ajuste do atraso, o telão volta ao fundo.",
+      "Antes, o telão e o player ficavam parados na imagem do playback que estava tocando.",
+      "Mensagens adicionadas, trocadas ou editadas durante a contagem já aparecem no rodízio.",
+      "Não precisa instalar nada: chega pela atualização automática."
+    ]
+  },
+  {
     "versao": "1.14.89",
     "itens": [
       "Na faixa do itinerário há um botão novo, a ampulheta: liga a tela de espera antes do culto.",

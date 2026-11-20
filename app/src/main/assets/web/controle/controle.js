@@ -493,7 +493,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.89';
+const WEB_VERSION = '1.14.90';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -7443,7 +7443,10 @@ function msgStep(delta) {
   projectMessage(t);
 }
 
-async function saveMessages() { await AVDB.setState('messages', messages); }
+async function saveMessages() {
+  if (telaEspera) itinSincronizar();   // o texto dela pode ser um aviso da espera
+  await AVDB.setState('messages', messages);
+}
 
 async function addMessage() {
   const text = await appPrompt({ title: 'Nova mensagem', message: 'Texto da mensagem:', okText: 'Salvar', placeholder: 'Ex.: Bem-vindos ao culto!' });
@@ -8707,12 +8710,15 @@ function projectItin() {
   renderItinBar();
 }
 
-// Tira do telão SEM apagar a lista — espelha o `hideChrono`.
-function hideItin() {
-  if (telaEspera) esperaDesligar('itinerário fora do telão', { tela: '' });
+// Tira do telão SEM apagar a lista — espelha o `hideChrono`. `levado`: o `clear`
+// da música da espera já levou o cartão (ver `esperaDesligar`), e o `text-hide`
+// depois dele restauraria a cena que ainda esmaece — por isso não sai.
+function hideItin(levado) {
+  const levou = levado === true || esperaMusicaNoAr();
+  if (telaEspera) esperaDesligar('itinerário fora do telão', { tela: '', fimDeCena: true });
   if (!itinProjecting()) return;
   itinSession.projecting = false;
-  cmd({ type: 'text-hide' });
+  if (!levou) cmd({ type: 'text-hide' });
   diagC('itinerário: fora do telão');
   renderControls();
   renderNowPlaying();
@@ -8815,17 +8821,26 @@ async function esperaProxima() {
 }
 
 // `tela`: 'esconder' (hideItin), 'lista' (o itinerário fica, sem espera) ou ''
-// (quem chamou já cuida do cartão). A música da espera no ar sai sempre.
+// (quem chamou já cuida do cartão; `fimDeCena`: e o tira). A música no ar sai
+// sempre. CARTÃO SAINDO JUNTO = FIM DE CENA, como o Parar: um `clear` só (leva o
+// cartão e cobre com o wallpaper) e o `hideItin` sem `text-hide`. Com
+// `media-clear` + `text-hide` o `restoreSceneAfterText` (telão e preview) via o
+// playback ainda esmaecendo e remontava a letra/capa dele, presa sobre o vazio.
+function esperaMusicaNoAr() {
+  return !!(telaEspera && telaEspera.faixa && currentId === telaEspera.faixa && midiaNoAr);
+}
 function esperaDesligar(motivo, o) {
   const e = telaEspera;
   if (!e) return Promise.resolve();
+  const musica = esperaMusicaNoAr();
   telaEspera = null;
   clearTimeout(e.timer);
   const op = o || {};
   diagC('tela de espera: ' + (op.fim ? 'terminou' : 'desligada') + ' (' + motivo + ')');
-  const p = (e.faixa && currentId === e.faixa && midiaNoAr) ? pararMidia('media-clear') : Promise.resolve();
   const tela = op.tela != null ? op.tela : (e.itinAntes ? 'lista' : 'esconder');
-  if (tela === 'esconder') hideItin(); else if (tela === 'lista') pushItin();
+  const fimDeCena = tela === 'esconder' || !!op.fimDeCena;
+  const p = musica ? pararMidia(fimDeCena ? 'clear' : 'media-clear') : Promise.resolve();
+  if (tela === 'esconder') hideItin(musica); else if (tela === 'lista') pushItin();
   renderItinBar();
   return p;
 }
@@ -8854,10 +8869,12 @@ function clearItinSession() {
 // A LISTA MUDOU (um `load()`, um arrasto, uma troca de cronograma): o que está no
 // ar acompanha o cronograma ATIVO, e a barra se repinta. A assinatura é o que
 // impede um redesenho da lista (cada download, cada ordem) de reenviar ao telão
-// uma lista que não mudou.
+// uma lista que não mudou. Com a TELA DE ESPERA ligada os AVISOS entram nela: a
+// mensagem acima do 1º momento acrescentada/trocada/movida e a Mensagem salva
+// editada (`saveMessages` chama aqui) reempurram o descritor, pelo `pushItin`.
 let itinAssinVista = null;
 function itinSincronizar() {
-  const assin = JSON.stringify(itinItens().map((x) => [x.id, x.min, x.titulo]));
+  const assin = JSON.stringify([itinItens().map((x) => [x.id, x.min, x.titulo]), telaEspera ? esperaAvisos() : 0]);
   if (assin !== itinAssinVista) {
     itinAssinVista = assin;
     pushItin();
