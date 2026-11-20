@@ -45,7 +45,7 @@ medição em aparelho não é fino.**
 
 | quando · lote | onde | o que ficou | dono | por que não foi agora |
 |---|---|---|---|---|
-| 2026-11-20 · v1.15.5 | `web-ota` de dois canais (`apk.yml`), `pages.yml`, a chave do canal | o primeiro run de verdade dos dois canais (a criação da `web-teste`, as guardas por canal) só o CI prova; a troca de canal só o aparelho; o kit `~/.dsh-github/check-ota.mjs` lê só a `web-latest` | CI · medição | o runner e o aparelho não existem aqui; conferir o resumo do run e o Registro ("canal teste ·") |
+| 2026-11-20 · v1.15.5 | `web-ota` de dois canais (`apk.yml`), `pages.yml`, a chave do canal | a troca de canal só o aparelho prova (o primeiro run, o do disparo com `para_todos`, publicou os dois canais com o sha conferido) | medição | o aparelho não existe aqui; conferir o Registro ("canal teste ·") depois de ligar a chave |
 | 2026-11-20 · v1.15.4 | `.itin-hora` animada, `desenharItinerario` sem reinserir | nenhum resíduo novo; o ritmo da animação no telão HDMI e o destaque "Agora" agora com transição de cor só foram vistos no Chromium | medição | conferir no telão alternando os horários |
 | 2026-11-20 · v1.15.3 | `ITIN_JANELA` | nenhum resíduo novo; a altura do bloco com quatro linhas no telão HDMI só foi vista no Chromium | medição | conferir no telão |
 | 2026-11-20 · v1.15.2 | `#wallPrevia` | a prévia não gruda: numa tela baixa (ou com a fonte do sistema grande) a grade de 38vh pode empurrá-la para fora da vista, e aí escolher volta a pedir rolagem — medido só a 430x900, onde as duas cabem | medição | conferir no aparelho do operador; se não couber, a prévia vira `sticky` sob o cabeçalho |
