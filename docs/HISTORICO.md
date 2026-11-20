@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.15.1** — a tela de espera ganha FUNDOS em rodízio: `itinerario.espera.fundos` (até 24 imagens das músicas baixadas, sorteadas) trocadas a cada 20 s pelo relógio de cada tela, com crossfade, atrás do bloco da contagem (só web).
 - **v1.15.0** — a seção do WALLPAPER (`#wallSecao`): fundo padrão, foto ou o BANCO de imagens das estrofes da biblioteca, e a identificação da igreja (símbolo + "Igreja Adventista do Sétimo Dia" + nome local, no centro ou embaixo) composta num canvas 1920x1080 (só web).
 - **v1.14.90** — dois defeitos da tela de espera: o fim (horário ou ajuste) deixava a letra/capa do playback presa no telão e na preview (`media-clear` + `text-hide` na mesma janela de fade → `restoreSceneAfterText` remontava a cena); os avisos não se atualizavam com o cronograma (só web).
 - **v1.14.89** — Pacote 5.1, a TELA DE ESPERA do itinerário: `itinerario.espera = { avisos }` no descritor (contagem até o 1º momento efetivo, avisos em rodízio, tela limpa no horário) e o interruptor `#itinEsperaBtn` (8ª célula da `#itinBar`) com fila própria de playbacks baixados (só web).
@@ -824,6 +825,20 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.15.1 — os fundos da tela de espera, em rodízio
+
+**O PEDIDO** (operador, 20/11): *"Para esse sistema de espera, coloque as imagens de fundo que usamos nas músicas para rodar de fundo de forma aleatória."* Decisões: troca a cada 20 s; o conjunto é o de TODAS as músicas baixadas (o da Biblioteca do Wallpaper, `wallListarImagens()`); a contagem fica no bloco escuro de hoje.
+
+| parte | o que mudou |
+|---|---|
+| contrato | `itinerario.espera = { avisos, fundos?, fundosUrl? }`, aditivo. `fundos`: caminhos OPFS (`imageOpfsPath`), ≤ 24, sem repetição, só emitido não vazio; `fundosUrl`: a lista `/m/` paralela, só com `telaAtiva()` e se todas cunharem. `itinerarioEspera` devolve também `fundo`/`fundoUrl`/`proximo`/`proximoUrl` = `fundos[floor(agora/20000) % n]` (`ESPERA_FUNDO_MS`): o mesmo índice em toda tela, sem comando |
+| Controle | `esperaLigar` → `esperaFundos()` = `wallListarImagens()` embaralhado (`AVSorteio.embaralhar`) `.slice(0, 24)` → `telaEspera.fundos` + `pushItin`; `esperaLigar` passa a aguardar `esperaProxima()` (os bytes da rede vão por `telaEmpurrarImagensLetra` DEPOIS da música) |
+| telão e preview | `div.itin-fundo` com duas `img.itin-fundo-img` (crossfade `.on` de 1,2 s; `.seco` no 1º desenho e com reduced-motion), irmão ANTERIOR do `.text-content`/`.pv-text-content`: cobre a camada em `cover`, sobre o wallpaper copiado (`pintarFundoDoCartao` intocado) e atrás do bloco. Acende só carregada; a próxima pré-carregada; blob revogado fora do trio. Sem fundos, falha ou no horário: apaga → o wallpaper. URL: telão/preview `AVDB.opfsGetFile` + `createObjectURL`; tela da rede (`createStage.itinFundoPorUrl = true`) pelo `fundosUrl` (`telaImagemLetraUrl`, ids `ly:`), com retentativa até 45 s |
+
+**A METADE DO CONTROLE SAIU NO COMMIT DA v1.15.0** (`1242ce3b`, outra sessão, que fez `git add` de `controle.js`/`controle.css` com o trabalho desta no tree — o caso da regra 1 do `MULTI-AGENTE`). Sem dano: o descritor com `fundos` era ignorado pelo `stage.js` anterior; este commit traz o `stage.js`, o display, o oráculo e o capítulo.
+
+`itinerario.test.mjs`, sete casos novos: a leitura troca a cada 20 s com o mesmo índice no telão e na preview; no telão real a imagem cobre atrás do bloco e troca depois de `runFor(20000)`; sem fundos = o wallpaper igual; no horário, limpo; a preview cobre; o E‴ confere `fundos` ≤ 24 sem repetição, do conjunto do Wallpaper. Reversão medida: sem a chamada `trocarFundo`, três falhas. `tokens`, `sombra`, `mensagem-estilo` e `tela-rede` verdes.
 
 ## v1.15.0 — o wallpaper ganha seção: o banco de imagens da biblioteca e a identificação da igreja
 

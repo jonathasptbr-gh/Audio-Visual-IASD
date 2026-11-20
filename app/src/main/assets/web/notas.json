@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.15.1",
+    "itens": [
+      "Na tela de espera, o fundo agora mostra as imagens das músicas baixadas, sorteadas.",
+      "A imagem troca a cada 20 segundos, com transição suave, sem repetir na mesma rodada.",
+      "A contagem continua no bloco escuro, por cima da imagem.",
+      "Não precisa instalar nada: chega pela atualização automática."
+    ]
+  },
+  {
     "versao": "1.15.0",
     "itens": [
       "Em Configurações, Tela, o botão Wallpaper agora abre uma seção própria.",

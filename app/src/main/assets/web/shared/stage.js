@@ -1728,6 +1728,10 @@
   // O aviso roda pelo relógio (`ESPERA_AVISO_MS` cada): todas as telas em fase.
   // Sem `espera`: null, e o desenho é a lista de sempre.
   const ESPERA_AVISO_MS = 10000;
+  // O FUNDO (pedido de 20/11): `espera.fundos` (caminhos OPFS das ilustrações das
+  // músicas; `fundosUrl`, a /m/ paralela, só para a tela da rede) troca a cada
+  // ESPERA_FUNDO_MS pelo relógio — todas as telas em fase, como o aviso.
+  const ESPERA_FUNDO_MS = 20000;
   function itinerarioEspera(d, agora) {
     const o = (d && typeof d === 'object') ? d : {};
     if (!o.espera || typeof o.espera !== 'object') return null;
@@ -1739,7 +1743,13 @@
     const seg = Math.ceil(resta / 1000), h = Math.floor(seg / 3600), m = Math.floor((seg % 3600) / 60);
     const avisos = (Array.isArray(o.espera.avisos) ? o.espera.avisos : [])
       .map((x) => (x == null ? '' : String(x)).trim()).filter(Boolean);
+    const fundos = Array.isArray(o.espera.fundos) ? o.espera.fundos : [];
+    const urls = Array.isArray(o.espera.fundosUrl) ? o.espera.fundosUrl : [];
+    const nf = fundos.length, fi = nf ? Math.floor(t / ESPERA_FUNDO_MS) % nf : -1;
+    const fx = (i) => (nf ? [String(fundos[i] || ''), String(urls[i] || '')] : ['', '']);
+    const [fundo, fundoUrl] = fx(fi), [proximo, proximoUrl] = nf > 1 ? fx((fi + 1) % nf) : ['', ''];
     return {
+      fundo, fundoUrl, proximo, proximoUrl,
       fim: false, restaMs: resta, alvo: pri.hora,
       conta: (h > 0 ? h + ':' + pad2(m) : String(m)) + ':' + pad2(seg % 60),
       aviso: avisos.length ? avisos[Math.floor(t / ESPERA_AVISO_MS) % avisos.length] : '',
@@ -1795,6 +1805,93 @@
     return true;
   }
 
+  // O FUNDO DA ESPERA cobre a CAMADA do cartão (irmão anterior da `.text-content`,
+  // criado na 1ª vez): por cima do wallpaper copiado, atrás do bloco escuro. Duas
+  // `<img>` em crossfade (`.on`; `.seco` sem movimento); a imagem só entra já
+  // decodificada, e a PRÓXIMA é pré-carregada. Sem fundo, no horário ou com
+  // falha, as duas apagam e o wallpaper volta. Caminho → URL: o OPFS (telão,
+  // preview); a tela da rede liga `createStage.itinFundoPorUrl` e usa a /m/
+  // (retenta até 45 s: os bytes chegam depois do comando). Blob URL é revogada
+  // quando sai do trio atual/próxima/saindo.
+  function fundoCarregar(url, prazoMs) {
+    const fim = Date.now() + prazoMs;
+    return new Promise((ok, falha) => {
+      let espera = 400;
+      const tentar = () => {
+        const im = new Image();
+        im.onload = () => ok();
+        im.onerror = () => {
+          if (Date.now() >= fim) { falha(new Error('fundo')); return; }
+          setTimeout(tentar, espera); espera = Math.min(espera * 2, 2500);
+        };
+        im.src = url;
+      };
+      tentar();
+    });
+  }
+  function fundoResolver(f, caminho, url) {
+    if (f.__cache.has(caminho)) return f.__cache.get(caminho);
+    let p;
+    if (createStage.itinFundoPorUrl) {
+      p = url ? fundoCarregar(url, 45000).then(() => ({ url, blob: false })) : Promise.reject(new Error('sem url'));
+    } else {
+      p = (typeof AVDB !== 'undefined' && AVDB.opfsGetFile ? AVDB.opfsGetFile(caminho) : Promise.reject(new Error('sem opfs')))
+        .then((arq) => {
+          const u = URL.createObjectURL(arq);
+          return fundoCarregar(u, 0).then(() => ({ url: u, blob: true }), (e) => { URL.revokeObjectURL(u); throw e; });
+        });
+    }
+    p.catch(() => { if (f.__cache.get(caminho) === p) f.__cache.delete(caminho); });
+    f.__cache.set(caminho, p);
+    return p;
+  }
+  function fundoPodar(f, manter) {
+    for (const [k, p] of f.__cache) {
+      if (manter.includes(k)) continue;
+      f.__cache.delete(k);
+      p.then((r) => { if (r.blob) URL.revokeObjectURL(r.url); }, () => {});
+    }
+  }
+  function fundoEl(ol, criar) {
+    const cont = ol.closest('.text-content, .pv-text-content');
+    const camada = cont && cont.parentElement;
+    if (!camada) return null;
+    if (camada.__itinFundo && camada.__itinFundo.isConnected) return camada.__itinFundo;
+    if (!criar) return null;
+    const f = document.createElement('div');
+    f.className = 'itin-fundo';
+    f.setAttribute('aria-hidden', 'true');
+    for (let i = 0; i < 2; i++) {
+      const im = document.createElement('img'); im.className = 'itin-fundo-img'; im.alt = ''; f.appendChild(im);
+    }
+    camada.insertBefore(f, cont);
+    f.__cache = new Map(); f.__seq = 0; f.__key = '';
+    camada.__itinFundo = f;
+    return f;
+  }
+  function trocarFundo(ol, esp, animar) {
+    const key = esp && !esp.fim && esp.fundo ? esp.fundo : '';
+    const f = fundoEl(ol, !!key);
+    if (!f || f.__key === key) return;
+    f.__key = key;
+    const seq = ++f.__seq;
+    f.classList.toggle('seco', !animar || reduzMovimento());
+    const apagar = () => {
+      [...f.children].forEach((im) => im.classList.remove('on'));
+      setTimeout(() => { if (seq === f.__seq) fundoPodar(f, []); }, 1500);
+    };
+    if (!key) { apagar(); return; }
+    fundoResolver(f, key, esp.fundoUrl).then((r) => {
+      if (seq !== f.__seq) return;
+      const [a, b] = f.children;
+      const vem = a.classList.contains('on') ? b : a, vai = vem === a ? b : a;
+      vem.src = r.url; vem.dataset.caminho = key;
+      vem.classList.add('on'); vai.classList.remove('on');
+      fundoPodar(f, [key, esp.proximo, vai.dataset.caminho || '']);
+    }, () => { if (seq === f.__seq) apagar(); });
+    if (esp.proximo && esp.proximo !== key) fundoResolver(f, esp.proximo, esp.proximoUrl);
+  }
+
   // O QUE A TELA MOSTRA: a LISTA INTEIRA quando ela cabe na janela (até ITIN_JANELA
   // linhas) — o cronograma à vista, com o momento de agora em destaque. Só uma lista
   // MAIOR que a janela rola a partir do item de agora, para o que vem a seguir não sair
@@ -1834,6 +1931,7 @@
   function desenharItinerario(ol, d, agora, animar) {
     if (!ol) return false;
     const esp = itinerarioEspera(d, agora);
+    trocarFundo(ol, esp, animar);
     if (esp) return desenharEspera(ol, esp, animar);
     if (ol.__espera) ol.__espera.hidden = true;
     ol.classList.remove('em-espera');

@@ -35,6 +35,8 @@ const INSTANCIA = 'd' + Math.random().toString(36).slice(2, 10).padEnd(8, '0');
 // `__AV_ROLE__`), que é a regra de escrita do projeto: o comportamento de sempre
 // é o padrão, o novo é a exceção que se declara.
 const TELA = window.__AV_ROLE__ === 'tela';
+// O fundo da espera na tela da rede vem pela /m/ (`fundosUrl`), não pelo OPFS.
+if (TELA && typeof createStage === 'function') createStage.itinFundoPorUrl = true;
 
 // Config de transições. INERENTE ao sistema: toda troca visual é animada com
 // fade, sempre — não há opção de desligar nem ajustar. Vem de stage.js para não

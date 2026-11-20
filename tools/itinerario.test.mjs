@@ -47,6 +47,8 @@
 //  H. `prefers-reduced-motion`: nada se move.
 //  E″. (Pacote 5.1) A TELA DE ESPERA (`itinerario.espera`): contagem até o 1º momento
 //     efetivo, aviso em rodízio, desloc move, no horário = vazio; sem ela, a lista.
+//     (20/11) o FUNDO: `espera.fundos` pelo relógio (20 s), a imagem cobre o cartão atrás
+//     do bloco no telão real e troca; sem `fundos`, o wallpaper; no horário, limpo.
 //  E‴. (Pacote 5.1) O INTERRUPTOR da tela de espera no Controle: avisos certos, fila
 //     própria de música (a Playlist intacta), projeção/mídia/fim desligam, sem futuro não liga.
 //  I. Lista sem momentos: o "Telão" é APAGADO e diz por quê; esvaziar no ar tira do telão.
@@ -1871,6 +1873,24 @@ try {
     checar(r.semAviso.txt === 'O culto começa em|30:00|às 09:30|', 'E″ · `avisos: []`: sem a faixa do aviso', r.semAviso);
     checar(!r.semEspera.espera && r.semEspera.lista === 2 && !r.semEspera.txt,
       'E″ · SEM `espera` a lista volta como antes (o cartão de espera some)', r.semEspera);
+    // O FUNDO (20/11): `espera.fundos` escolhido pelo relógio, 20 s cada, o MESMO
+    // índice em telas diferentes (o telão e a preview leem o mesmo instante).
+    const fz = (pagina) => pagina.evaluate(() => {
+      const d = { itens: [{ k: 'a', min: 570, titulo: 'Abertura' }], desloc: 0, horas: true, fuso: 180,
+        espera: { avisos: [], fundos: ['f/a.png', 'f/b.png', 'f/c.png'] } };
+      const t0 = Math.floor(new Date('2026-10-24T09:00:00-03:00').getTime() / 20000) * 20000;
+      const f = (t, dd) => { const e = createStage.itinerarioEspera(dd || d, t) || {}; return e.fim ? 'FIM' : e.fundo + '>' + e.proximo; };
+      return { seq: [0, 19999, 20000, 40000, 60000].map((x) => f(t0 + x)),
+        fim: f(new Date('2026-10-24T09:30:00-03:00').getTime()),
+        sem: f(t0, Object.assign({}, d, { espera: { avisos: [] } })),
+        vazio: f(t0, Object.assign({}, d, { espera: { avisos: [], fundos: [] } })) };
+    });
+    const [fzTv, fzPv] = [await fz(tv), await fz(pg)];
+    const fs0 = fzTv.seq.map((x) => x.split('>')[0]);
+    checar(fs0[0] === fs0[1] && fs0[1] !== fs0[2] && fs0[2] !== fs0[3] && fs0[3] !== fs0[2] && fs0[4] === fs0[1]
+      && new Set(fs0.slice(1, 4)).size === 3 && fzTv.seq[1].split('>')[1] === fs0[2]
+      && fzTv.fim === 'FIM' && fzTv.sem === '>' && fzTv.vazio === '>' && JSON.stringify(fzTv) === JSON.stringify(fzPv),
+      'E″ · o FUNDO da espera é escolhido pelo relógio: troca a cada 20 s, passa por todos, a próxima já é conhecida, o mesmo nas duas telas; sem `fundos` nenhum', { fzTv, fzPv });
   }
   {
     const agoraMin = await tv.evaluate(() => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); });
@@ -1883,6 +1903,51 @@ try {
     });
     checar(r1 === true && /^(29|30):\d\d/.test(t1.txt.replace('O culto começa em', '')) && /Aviso A$/.test(t1.txt) && t1.lista === 0 && t1.escala > 3,
       'E″ · no TELÃO real, pelo barramento: a contagem grande no lugar da lista, com o aviso', porque(r1) || t1);
+    // O FUNDO no TELÃO real: duas imagens no OPFS (cores distintas); a imagem COBRE a
+    // camada do cartão, atrás do bloco escuro, e troca com o relógio; sem `fundos`,
+    // o wallpaper de antes; no horário, nada.
+    await tv.evaluate(async () => {
+      const dir = await (await navigator.storage.getDirectory()).getDirectoryHandle('fundo-teste', { create: true });
+      for (const [n, cor] of [['a.png', '#c00000'], ['b.png', '#0000c0']]) {
+        const cv = document.createElement('canvas'); cv.width = 64; cv.height = 36;
+        const cx = cv.getContext('2d'); cx.fillStyle = cor; cx.fillRect(0, 0, 64, 36);
+        const blob = await new Promise((r) => cv.toBlob(r, 'image/png'));
+        const w = await (await dir.getFileHandle(n, { create: true })).createWritable(); await w.write(blob); await w.close();
+      }
+    });
+    const fundosT = ['fundo-teste/a.png', 'fundo-teste/b.png'];
+    const comFundo = (min, fundos) => Object.assign(itin(min, ['Aviso A']), { espera: { avisos: ['Aviso A'], ...(fundos ? { fundos } : {}) } });
+    const fundoVisto = () => tv.evaluate(() => {
+      const t = document.getElementById('text'), f = t.querySelector(':scope > .itin-fundo');
+      const on = f ? [...f.children].filter((i) => i.classList.contains('on')) : [];
+      const im = on[0], rt = t.getBoundingClientRect(), ri = im && im.getBoundingClientRect();
+      const esp = document.querySelector('#textItin + .itin-espera');
+      return { n: on.length, caminho: im ? im.dataset.caminho : '', blob: !!im && /^blob:/.test(im.src) && im.naturalWidth === 64,
+        cobre: !!ri && Math.abs(ri.width - rt.width) < 1 && Math.abs(ri.height - rt.height) < 1 && getComputedStyle(im).objectFit === 'cover',
+        atras: !!f && f.nextElementSibling === document.getElementById('textContent') && getComputedStyle(f).display !== 'none',
+        bloco: !!esp && !esp.hidden && esp.getClientRects().length > 0, bg: getComputedStyle(t).backgroundImage };
+    });
+    const bgAntes = (await fundoVisto()).bg;
+    await mandar({ type: 'text', mode: 'itinerario', view: 'visual', __mid: 'it:f1', itinerario: comFundo(Math.min(agoraMin + 30, 1439), fundosT) });
+    const rf1 = await esperar(tv, () => [...document.querySelectorAll('#text > .itin-fundo > .on')].length === 1);
+    const vf1 = await fundoVisto();
+    checar(rf1 === true && vf1.n === 1 && vf1.blob && vf1.cobre && vf1.atras && vf1.bloco && fundosT.includes(vf1.caminho),
+      'E″ · no TELÃO, a imagem da música (OPFS) COBRE o cartão inteiro, atrás do bloco escuro da contagem', porque(rf1) || vf1);
+    await ctx.clock.runFor(20000);
+    const rf2 = await esperar(tv, (c) => { const o = document.querySelector('#text > .itin-fundo > .on'); return !!o && o.dataset.caminho !== c; }, vf1.caminho);
+    const vf2 = await fundoVisto();
+    checar(rf2 === true && vf2.n === 1 && vf2.cobre && vf2.bloco && vf2.caminho !== vf1.caminho && fundosT.includes(vf2.caminho),
+      'E″ · no TELÃO, 20 s depois o fundo TROCA para a outra imagem (uma só acesa)', porque(rf2) || { vf1, vf2 });
+    await mandar({ type: 'text', mode: 'itinerario', view: 'visual', __mid: 'it:f2', itinerario: comFundo(Math.min(agoraMin + 30, 1439)) });
+    const rf3 = await esperar(tv, () => !document.querySelector('#text > .itin-fundo > .on'));
+    const vf3 = await fundoVisto();
+    checar(rf3 === true && vf3.bloco && vf3.bg === bgAntes && vf3.bg !== 'none',
+      'E″ · SEM `fundos` a espera fica sobre o WALLPAPER, como antes', porque(rf3) || { vf3, bgAntes });
+    await mandar({ type: 'text', mode: 'itinerario', view: 'visual', __mid: 'it:f3', itinerario: comFundo(Math.min(agoraMin + 30, 1439), fundosT) });
+    await esperar(tv, () => !!document.querySelector('#text > .itin-fundo > .on'));
+    await mandar({ type: 'text', mode: 'itinerario', view: 'visual', __mid: 'it:f4', itinerario: comFundo(Math.max(agoraMin - 1, 0), fundosT) });
+    const rf4 = await esperar(tv, () => !document.querySelector('#text > .itin-fundo > .on') && document.querySelector('#textItin + .itin-espera').hidden);
+    checar(rf4 === true, 'E″ · no HORÁRIO a imagem sai junto: tela LIMPA (só o wallpaper)', porque(rf4));
     await mandar({ type: 'text', mode: 'itinerario', view: 'visual', __mid: 'it:e2', itinerario: itin(Math.max(agoraMin - 1, 0), ['Aviso A']) });
     const r2 = await esperar(tv, () => document.querySelector('#textItin + .itin-espera').hidden
       && document.getElementById('textItin').getClientRects().length === 0 && !document.getElementById('text').hidden);
@@ -1896,6 +1961,17 @@ try {
     }, itin(Math.min(agoraMin + 30, 1439), []));
     checar(pv.classe === 'itin-espera' && pv.visivel && pv.escala > 3,
       'E″ · na PREVIEW o mesmo desenho, pela gêmea do `controle.css`', pv);
+    if (!pv.semPreview) {
+      await pg.evaluate((dd) => { const ol = document.getElementById('pvTextItin'); ol.__itinAssin = null; createStage.desenharItinerario(ol, dd, Date.now(), false); },
+        comFundo(Math.min(agoraMin + 30, 1439), fundosT));
+      const rp = await esperar(pg, () => !!document.querySelector('#pvText > .itin-fundo > .on'));
+      const vp = await pg.evaluate(() => {
+        const t = document.getElementById('pvText'), im = t.querySelector(':scope > .itin-fundo > .on'), rt = t.getBoundingClientRect(), ri = im.getBoundingClientRect();
+        return { blob: /^blob:/.test(im.src) && im.naturalWidth === 64, cobre: Math.abs(ri.width - rt.width) < 1 && Math.abs(ri.height - rt.height) < 1 && getComputedStyle(im).objectFit === 'cover',
+          atras: im.parentElement.nextElementSibling === document.getElementById('pvTextContent') };
+      });
+      checar(rp === true && vp.blob && vp.cobre && vp.atras, 'E″ · na PREVIEW o fundo também cobre o cartão atrás do bloco (o mesmo `trocarFundo`, gêmea do CSS)', porque(rp) || vp);
+    }
     await mandar({ type: 'text', mode: 'itinerario', view: 'visual', __mid: 'it:e3',
       itinerario: { itens: [{ k: 'a', min: 600, titulo: 'Louvor' }, { k: 'b', min: 620, titulo: 'Fim' }], desloc: 0, horas: true, fuso } });
     await esperar(tv, () => /Fim/.test(document.getElementById('textItin').textContent));
@@ -2863,9 +2939,23 @@ try {
     });
     const ligar = async () => { await abrirFaixa(); await pg.click('#itinEsperaBtn'); await esperar(pg, () => !!telaEspera && window.__esp.sends.length > 0); };
     const pl0 = (await estado()).pl;
+    // O FUNDO: 30 músicas "baixadas" com ilustração (cada uma repetida em duas estrofes)
+    // somadas ao banco real — `fundos` sai com ≤ 24 caminhos DELAS, sem repetição.
+    const reais = await pg.evaluate(async () => {
+      window.__realFilesAll = AVDB.filesAll;
+      const base = await AVDB.filesAll();
+      AVDB.filesAll = async () => base.concat(Array.from({ length: 30 }, (_, i) => ({ id: 'fx' + i, name: 'M' + i,
+        lyrics: [{ imageOpfsPath: 'fx/' + i + '.jpg' }, { imageOpfsPath: 'fx/' + i + '.jpg' }] })));
+      return (await wallListarImagens()).map((x) => x.caminho);
+    });
     await pg.evaluate(() => { window.__cmds.length = 0; window.__esp.sends.length = 0; });
     await ligar();
+    await esperar(pg, () => { const it = window.__cmds.filter((c) => c.type === 'text' && c.mode === 'itinerario').pop(); return !!(it && it.itinerario.espera && it.itinerario.espera.fundos); });
+    await pg.evaluate(() => { AVDB.filesAll = window.__realFilesAll; });
     const e1 = await estado();
+    const fu = (e1.espera && e1.espera.fundos) || [];
+    checar(fu.length === Math.min(24, reais.length) && reais.length >= 30 && new Set(fu).size === fu.length && fu.every((x) => reais.includes(x)),
+      'E‴ · ligar emite `espera.fundos`: caminhos das ilustrações das músicas baixadas (o conjunto do Wallpaper), ≤ 24, sem repetição', { fu, n: reais.length });
     checar(e1.on && e1.pressed === 'true' && e1.noAr && e1.espera && e1.espera.avisos[0] === 'Sejam bem-vindos'
       && ini.depois.length > 0 && !ini.depois.some((t) => e1.espera.avisos.includes(t)),
       'E‴ · ligar projeta o itinerário COM `espera`: os avisos são as mensagens ANTES do 1º momento, não as de depois', { e1, ini });

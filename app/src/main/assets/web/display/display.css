@@ -564,6 +564,18 @@ html, body {
    que sai com `.em-espera`; `[hidden]` no horário = só o wallpaper. Mesmo bloco
    escuro e tokens do PALCO da lista; a gêmea mora em controle.css. */
 .itin.em-espera, .itin-espera[hidden], .itin-espera-aviso[hidden] { display: none; }
+/* O FUNDO DA ESPERA (20/11): `.itin-fundo` (o `trocarFundo` do stage) cobre a
+   camada inteira em `cover`, sobre o wallpaper copiado e atrás do bloco escuro;
+   crossfade por `.on`, seco com `.seco` ou sem movimento. A gêmea: controle.css. */
+.itin-fundo { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.text-layer:not(.mode-itinerario) .itin-fundo { display: none; }
+.itin-fundo-img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; opacity: 0; transition: opacity 1.2s ease;
+}
+.itin-fundo-img.on { opacity: 1; }
+.itin-fundo.seco .itin-fundo-img { transition: none; }
+@media (prefers-reduced-motion: reduce) { .itin-fundo-img { transition: none; } }
 .text-content:not(.mode-itinerario) .itin-espera { display: none; }
 .itin-espera {
   align-self: center; box-sizing: border-box;
