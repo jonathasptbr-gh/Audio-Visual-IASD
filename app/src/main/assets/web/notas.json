@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.15.5",
+    "itens": [
+      "Nova opção em Configurações → Inicialização: \"Receber atualizações de teste\".",
+      "Desligada (o padrão), o app só atualiza quando um conjunto de novidades fica pronto.",
+      "Ligada, o app recebe cada ajuste e correção assim que sai.",
+      "Esta atualização traz um app novo: aceite a instalação quando ele perguntar."
+    ]
+  },
+  {
     "versao": "1.15.4",
     "itens": [
       "No itinerário do telão, mostrar ou ocultar os horários agora é animado.",

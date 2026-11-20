@@ -23,7 +23,7 @@ antes do canal OTA.
 6. **A fila:** o pacote entregue sai do `PEDIDOS-EM-ESPERA.md`.
 7. **`tools/portao.sh <arquivos do lote>`** — o ÚLTIMO passo antes do commit; de novo depois de QUALQUER mudança (um `reverter.sh --restaurar` inclusive).
 8. **Commit e push em `main`:** `git add <caminhos>` (nunca `-A` — `docs/MULTI-AGENTE.md`).
-9. **Release, se o shell mudou:** o disparo manual com `release_tag` = o `shellTag` (a seção seguinte).
+9. **Release, se o shell mudou:** o disparo manual com `release_tag` = o `shellTag` (a seção seguinte). Correção que precisa chegar a TODOS: o disparo com `para_todos` (sozinho, ou junto do `release_tag`).
 10. **O CI:** `verificar` vermelho = o bundle não saiu ⇒ conserto no MESMO número e push de novo; já publicado ⇒ número novo. Nunca `revert` nem `push --force` em `main`.
 11. **A página:** o passo *"A versão que o aparelho vai rodar"* sem `::warning::` ("A página do site").
 
@@ -43,6 +43,14 @@ que o LOTE justifica.**
 | **MAIOR** (`1`.x.y) | **só sob mudança fundamental de CONCEITO**, por decisão explícita de quem publica. Não é acúmulo de recursos — é o app deixar de ser o que era | `1.x.y` → `2.0.0` |
 | **INCREMENTAL** (x.`2`.y) | uma **seção inteiramente nova**: um lugar que não existia, com tela e fluxo próprios | `1.0.7` → `1.1.0` |
 | **CORREÇÃO** (x.y.`3`) | correções e ajustes menores — o caso NORMAL, e o que a maioria dos lotes é | `1.0` → `1.0.1` |
+
+**O DEGRAU DECIDE O CANAL (v1.15.5).** Só a versão `X.Y.0` (MAIOR ou
+INCREMENTAL) sai no canal **público** (`web-latest`); a CORREÇÃO sai só no de
+**teste** (`web-teste`), e o público a recebe junto com o próximo `X.Y.0`. Por
+isso subir INCREMENTAL é também LIBERAR ao público — e continua respondendo só
+a "há uma seção nova?". Correção urgente para todos: o disparo manual com
+`para_todos` (a tabela das entradas, abaixo). O mecanismo, em
+[`shell/OTA.md`](shell/OTA.md#o-canal-público-e-o-canal-de-teste-v1155-shell-91).
 
 **Ao subir um degrau, os de baixo ZERAM:** depois de `1.4.9`, uma seção nova é
 `1.5.0`, nunca `1.5.9` — um número que não zera passa a contar duas coisas e
@@ -139,12 +147,13 @@ esperar o operador pedir.**
 | `pages.yml` | `workflow_run` do *Build APK*; push em `main` que toque `site/`; `release`; manual | a página do site, com a versão do canal OTA |
 | `dados.yml` | cron, de hora em hora (`17 * * * *`) | fotografa os contadores de download e grava na branch órfã `dados` — **nunca em `main`**: um push ali republicaria o bundle e zeraria o contador que ele mede (`docs/MEDICAO-DE-ALCANCE.md`) |
 
-O disparo manual do *Build APK* tem três entradas:
+O disparo manual do *Build APK* tem quatro entradas:
 
 | entrada | o que faz |
 |---|---|
 | `release_tag` | publica a Release com esta tag, criada de `main` — **a rota do rito**. Vazio = só compila |
 | `retag` | a tag já existe ⇒ MOVE para o commit atual (apaga e recria a Release) |
+| `para_todos` | publica TAMBÉM no canal público uma versão de correção (`X.Y.Z`, Z > 0) — a correção urgente, ou o lote que inaugura algo de que o público precisa já. Sem ela, o público só recebe `X.Y.0` |
 | `permitir_regressao` | publica um manifesto com versão MENOR que a no ar — só para renumeração deliberada. Sem ela, a **guarda anti-regressão** do `web-ota` (*"O manifesto publicado é mais novo?"*) pula a publicação, e o job termina VERDE com o motivo no resumo |
 
 ## Build e distribuição
@@ -173,7 +182,7 @@ mas mexe no maquinário que alimenta a frota — e o preço de errar ali é o ca
 OTA parar.
 
 **O `web-ota` roda com fila, sem cancelamento** (`concurrency: web-ota`,
-`cancel-in-progress: false`). Os assets de `web-latest` são substituídos um a um,
+`cancel-in-progress: false`). Os assets de cada canal (`web-teste`, `web-latest`) são substituídos um a um,
 sem transação: duas execuções em paralelo (o push do lote seguido do push do
 conserto é o caso normal) intercalariam, e cancelar no meio do upload produz o
 mesmo estado. Ver [`NUCLEO-TECNICO`](NUCLEO-TECNICO.md#ota-da-base-web-atualização-sem-apk) para o que o nome versionado do zip fecha.

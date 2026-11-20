@@ -73,10 +73,23 @@ object WebUpdater {
      * `Log.i` e o OTA fica INERTE, sem sinal nenhum no aparelho.
      */
     internal const val REPO = "jonathasptbr-gh/Audio-Visual-IASD"
-    private const val VERSION_URL =
+
+    /**
+     * Os DOIS canais (shell 91). `web-latest` é o PÚBLICO: o `web-ota` só o
+     * publica num lote `X.Y.0` (o fim de um conjunto) ou por promoção manual —
+     * e é a única URL que um shell anterior ao 91 conhece, então o padrão de
+     * todo aparelho velho já é o público. `web-teste` recebe TODO push em
+     * `main`; só o lê quem liga "Receber atualizações de teste".
+     */
+    private const val CANAL_PUBLICO_URL =
         "https://github.com/$REPO/releases/download/web-latest/version.json"
+    private const val CANAL_TESTE_URL =
+        "https://github.com/$REPO/releases/download/web-teste/version.json"
 
     private const val PREFS = "web-ota"
+
+    /** `Boolean`, padrão `false` (o público) — chave nova, sem leitura antiga de outro tipo. */
+    private const val KEY_CANAL_TESTE = "canal-teste"
     private const val KEY_ACTIVE = "active"   // subdiretório servido agora
 
     /**
@@ -840,6 +853,7 @@ object WebUpdater {
         // existe.
         apk = ShellUpdater.novidade(ctx),
         shellAtual = ShellUpdater.versaoInstalada(ctx),
+        teste = canalTeste(ctx),
     )
 
     /**
@@ -858,12 +872,16 @@ object WebUpdater {
         webAtual: String,
         apk: ShellUpdater.Achado?,
         shellAtual: String,
+        teste: Boolean,
     ): String {
         // O mesmo relógio monotônico dos marcos que ele lê (ver acima).
         val agora = SystemClock.elapsedRealtime()
         val quando = if (ultimoInstante == 0L) "nunca"
         else "há " + ((agora - ultimoInstante) / 1000) + "s"
-        return "web v" + webAtual +
+        // O CANAL abre a linha: "nada novo" no público e no teste são respostas
+        // a perguntas diferentes, e quem lê o Registro precisa saber qual.
+        return (if (teste) "canal teste · " else "canal público · ") +
+            "web v" + webAtual +
             (pend?.let { " · v$it esperando" } ?: "") +
             " · shell v" + shellAtual +
             (apk?.let { " · v${it.versao} publicada" } ?: "") +
@@ -904,7 +922,7 @@ object WebUpdater {
         o.put("shellBytes", achado?.bytes ?: 0L)
         o.put("shellAtual", shellAtual)
         o.put("webNotas", notasDe(ctx, web, webAtual))
-        o.put("diag", diagDe(web, webAtual, achado, shellAtual))
+        o.put("diag", diagDe(web, webAtual, achado, shellAtual, canalTeste(ctx)))
         return o
     }
 
@@ -918,7 +936,7 @@ object WebUpdater {
      * não deu, `version` malformada — sai por `error(...)`.
      */
     private fun check(ctx: Context): String? {
-        val meta = JSONObject(fetchText(versionUrl()))
+        val meta = JSONObject(fetchText(versionUrl(ctx)))
         val version = meta.getString("version")
         // A FORMA, ANTES de qualquer uso — `version` entra em NOME DE CAMINHO
         // (`v$version`, `staging-$version-$stamp`) e este arquivo é paranoico
@@ -1175,7 +1193,25 @@ object WebUpdater {
      * `releases/download/...` do GitHub trata a query como enfeite e redireciona
      * igual, então o custo é zero.
      */
-    private fun versionUrl(): String = VERSION_URL + "?t=" + System.currentTimeMillis()
+    private fun versionUrl(ctx: Context): String =
+        (if (canalTeste(ctx)) CANAL_TESTE_URL else CANAL_PUBLICO_URL) +
+            "?t=" + System.currentTimeMillis()
+
+    /** O aparelho lê o canal de teste? Padrão `false`: o público. */
+    fun canalTeste(ctx: Context): Boolean =
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_CANAL_TESTE, false)
+
+    /**
+     * Troca o canal e PROCURA na hora (`forcar`; com uma procura já em curso,
+     * vale a ronda seguinte, 15 s). Sair do teste NUNCA rebaixa — a
+     * comparação é contra o que o aparelho já tem ([versaoJaTemos]), então quem
+     * está na v1.15.7 espera o público passar dela.
+     */
+    fun definirCanalTeste(ctx: Context, teste: Boolean) {
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean(KEY_CANAL_TESTE, teste).commit()
+        checkAsync(ctx, if (teste) "canal de teste ligado" else "canal de teste desligado", true)
+    }
 
     private fun fetchText(url: String): String {
         val conn = open(url)

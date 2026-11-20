@@ -56,6 +56,17 @@ on:
         type: boolean
         required: false
         default: false
+      # A PROMOÇÃO AO PÚBLICO (v1.15.5). O canal público (`web-latest`) só
+      # recebe sozinho o FIM DE UM CONJUNTO — versão `X.Y.0`; correção e ajuste
+      # (`X.Y.Z`, Z > 0) vão só para o canal de teste (`web-teste`). Esta é a
+      # exceção declarada: uma correção URGENTE, ou o lote que inaugura um
+      # recurso de que o público precisa já, sai para todos. Só no disparo
+      # manual, e com linha no resumo.
+      para_todos:
+        description: 'PUBLICAR TAMBÉM NO CANAL PÚBLICO (correção urgente fora de um X.Y.0)'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: write
@@ -941,6 +952,7 @@ jobs:
         || startsWith(github.ref, 'refs/tags/v')
         || (github.event_name == 'release'
             && github.event.release.tag_name != 'web-latest'
+            && github.event.release.tag_name != 'web-teste'
             && github.event.release.tag_name != 'dados-latest')
       )
     needs: [verificar, apk]
@@ -1079,23 +1091,57 @@ jobs:
           echo "Release $TAG encontrada: $SHELL_JSON"
           echo "SHELL_JSON=$SHELL_JSON" >> "$GITHUB_ENV"
 
-      # O MANIFESTO NUNCA REGRIDE. Esta guarda existe porque o `web-ota` deixou
-      # de ser o primeiro job do run: ele espera `verificar` e `apk` (o `needs`),
-      # e também roda no push da tag. As duas coisas soltam a ordem de chegada na
-      # fila `concurrency: web-ota` da ordem dos PUSHES — quem chega primeiro
-      # passa a ser quem compila mais rápido (cache quente × frio varia minutos),
-      # e o run de uma tag empacota o commit DA TAG, que pode ser anterior ao que
-      # o push de `main` já publicou.
+      # OS DOIS CANAIS (v1.15.5). `web-teste` recebe TODO run que chega aqui;
+      # `web-latest` — o PÚBLICO, e a única URL que um shell < 91 conhece — só
+      # recebe o FIM DE UM CONJUNTO: versão cujos componentes depois do segundo
+      # são todos zero (`1.16`, `1.16.0`, `2.0.0`), ou o disparo manual com
+      # `para_todos`. Uma correção `X.Y.Z` (Z > 0) fica só no teste, e o
+      # próximo `X.Y.0` leva tudo junto ao público.
+      #
+      # O bloco `shell` (o passo acima) é o MESMO nos dois: quando o público
+      # publica, toda Release existente é ≤ esta versão — a numeração em `main`
+      # só sobe —, e a Release de uma correção posterior não toca o público (o
+      # run dela não é `X.Y.0`). O que chega por ela a quem não está no teste é
+      # só o APK baixado à mão.
+      - name: Os canais deste run
+        if: env.HOLD != 'true'
+        env:
+          PARA_TODOS: ${{ github.event.inputs.para_todos || 'false' }}
+        run: |
+          set -euo pipefail
+          NOVA=$(python3 -c "import json;print(json.load(open('app/src/main/assets/web/version.json'))['version'])")
+          FIM=$(python3 - "$NOVA" <<'PY3'
+          import sys
+          print("sim" if all(int(x) == 0 for x in sys.argv[1].split('.')[2:]) else "nao")
+          PY3
+          )
+          echo "PUB_TESTE=true" >> "$GITHUB_ENV"
+          if [ "$FIM" = "sim" ]; then
+            echo "v$NOVA fecha um conjunto: canal de teste E canal público." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "PUB_PUBLICO=true" >> "$GITHUB_ENV"
+          elif [ "$PARA_TODOS" = "true" ]; then
+            echo "::warning::PROMOÇÃO À MÃO: a v$NOVA é correção e sai também no canal público"
+            echo "Canal público: **promoção à mão** — a v$NOVA sai para todos (\`para_todos\`)." >> "$GITHUB_STEP_SUMMARY"
+            echo "PUB_PUBLICO=true" >> "$GITHUB_ENV"
+          else
+            echo "v$NOVA é correção: só o canal de teste. O público espera o próximo X.Y.0." | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "PUB_PUBLICO=false" >> "$GITHUB_ENV"
+          fi
+
+      # O MANIFESTO NUNCA REGRIDE — em NENHUM dos dois canais. Esta guarda
+      # existe porque o `web-ota` deixou de ser o primeiro job do run: ele
+      # espera `verificar` e `apk` (o `needs`), e também roda no push da tag.
+      # As duas coisas soltam a ordem de chegada na fila `concurrency: web-ota`
+      # da ordem dos PUSHES, e o run de uma tag empacota o commit DA TAG, que
+      # pode ser anterior ao que o push de `main` já publicou.
       #
       # Publicar uma versão MENOR por cima de uma maior é o pior modo de falhar
       # deste projeto: `compareVersions` no aparelho descarta em silêncio, o lote
       # novo fica inalcançável até o próximo push, e não há vermelho em lugar
-      # nenhum. A guarda compara com o manifesto que JÁ está no ar, pela mesma
-      # regra numérica por componente do `WebUpdater.compareVersions` — nunca
-      # lexical, senão `4.9` > `4.82`.
-      #
-      # Ela protege também o que já existia antes desta reestruturação: um
-      # `retag`, ou dois runs que furem a fila por qualquer motivo.
+      # nenhum. A guarda compara com o manifesto que JÁ está no ar em cada
+      # canal, pela mesma regra numérica por componente do
+      # `WebUpdater.compareVersions` — nunca lexical, senão `4.9` > `4.82`. Um
+      # canal recusado não segura o outro; os dois recusados viram HOLD.
       - name: O manifesto publicado é mais novo? (guarda anti-regressão)
         if: env.HOLD != 'true'
         env:
@@ -1104,38 +1150,48 @@ jobs:
         run: |
           set -uo pipefail
           NOVA=$(python3 -c "import json;print(json.load(open('app/src/main/assets/web/version.json'))['version'])")
-          # `gh release download`, e não a URL crua: o asset vem com a
-          # credencial do run, sem depender de qual dos dois endereços o
-          # `--json assets` chama de `url`. Sem `-e` aqui de propósito —
-          # `web-latest` pode não existir (repositório novo, ou o primeiro
-          # lançamento do canal), e isso não é falha.
-          TMP=$(mktemp -d)
-          gh release download web-latest -p version.json -D "$TMP" >/dev/null 2>&1 || true
-          NO_AR=""
-          if [ -f "$TMP/version.json" ]; then
-            NO_AR=$(python3 -c "import json;print(json.load(open('$TMP/version.json')).get('version',''))" 2>/dev/null || true)
-          fi
-          if [ -z "$NO_AR" ]; then
-            echo "nada publicado ainda (ou manifesto ilegível) — segue."
-            exit 0
-          fi
-          MAIOR=$(python3 - "$NO_AR" "$NOVA" <<'PY2'
+          # Devolve 0 = publica, 1 = pula. Sem `-e` de propósito: o canal pode
+          # não existir ainda (o primeiro lançamento do `web-teste`), e isso não
+          # é falha. `gh release download`, e não a URL crua: vem com a
+          # credencial do run.
+          guarda() {
+            local CANAL="$1" TMP NO_AR="" MAIOR
+            TMP=$(mktemp -d)
+            gh release download "$CANAL" -p version.json -D "$TMP" >/dev/null 2>&1 || true
+            if [ -f "$TMP/version.json" ]; then
+              NO_AR=$(python3 -c "import json;print(json.load(open('$TMP/version.json')).get('version',''))" 2>/dev/null || true)
+            fi
+            if [ -z "$NO_AR" ]; then
+              echo "$CANAL: nada publicado ainda (ou manifesto ilegível) — segue."
+              return 0
+            fi
+            MAIOR=$(python3 - "$NO_AR" "$NOVA" <<'PY2'
           import sys
           def v(s): return [int(x) for x in s.split('.') if x.isdigit()] or [0]
           a, b = v(sys.argv[1]), v(sys.argv[2])
           n = max(len(a), len(b)); a += [0]*(n-len(a)); b += [0]*(n-len(b))
           print("sim" if a > b else "nao")
           PY2
-          )
-          if [ "$MAIOR" = "sim" ] && [ "$PERMITIR_REGRESSAO" = "true" ]; then
-            echo "::warning::REGRESSÃO AUTORIZADA À MÃO: web-latest está na v$NO_AR e este run publica a v$NOVA"
-            echo "Canal OTA: **regressão autorizada à mão**. O \`web-latest\` estava na v$NO_AR e este run publica a v$NOVA. Todo aparelho que já tenha a v$NO_AR vai RECUSAR este bundle em silêncio — só uma reinstalação o alcança." >> "$GITHUB_STEP_SUMMARY"
-          elif [ "$MAIOR" = "sim" ]; then
-            echo "::warning::web-latest já tem a v$NO_AR e este run traria a v$NOVA — publicação PULADA para o manifesto não regredir"
-            echo "Canal OTA: **não publicado**. O \`web-latest\` já está na v$NO_AR e este run traz a v$NOVA — publicar rebaixaria o manifesto, e o aparelho descartaria em silêncio." >> "$GITHUB_STEP_SUMMARY"
+            )
+            if [ "$MAIOR" = "sim" ] && [ "$PERMITIR_REGRESSAO" = "true" ]; then
+              echo "::warning::REGRESSÃO AUTORIZADA À MÃO: $CANAL está na v$NO_AR e este run publica a v$NOVA"
+              echo "Canal \`$CANAL\`: **regressão autorizada à mão** (v$NO_AR → v$NOVA). Todo aparelho que já tenha a v$NO_AR vai RECUSAR este bundle em silêncio — só uma reinstalação o alcança." >> "$GITHUB_STEP_SUMMARY"
+              return 0
+            elif [ "$MAIOR" = "sim" ]; then
+              echo "::warning::$CANAL já tem a v$NO_AR e este run traria a v$NOVA — publicação PULADA para o manifesto não regredir"
+              echo "Canal \`$CANAL\`: **não publicado**. Já está na v$NO_AR e este run traz a v$NOVA — publicar rebaixaria o manifesto, e o aparelho descartaria em silêncio." >> "$GITHUB_STEP_SUMMARY"
+              return 1
+            fi
+            echo "$CANAL: no ar v$NO_AR · este run v$NOVA — segue."
+            return 0
+          }
+          T="$PUB_TESTE"; P="$PUB_PUBLICO"
+          if [ "$T" = "true" ] && ! guarda web-teste; then T=false; fi
+          if [ "$P" = "true" ] && ! guarda web-latest; then P=false; fi
+          echo "PUB_TESTE=$T" >> "$GITHUB_ENV"
+          echo "PUB_PUBLICO=$P" >> "$GITHUB_ENV"
+          if [ "$T" != "true" ] && [ "$P" != "true" ]; then
             echo "HOLD=true" >> "$GITHUB_ENV"
-          else
-            echo "no ar: v$NO_AR · este run: v$NOVA — segue."
           fi
 
       - name: Empacotar a base web
@@ -1148,22 +1204,14 @@ jobs:
           set -euo pipefail
           SRC="$GITHUB_WORKSPACE/app/src/main/assets/web/version.json"
           VERSION=$(python3 -c "import json;print(json.load(open('$SRC'))['version'])")
-          # O NOME DO ZIP CARREGA A VERSÃO, e isso não é cosmético.
-          #
-          # Ele era `web-assets.zip`, SUBSTITUÍDO no lugar a cada publicação —
-          # e o próprio comentário do `concurrency` acima já reconhecia o
-          # desfecho: duas execuções intercaladas deixam o zip de uma com o
-          # sha256 da outra, e a partir daí **todo aparelho baixa, confere o
-          # hash, reprova e o OTA fica INERTE até o próximo push**, sem sinal
-          # nenhum. A fila reduzia a chance; ela não fechava a classe, porque
-          # nada impede a fila de ser furada por um `retag` ou por uma execução
-          # que morra entre os dois uploads. Um nome imutável por versão fecha:
-          # o zip da versão N nunca é sobrescrito, então um manifesto que fale
-          # da versão N sempre encontra o zip da versão N. De quebra, some a
-          # janela em que um cache intermediário pode devolver o zip de ontem
-          # no endereço de hoje.
+          # O NOME DO ZIP CARREGA A VERSÃO, e isso não é cosmético: com um nome
+          # fixo substituído no lugar, duas execuções intercaladas (ou uma que
+          # morra entre os dois uploads, ou um `retag`) deixavam o zip de uma
+          # com o sha256 da outra — e todo aparelho baixava, reprovava o hash e
+          # o OTA ficava INERTE até o próximo push, sem sinal. Nome imutável por
+          # versão: um manifesto que fale da versão N sempre encontra o zip da
+          # versão N. O MESMO zip vai aos dois canais.
           ZIP="$GITHUB_WORKSPACE/web-$VERSION.zip"
-          META="$GITHUB_WORKSPACE/version.json"
 
           # O zip preserva o prefixo `web/` para que o caminho dentro do
           # bundle bata 1:1 com a URL servida pelo asset loader.
@@ -1171,44 +1219,42 @@ jobs:
           (cd "$GITHUB_WORKSPACE/app/src/main/assets" && zip -qr "$ZIP" web)
 
           SHA=$(sha256sum "$ZIP" | cut -d' ' -f1)
-
-          # A GUARDA ANTI-REGRESSÃO PEGA A VERSÃO MENOR; faltava a IGUAL com
-          # conteúdo diferente — o "segundo lote de web sem subir" (RESIDUOS,
-          # 2026-11-14, Pacote 25): o aparelho compara VERSÕES, vê a mesma e
-          # ignora o bundle novo em silêncio, para sempre. A régua do conteúdo é
-          # a ÁRVORE do git da base web, que vai no manifesto como `webTree` —
-          # o sha256 do zip NÃO serve: o `zip` grava a data de cada arquivo, e
-          # um checkout novo muda todas, então o mesmo conteúdo daria outro sha.
-          # Igual com a MESMA árvore é reenvio inofensivo: segue.
-          NO_AR_VER=""
-          NO_AR_TREE=""
-          TMPV=$(mktemp -d)
-          if gh release download web-latest -p version.json -D "$TMPV" >/dev/null 2>&1 \
-             && [ -f "$TMPV/version.json" ]; then
-            NO_AR_VER=$(python3 -c "import json;print(json.load(open('$TMPV/version.json')).get('version',''))" 2>/dev/null || true)
-            NO_AR_TREE=$(python3 -c "import json;print(json.load(open('$TMPV/version.json')).get('webTree',''))" 2>/dev/null || true)
-          fi
           ARVORE=$(git rev-parse "HEAD:app/src/main/assets/web" 2>/dev/null || true)
-          if [ -n "$NO_AR_VER" ] && [ "$NO_AR_VER" = "$VERSION" ]; then
-            if [ -z "$NO_AR_TREE" ]; then
-              echo "::warning::o manifesto no ar não traz \`webTree\` (é anterior a esta guarda) — a versão IGUAL não pôde ser comparada por conteúdo"
-            elif [ "$NO_AR_TREE" != "$ARVORE" ]; then
-              echo "::error::a base web mudou e a versão continua v$VERSION (o canal já publica a v$NO_AR_VER com outro conteúdo) — o OTA ignora, em silêncio, o que não for MAIOR: suba as três casas (docs/BUILD.md, 'O rito de entrega')"
-              exit 1
+
+          # A GUARDA ANTI-REGRESSÃO PEGA A VERSÃO MENOR; esta pega a IGUAL com
+          # conteúdo diferente — o "segundo lote de web sem subir": o aparelho
+          # compara VERSÕES, vê a mesma e ignora o bundle novo em silêncio, para
+          # sempre. A régua do conteúdo é a ÁRVORE do git da base web, que vai
+          # no manifesto como `webTree` — o sha256 do zip NÃO serve: o `zip`
+          # grava a data de cada arquivo, e um checkout novo muda todas. Igual
+          # com a MESMA árvore é reenvio inofensivo: segue. Por canal.
+          manifesto() {
+            local CANAL="$1" TMPV NO_AR_VER="" NO_AR_TREE=""
+            TMPV=$(mktemp -d)
+            if gh release download "$CANAL" -p version.json -D "$TMPV" >/dev/null 2>&1 \
+               && [ -f "$TMPV/version.json" ]; then
+              NO_AR_VER=$(python3 -c "import json;print(json.load(open('$TMPV/version.json')).get('version',''))" 2>/dev/null || true)
+              NO_AR_TREE=$(python3 -c "import json;print(json.load(open('$TMPV/version.json')).get('webTree',''))" 2>/dev/null || true)
             fi
-          fi
-
-          ARVORE=$(git rev-parse "HEAD:app/src/main/assets/web" 2>/dev/null || true)
-          python3 - "$SRC" "$META" "$SHA" "$GITHUB_REPOSITORY" "$(basename "$ZIP")" "$ARVORE" <<'PY'
+            if [ -n "$NO_AR_VER" ] && [ "$NO_AR_VER" = "$VERSION" ]; then
+              if [ -z "$NO_AR_TREE" ]; then
+                echo "::warning::o manifesto de $CANAL não traz \`webTree\` (é anterior a esta guarda) — a versão IGUAL não pôde ser comparada por conteúdo"
+              elif [ "$NO_AR_TREE" != "$ARVORE" ]; then
+                echo "::error::a base web mudou e a versão continua v$VERSION ($CANAL já publica a v$NO_AR_VER com outro conteúdo) — o OTA ignora, em silêncio, o que não for MAIOR: suba as três casas (docs/BUILD.md, 'O rito de entrega')"
+                exit 1
+              fi
+            fi
+            mkdir -p "$GITHUB_WORKSPACE/ota/$CANAL"
+            python3 - "$SRC" "$GITHUB_WORKSPACE/ota/$CANAL/version.json" "$SHA" "$GITHUB_REPOSITORY" "$(basename "$ZIP")" "$ARVORE" "$CANAL" <<'PY'
           import json, os, sys
-          src, out, sha, repo, nome, arvore = sys.argv[1:7]
+          src, out, sha, repo, nome, arvore, canal = sys.argv[1:8]
           meta = json.load(open(src))
           saida = {
               "version": meta["version"],
               "minShell": int(meta["minShell"]),
               "sha256": sha,
               "webTree": arvore,
-              "assets": f"https://github.com/{repo}/releases/download/web-latest/{nome}",
+              "assets": f"https://github.com/{repo}/releases/download/{canal}/{nome}",
           }
           # O BLOCO `shell` É O RECADO PARA O APARELHO: "esta base web vem com um
           # APK, e ele está aqui". Sem ele o app trata a atualização como OTA
@@ -1218,53 +1264,66 @@ jobs:
               saida["shell"] = json.loads(bruto)
           json.dump(saida, open(out, "w"), indent=2)
           PY
+            echo "== $CANAL"; cat "$GITHUB_WORKSPACE/ota/$CANAL/version.json"
+          }
+          if [ "$PUB_TESTE" = "true" ]; then manifesto web-teste; fi
+          if [ "$PUB_PUBLICO" = "true" ]; then manifesto web-latest; fi
 
           echo "Bundle: $(du -h "$ZIP" | cut -f1)"
-          cat "$META"
           echo "ZIP_NOME=$(basename "$ZIP")" >> "$GITHUB_ENV"
 
-      # Tag fixa: a URL do `version.json` precisa ser estável, porque está
-      # compilada no shell. O ZIP, não — ele é encontrado PELO manifesto, e por
-      # isso pode (e deve) ter nome versionado. Ou seja, o único arquivo
-      # substituído no lugar passa a ser o manifesto, que é minúsculo, tem
-      # `?t=` anti-cache do lado do app e é escrito por ÚLTIMO: mesmo uma
-      # publicação interrompida no meio deixa o estado anterior íntegro, em vez
-      # de um sha órfão.
+      # Tag fixa POR CANAL: a URL do `version.json` precisa ser estável, porque
+      # está compilada no shell. O ZIP, não — ele é encontrado PELO manifesto, e
+      # por isso tem nome versionado. O único arquivo substituído no lugar é o
+      # manifesto, minúsculo, com `?t=` anti-cache do lado do app e escrito por
+      # ÚLTIMO: uma publicação interrompida no meio deixa o estado anterior
+      # íntegro, em vez de um sha órfão. O teste sai PRIMEIRO: se o público
+      # falhar, quem testa já tem o lote.
       - uses: softprops/action-gh-release@v2
-        if: env.HOLD != 'true'
+        if: env.HOLD != 'true' && env.PUB_TESTE == 'true'
+        with:
+          tag_name: web-teste
+          name: Base web (canal OTA de TESTE)
+          prerelease: true
+          files: |
+            ${{ env.ZIP_NOME }}
+            ota/web-teste/version.json
+          body: |
+            **Infraestrutura — não é para instalar.**
+
+            Canal de TESTE da base web: recebe todo lote assim que sai. Só o lê
+            o aparelho com "Receber atualizações de teste" ligado
+            (Configurações → Inicialização). Os APKs estão nas releases `v*`.
+
+      - uses: softprops/action-gh-release@v2
+        if: env.HOLD != 'true' && env.PUB_PUBLICO == 'true'
         with:
           tag_name: web-latest
           name: Base web (canal OTA)
           prerelease: true
           files: |
             ${{ env.ZIP_NOME }}
-            version.json
+            ota/web-latest/version.json
           body: |
             **Infraestrutura — não é para instalar.**
 
-            Canal de atualização da base web: o app consulta o `version.json`
-            aqui e baixa o `web-<versão>.zip` que ele apontar. Os APKs para
-            instalar estão nas releases `v*`.
+            Canal PÚBLICO da base web: o app consulta o `version.json` aqui e
+            baixa o `web-<versão>.zip` que ele apontar. Só recebe o fim de um
+            conjunto (`X.Y.0`) ou uma promoção manual. Os APKs para instalar
+            estão nas releases `v*`.
 
       # Com nome versionado os zips ACUMULAM, e um asset de release não é
-      # recolhido por ninguém. Ficam os três mais novos: o servido, o que acabou
-      # de sair e uma folga para o aparelho que estava baixando o anterior no
-      # instante da publicação — apagar o que alguém está baixando devolveria um
-      # 404 no meio do download, que é justamente o tipo de falha intermitente
-      # que este lote existe para acabar.
-      # A ORDEM É POR DATA DE UPLOAD, E O ATUAL É INTOCÁVEL.
+      # recolhido por ninguém. Ficam, POR CANAL, o que o manifesto anuncia e os
+      # dois mais novos além dele — uma folga para o aparelho que estava
+      # baixando o anterior no instante da publicação (apagar o que alguém está
+      # baixando devolveria 404 no meio do download).
       #
-      # Este passo ordenava por VERSÃO (`sort -V -r`) e guardava os três
-      # primeiros — o que supõe que o bundle mais NOVO é também o de maior
-      # NÚMERO. Uma renumeração quebra a suposição: na v1.0 o `web-1.0.zip`
-      # ordenou abaixo de `web-5.316`/`web-5.317` e foi recolhido no mesmo run
-      # que acabara de subi-lo. O manifesto ficou apontando para um 404, que é o
-      # estado "OTA inerte" descrito no `concurrency` deste job — e ele não erra
-      # alto: o aparelho baixa, falha e retenta, para sempre.
-      #
-      # Duas correções, e a primeira sozinha não basta: a data é a chave certa,
-      # mas o que garante a correção é o ATUAL sair da lista de candidatos antes
-      # de qualquer corte. O zip que o manifesto anuncia nunca é recolhível.
+      # A ORDEM É POR DATA DE UPLOAD, E O ATUAL É INTOCÁVEL. Ordenar por VERSÃO
+      # supõe que o bundle mais NOVO é o de maior NÚMERO, e uma renumeração
+      # quebra isso: na v1.0 o `web-1.0.zip` ordenou abaixo de `web-5.317` e
+      # foi recolhido no mesmo run que o subiu — o manifesto apontou para um
+      # 404, e o aparelho baixava, falhava e retentava, para sempre. O zip que
+      # o manifesto anuncia sai da lista ANTES de qualquer corte.
       - name: Recolher bundles antigos
         if: env.HOLD != 'true'
         continue-on-error: true
@@ -1274,13 +1333,17 @@ jobs:
           set -euo pipefail
           ATUAL="web-$(python3 -c "import json;print(json.load(open('app/src/main/assets/web/version.json'))['version'])").zip"
           echo "protegido (o que o manifesto anuncia): $ATUAL"
-          gh release view web-latest --repo "$GITHUB_REPOSITORY" --json assets \
-            --jq '.assets[] | select(.name | test("^web-.*\\.zip$")) | [.createdAt, .name] | @tsv' \
-            | sort -r | cut -f2 | grep -vxF "$ATUAL" | tail -n +3 | while read -r velho; do
-              echo "recolhendo $velho"
-              gh release delete-asset web-latest "$velho" \
-                --repo "$GITHUB_REPOSITORY" --yes || true
-            done
+          for CANAL in web-teste web-latest; do
+            if [ "$CANAL" = "web-teste" ] && [ "$PUB_TESTE" != "true" ]; then continue; fi
+            if [ "$CANAL" = "web-latest" ] && [ "$PUB_PUBLICO" != "true" ]; then continue; fi
+            gh release view "$CANAL" --repo "$GITHUB_REPOSITORY" --json assets \
+              --jq '.assets[] | select(.name | test("^web-.*\\.zip$")) | [.createdAt, .name] | @tsv' \
+              | sort -r | cut -f2 | grep -vxF "$ATUAL" | tail -n +3 | while read -r velho; do
+                echo "recolhendo $CANAL/$velho"
+                gh release delete-asset "$CANAL" "$velho" \
+                  --repo "$GITHUB_REPOSITORY" --yes || true
+              done
+          done
 
   apk:
     # No evento `release` não há APK a construir: a Release ACABOU de publicar
@@ -1498,8 +1561,8 @@ jobs:
           # sem sinal — e não há como republicá-la a não ser rodando o
           # `web-ota` de novo. Nada impedia `release_tag: web-latest` com
           # `retag` ligado, e o custo de um dedo errado era o canal inteiro.
-          if [ "$TAG" = "web-latest" ]; then
-            echo "::error::web-latest é o canal OTA (a URL está compilada no shell) e nunca pode ser apagada por retag."
+          if [ "$TAG" = "web-latest" ] || [ "$TAG" = "web-teste" ]; then
+            echo "::error::$TAG é um canal OTA (a URL está compilada no shell) e nunca pode ser apagada por retag."
             exit 1
           fi
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then

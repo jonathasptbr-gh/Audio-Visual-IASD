@@ -53,7 +53,7 @@ no `docs/HISTORICO.md`.
 | barramento, plano B do `BroadcastChannel` | [`NUCLEO`](docs/NUCLEO-TECNICO.md#barramento-de-comandos-e-o-plano-b-do-broadcastchannel) | o relay e o dreno do papel `tela`; a preview ILUSTRA, não espelha |
 | trabalho em segundo plano | [`NUCLEO`](docs/NUCLEO-TECNICO.md#trabalho-em-segundo-plano-downloads-com-o-app-minimizado) | **`startForeground` SEMPRE**, antes de qualquer decisão de parar |
 | notificação de controles | [`NUCLEO`](docs/NUCLEO-TECNICO.md#notificação-de-controles-sessão-de-mídia) | **`play`/`pause` ≠ `playpause`**: tratar tudo como alternador pausa o louvor |
-| OTA da base web | [`NUCLEO`](docs/NUCLEO-TECNICO.md#ota-da-base-web-atualização-sem-apk) · [`shell/OTA`](docs/shell/OTA.md) | **`shellTag` sem Release segura o canal para sempre, em silêncio** — e a Release se dispara depois do push em `main` |
+| OTA da base web | [`NUCLEO`](docs/NUCLEO-TECNICO.md#ota-da-base-web-atualização-sem-apk) · [`shell/OTA`](docs/shell/OTA.md) | **`shellTag` sem Release segura o canal para sempre, em silêncio** — e a Release se dispara depois do push em `main`; **o público (`web-latest`) só recebe `X.Y.0`** — correção vai só ao canal de teste, salvo `para_todos` |
 | telão nas telas da rede | [`TELAO-POR-COMANDOS`](docs/TELAO-POR-COMANDOS.md) | o contrato inteiro está no capítulo |
 | séries do YouTube | [`NUCLEO`](docs/NUCLEO-TECNICO.md#séries-do-youtube-os-álbuns-oficiais-da-biblioteca) · [`SERIES`](docs/recursos/SERIES.md) | **a playlist prova o pertencimento; o título é só rótulo** |
 | a aba de cifra | [`NUCLEO`](docs/NUCLEO-TECNICO.md#a-aba-de-cifra-acordes-ao-lado-da-letra) · [`CIFRA`](docs/recursos/CIFRA.md) | **sob demanda é o contrato**, não uma otimização |

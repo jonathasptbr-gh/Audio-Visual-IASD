@@ -425,7 +425,7 @@ class NativeBridge(
          * A regra inteira está no `docs/shell/PONTE.md` (seção do
          * `SHELL_VERSION`); a tabela dos degraus, no `docs/HISTORICO.md`.
          */
-        const val SHELL_VERSION = 90
+        const val SHELL_VERSION = 91
 
         /**
          * O CONSUMIDOR DA LAN para o barramento (telão por comandos, E2 —
@@ -779,6 +779,32 @@ class NativeBridge(
     fun otaDiag(callId: String) {
         io.execute {
             resolve(callId, JSONObject.quote(if (host == null) "" else WebUpdater.diag(ctx)))
+        }
+    }
+
+    /**
+     * O canal do OTA (shell 91) → `{teste}`; `null` sem host. A chave mora no
+     * SHELL (`WebUpdater.canalTeste`), e não no `localStorage`: quem busca o
+     * manifesto é a ronda do Kotlin, que roda sem página nenhuma.
+     */
+    @JavascriptInterface
+    fun otaCanal(callId: String) {
+        if (host == null) { resolve(callId, "null"); return }
+        io.execute {
+            resolve(callId, JSONObject().put("teste", WebUpdater.canalTeste(ctx)).toString())
+        }
+    }
+
+    /**
+     * Liga/desliga o canal de teste (shell 91) e procura na hora; resolve o
+     * `{teste}` que ficou gravado. Só o Controle — sem host, `null`.
+     */
+    @JavascriptInterface
+    fun otaCanalDefinir(teste: Boolean, callId: String) {
+        if (host == null) { resolve(callId, "null"); return }
+        io.execute {
+            WebUpdater.definirCanalTeste(ctx, teste)
+            resolve(callId, JSONObject().put("teste", WebUpdater.canalTeste(ctx)).toString())
         }
     }
 

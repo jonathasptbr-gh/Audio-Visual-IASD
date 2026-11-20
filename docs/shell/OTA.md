@@ -67,6 +67,41 @@ na versão de anteontem. Todo mecanismo aqui existe para tornar uma falha
 
 ---
 
+## O canal PÚBLICO e o canal de TESTE (v1.15.5, shell 91)
+
+| canal | release | quem publica | quem lê |
+|---|---|---|---|
+| **público** | `web-latest` | o `web-ota`, **só** em versão `X.Y.0` (componentes depois do segundo todos zero) ou no disparo manual com `para_todos` | todo aparelho com a chave desligada (o padrão) **e todo shell < 91** — é a única URL que ele conhece |
+| **teste** | `web-teste` | o `web-ota`, em TODO run que chega à publicação | quem liga *Configurações → Inicialização → Receber atualizações de teste* |
+
+- **O pedido do operador (2026-11-20):** o público recebe o fim de um
+  CONJUNTO — o degrau INCREMENTAL —, nunca correção a correção. Uma `X.Y.Z`
+  (Z > 0) fica no teste até o próximo `X.Y.0` levar tudo junto. A correção
+  URGENTE é a exceção, e ela é DISPARO MANUAL (`para_todos`), com linha no
+  resumo — nenhum push a alcança.
+- **A chave mora no SHELL** (`WebUpdater.canalTeste`, pref `canal-teste` em
+  `web-ota`, `Boolean`, padrão `false`), não no `localStorage`: quem lê o
+  manifesto é a ronda do Kotlin. A ponte é `otaCanal`/`otaCanalDefinir`
+  (opcionais, `typeof`); sem elas a linha da seção some.
+- **Trocar de canal procura na hora** (`checkAsync(..., forcar = true)`) e
+  **nunca rebaixa**: a comparação é contra o que o aparelho já tem
+  (`versaoJaTemos`), então quem sai do teste na v1.15.7 espera o público
+  passar dela.
+- **O bloco `shell` é o mesmo nos dois manifestos do run.** Quando o público
+  publica, toda Release existente é ≤ a versão dele (a numeração em `main` só
+  sobe); a Release de uma correção posterior não toca o público. **A página do
+  site oferece o APK que o manifesto público nomeia** (`pages.yml`), não a
+  Release mais recente — senão quem instala do zero furaria o canal.
+- **Cada canal tem as próprias guardas:** anti-regressão, versão igual com
+  `webTree` diferente e o recolhimento dos zips correm POR CANAL. Um canal
+  recusado não segura o outro; os dois recusados viram `HOLD`.
+- **O `otaDiag` abre com o canal** (`canal público · …` / `canal teste · …`):
+  "nada novo" nos dois responde a perguntas diferentes.
+- **`web-teste` é infraestrutura** como a `web-latest`: `prerelease`, fora do
+  `retag`, fora da página e do gatilho `release`.
+
+---
+
 ## A detecção: quatro gatilhos
 
 1. **abertura**;
@@ -330,9 +365,11 @@ para nada: ela entra ao abrir, e ao abrir a procura acontece.
 ## O OTA da base web — o mecanismo inteiro
 
 O job `web-ota` (todo push em `main`) empacota `assets/web/` num
-`web-<versão>.zip` e publica, com um `version.json`, na release de tag fixa
-**`web-latest`** — URL estável porque está compilada no shell. O app consulta o
-`version.json`, baixa quando há versão nova e passa a servi-la.
+`web-<versão>.zip` e publica, com um `version.json`, em release de tag fixa —
+`web-teste` (todo lote) e `web-latest` (o público: só `X.Y.0`; ver "O canal
+PÚBLICO e o canal de TESTE", acima) —, URL estável porque está compilada no
+shell. O app consulta o `version.json` do canal dele, baixa quando há versão
+nova e passa a servi-la.
 
 ### Os DOIS canais são UM evento
 

@@ -50,6 +50,8 @@ const bootVolSegEl = document.getElementById('bootVolSeg');
 const bootVolBarEl = document.getElementById('bootVolBar');
 const bootVolLinhaEl = document.getElementById('bootVolLinha');
 const bootVolNumEl = document.getElementById('bootVolNum');
+const bootTesteLinhaEl = document.getElementById('bootTesteLinha');
+const bootTesteSegEl = document.getElementById('bootTesteSeg');
 const pvMuteNumEl = document.getElementById('pvMuteNum');
 const pvCastBtnEl = document.getElementById('pvCastBtn');
 const fsCtlEl = document.getElementById('pvFsCtl');
@@ -496,7 +498,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.15.4';
+const WEB_VERSION = '1.15.5';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -44229,11 +44231,25 @@ function conferirAcessoBootDnd() {
   }).catch(() => { bootDndNotaEl.hidden = true; bootDndAcessoEl.hidden = true; });
 }
 
+// O CANAL DE TESTE (shell 91). A chave mora no SHELL, não no `localStorage`: quem
+// lê o manifesto é a ronda do Kotlin. Por isso a pintura vem SEMPRE da resposta da
+// ponte — nunca do toque —, e sem ponte (navegador, casco < 91) a linha some.
+function renderBootTeste(st) {
+  if (!bootTesteLinhaEl) return;
+  bootTesteLinhaEl.hidden = !st;
+  if (st) pintarBootChave(bootTesteSegEl, 'teste', st.teste === true);
+}
+function conferirBootTeste() {
+  if (!window.__NATIVE__ || typeof AVNative.otaCanal !== 'function') { renderBootTeste(null); return; }
+  AVNative.otaCanal().then(renderBootTeste).catch(() => renderBootTeste(null));
+}
+
 function aoAbrirBoot() {
   renderBootModo();
   renderBootDnd();
   renderBootVol();
   conferirAcessoBootDnd();
+  conferirBootTeste();
 }
 
 if (bootModoSegEl) {
@@ -44270,6 +44286,15 @@ if (bootVolSegEl) {
     if (!b) return;
     gravarBootChave(BOOT_VOL_ON_KEY, b.dataset.vol === 'on' ? '1' : null);
     renderBootVol();
+  });
+}
+if (bootTesteSegEl) {
+  bootTesteSegEl.addEventListener('click', (e) => {
+    const b = e.target.closest('.fit-opt');
+    if (!b || !window.__NATIVE__ || typeof AVNative.otaCanalDefinir !== 'function') return;
+    AVNative.otaCanalDefinir(b.dataset.teste === 'on')
+      .then((st) => { if (st) renderBootTeste(st); })
+      .catch(() => { /* a ponte caiu: a chave mostra o que estava */ });
   });
 }
 if (bootVolBarEl) {

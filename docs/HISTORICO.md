@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.15.5** — dois canais de OTA: `web-teste` recebe todo lote, `web-latest` (o público) só `X.Y.0` ou o disparo `para_todos`; a chave "Receber atualizações de teste" na Inicialização (shell 91: `otaCanal`/`otaCanalDefinir`, Release v1.15.5).
 - **v1.15.4** — mostrar/ocultar os horários do itinerário é ANIMADO (`max-width`/`margin-right`/`opacity` da `.itin-hora`, sem `display: none`) e `desenharItinerario` só move a linha fora do lugar — o `appendChild` de toda linha a cada desenho cancelava as transições (só web).
 - **v1.15.3** — o itinerário no telão mostra QUATRO momentos (`ITIN_JANELA` 6 → 4) e a janela para cheia perto do fim (só web).
 - **v1.15.2** — o Wallpaper, a pedido do operador: a grade do banco ROLA SOZINHA (a prévia fica à vista), a escolhida leva o check, e a identificação vira quatro níveis (`nenhuma` · `logo` · `iasd` · `completa`) (só web).
@@ -828,6 +829,24 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.15.5 — o canal de teste e o canal público
+
+**O PEDIDO** (operador, 20/11): *"precisamos de uma opção de 'receber atualizações de teste'. Nas configurações, de preferência na seção de inicialização, ele vem desativado por padrão e tem como objetivo limitar as atualizações para apenas atualizações que já terminaram um determinado pacote ou conjunto"* e *"liberar para o público apenas atualizações maiores como as 1.x e não as de ajustes e correções menores. Apenas para quem estiver no modo de receber atualizações de teste que receberá toda atualização assim que sair."*
+
+(APK: `shellTag: "v1.15.5"`, `SHELL_VERSION` 91, `minShell: 83`; degrau CORREÇÃO — uma chave numa seção que existe. **Publicado com `para_todos`**: é o lote que inaugura o canal, e sem ele nenhum aparelho teria o APK com a chave antes do próximo `X.Y.0`.)
+
+| parte | o que mudou |
+|---|---|
+| `apk.yml` (`web-ota`) | passo novo *"Os canais deste run"*: `PUB_TESTE` sempre; `PUB_PUBLICO` só com a versão `X.Y.0` (componentes depois do segundo todos zero) ou a entrada nova `para_todos` do disparo manual. A guarda anti-regressão, a da versão igual com `webTree` diferente, o manifesto (com `assets` apontando para a release do PRÓPRIO canal) e o recolhimento dos zips correm POR CANAL; um canal recusado não segura o outro, os dois recusados viram `HOLD`. Duas publicações (`softprops`), o teste primeiro. `web-teste` entrou no filtro do gatilho `release` e na recusa do `retag` |
+| `pages.yml` | a página oferece o APK que o bloco `shell` do manifesto PÚBLICO nomeia (cai para a Release mais recente com `::warning::`); `web-teste` fora da lista de Releases |
+| `WebUpdater.kt` | `CANAL_PUBLICO_URL` (`web-latest`) / `CANAL_TESTE_URL` (`web-teste`); pref `canal-teste` (`Boolean`, padrão `false`) em `web-ota`; `canalTeste`/`definirCanalTeste` (grava e procura com `forcar`); `versionUrl(ctx)`; o `diag` abre com `canal público ·` / `canal teste ·` |
+| `NativeBridge.kt` | `otaCanal(id)` e `otaCanalDefinir(teste, id)` → `{teste}`, fila `io`, recusa sem `host`; `SHELL_VERSION` 90 → 91 (métodos OPCIONAIS: o piso segue 83) |
+| `native.js` · `controle.js` · `index.html` | a 4ª linha da seção Inicialização, `#bootTesteLinha` (nasce `hidden`; aparece só quando a ponte responde), pintada SEMPRE pela resposta da ponte — a chave mora no shell, não no `localStorage` |
+
+**AS DECISÕES:** (1) o público é a URL que um shell < 91 já conhece (`web-latest`), então todo aparelho velho cai no público sem fazer nada; (2) "fim de um conjunto" = o degrau INCREMENTAL (`X.Y.0`) — subir INCREMENTAL passou a ser também liberar ao público; (3) a correção urgente é disparo manual (`para_todos`), com linha no resumo; (4) sair do teste nunca rebaixa (`versaoJaTemos`).
+
+**Oráculos:** `inicializacao` ganhou o bloco E (a abertura não toca o canal; a linha aparece desligada só com a ponte; é a 4ª; "Ligado"/"Desligado" chamam `otaCanalDefinir` uma vez; a decisão não vai ao `localStorage`; reaberto, a pintura vem da ponte) e o A conta só linhas PINTADAS (sem a ponte do canal, a linha some). `ponte-guarda-host` 79 → 81; `tela-inteira` com os dois no `comCallId`. **Não provado aqui:** o `web-ota` de dois canais só roda no runner, e a troca de canal no aparelho.
 
 ## v1.15.4 — os horários do itinerário aparecem e somem animados
 

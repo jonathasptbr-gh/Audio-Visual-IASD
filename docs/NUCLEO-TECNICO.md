@@ -88,8 +88,8 @@ silêncio**:
    `host = null`, `withSaf = false` e `role = "display"`. O `ponte.test.mjs`
    afirma outra coisa (o dreno e a remontagem de campos), e as guardas
    `host == null` de cada método — a outra metade da invariante — é o
-   `tools/ponte-guarda-host.test.mjs` (revisão K2, remedida na X1 e acrescida dos dois do volume em 2026-11-10): 72 métodos,
-   44 com recusa explícita e 26 com motivo declarado e CONFERIDO contra o corpo.
+   `tools/ponte-guarda-host.test.mjs` (revisão K2, remedida na X1 e acrescida dos dois do volume em 2026-11-10; medido na v1.15.5): 81 métodos,
+   53 com recusa explícita e 28 com motivo declarado e CONFERIDO contra o corpo.
 
 **No `AndroidManifest.xml`:** `hardwareAccelerated` e `largeHeap` — os dois
 WebViews e um vídeo grande dividem o mesmo processo.
@@ -141,11 +141,11 @@ ciclo normal, porque ali ser estrangulado em segundo plano é o certo — é o q
 
 Definida em `shared/native.js` (web) sobre `__AVBridge` (Kotlin,
 `NativeBridge.kt`); **só existe quando `window.__AVBridge` existe** — no
-navegador nada é definido, nem `__NATIVE__`. **O catálogo dos 64 métodos e as
+navegador nada é definido, nem `__NATIVE__`. **O catálogo dos 76 métodos e as
 regras abaixo por extenso estão em [`docs/shell/PONTE.md`](shell/PONTE.md).**
 
-- **Superfície: 67 métodos**; o shell serve **73**. A conta (67 − 3 callbacks sem
-  par + 9 internos = 73, sem órfão nenhum desde a X1) é MEDIDA por varredura
+- **Superfície: 76 métodos**; o shell serve **81** (medido na v1.15.5). A conta (76 − 3 callbacks sem
+  par − 1 sonda síncrona `pacoteCultoProprio` + 9 internos = 81, sem órfão nenhum desde a X1) é MEDIDA por varredura
   (`@JavascriptInterface` + `fun <nome>` no `NativeBridge.kt` contra `B.<nome>(`
   no `native.js`), nunca de memória. Fora do `native.js`, tocar em `__AVBridge`
   é acoplamento indevido; o `funcao-sem-chamador.test.mjs` exige consumidor.
@@ -167,11 +167,11 @@ regras abaixo por extenso estão em [`docs/shell/PONTE.md`](shell/PONTE.md).**
 
 ### `SHELL_VERSION` — subir SEMPRE que a superfície mudar
 
-Hoje vale **90**, e o **PISO** é 83: o bundle declara `minShell: 83`; os métodos
+Hoje vale **91**, e o **PISO** é 83: o bundle declara `minShell: 83`; os métodos
 do 86 (volume), do 87 (`abrirGuia`, o guia num WebView sem ponte), do 89
-(Não perturbe) e do 90 (o pacote do culto: `pacoteCriarCulto`, `pacoteCapa`,
+(Não perturbe), do 90 (o pacote do culto: `pacoteCriarCulto`, `pacoteCapa`,
 `pacoteCompartilharCulto`; e o `takeShare` passa a trazer o `.avpkg` tocado,
-`{ pacote }`) são OPCIONAIS —
+`{ pacote }`) e do 91 (o canal do OTA: `otaCanal`, `otaCanalDefinir`) são OPCIONAIS —
 o `native.js` pergunta `typeof` e degrada (ver `shell/PONTE.md`) — e **não há
 guarda de versão no lado web** — o que separa navegador
 de app é `if (!window.__NATIVE__)`, e nada mais. "Superfície" inclui **forma de
@@ -296,9 +296,12 @@ O que vale sem abrir o capítulo:
 ## OTA da base web (atualização sem APK)
 
 O job `web-ota` (todo push em `main`) empacota `assets/web/` num
-`web-<versão>.zip` e publica, com um `version.json`, na release de tag fixa
-**`web-latest`** — URL estável porque está compilada no shell. O app consulta o
-manifesto, baixa quando há versão nova e passa a servi-la.
+`web-<versão>.zip` e publica, com um `version.json`, em release de tag fixa —
+URL estável porque está compilada no shell. **São DOIS canais (shell 91):**
+`web-teste` recebe todo lote; **`web-latest`, o PÚBLICO, só o `X.Y.0`** (ou o
+disparo manual com `para_todos`) — e é o que lê todo aparelho com "Receber
+atualizações de teste" desligado, o padrão. O app consulta o manifesto do canal
+dele, baixa quando há versão nova e passa a servi-la.
 
 **O mecanismo inteiro — os dois canais como UM evento, a detecção por quatro
 gatilhos, a pergunta que DIZ o que vem, o watchdog de boot e as defesas do

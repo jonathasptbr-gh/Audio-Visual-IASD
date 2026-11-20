@@ -33,7 +33,7 @@ const erros = [];
 const PONTE = `(function () {
   window.__telaInteira = [];
   window.__displays = [];
-  const comCallId = new Set(['pickFolder','ytFetchAudio','ytFetchAte','ytFetch','ytSearch','ytCanalPlaylists','ytPlaylist','ytDetalhes','compartilharArquivoTexto','pacoteCriar','pacoteFechar','pacoteCriarLocal','pacoteCompartilhar','pacoteCriarCulto','pacoteCapa','pacoteCompartilharCulto','pacoteConsumirOrigem','cifraHtml','r2Imagem','otaApply','atualizacaoEstado','apkInstalar','ytMedida','pickDoc','deckPages','espelhoLigarEm','espelhoLigar','espelhoDerrubar','espelhoCertImportar','espelhoCertApagar','systemVolumeStep','displays','listFolder','otaPending','otaDiag','espelhoEstado','espelhoDiag',
+  const comCallId = new Set(['pickFolder','ytFetchAudio','ytFetchAte','ytFetch','ytSearch','ytCanalPlaylists','ytPlaylist','ytDetalhes','compartilharArquivoTexto','pacoteCriar','pacoteFechar','pacoteCriarLocal','pacoteCompartilhar','pacoteCriarCulto','pacoteCapa','pacoteCompartilharCulto','pacoteConsumirOrigem','cifraHtml','r2Imagem','otaApply','atualizacaoEstado','apkInstalar','ytMedida','pickDoc','deckPages','espelhoLigarEm','espelhoLigar','espelhoDerrubar','espelhoCertImportar','espelhoCertApagar','systemVolumeStep','displays','listFolder','otaPending','otaDiag','otaCanal','otaCanalDefinir','espelhoEstado','espelhoDiag',
     'castTarget','saidaDeAudioAlvo','ytDiag','cifraDiag','farolEstado','pacoteEspaco','pacoteProntoEstado',
     'pacoteDiag','areaTransferencia','espelhoCertEstado','apkProcurar','systemVolumeAtual','naoPerturbe']);
   const vazio = { listFolder: [], otaPending: '', otaDiag: '',

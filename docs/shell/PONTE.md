@@ -38,10 +38,10 @@ Nenhum dos dois aparece num teste de comportamento. Por isso existe o
    NativeBridge.kt                     shared/native.js
    ───────────────                     ────────────────
    @JavascriptInterface  ──injetado──►  window.__AVBridge
-   (70 métodos)          addJavascript      │
+   (81 métodos)          addJavascript      │
                           Interface         │ remonta
                                             ▼
-                                       window.AVNative  (64 métodos)
+                                       window.AVNative  (76 métodos)
                                        + 4 globais lidas direto
 ```
 
@@ -665,7 +665,7 @@ de terceiro ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
   telão. **O Display nunca busca um `/saf/`.**
 - Quem trava isso é `tools/invariantes-shell.test.mjs` (as três metades: `host = null`, `withSaf = false`, `role = "display"`); o `ponte.test.mjs` trava o dreno e a remontagem de campos, que são outra pergunta.
 - E a guarda de CADA método (`host == null`) é do `tools/ponte-guarda-host.test.mjs`:
-  73 métodos, 46 com recusa explícita e 27 com motivo declarado — método novo sem
+  81 métodos (medido na v1.15.5), 53 com recusa explícita e 28 com motivo declarado — método novo sem
   guarda reprova até alguém escrever por que ele não precisa.
 
 > A guarda **não** depende do embed do YouTube. Ele carregava script de terceiro
@@ -688,9 +688,9 @@ de terceiro ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
 
 ---
 
-## O CATÁLOGO COMPLETO — os 67 métodos, um a um
+## O CATÁLOGO COMPLETO — os 76 métodos, um a um
 
-> **O SHELL SERVE 73.** Os SEIS ÓRFÃOS saíram do Kotlin na X1 (shell 85): o
+> **O SHELL SERVE 81.** Os SEIS ÓRFÃOS saíram do Kotlin na X1 (shell 85): o
 > `@JavascriptInterface` de `ytStream`, `otaPending`, `apkProcurar`,
 > `requestMic`, `micDiag` e `salvarTexto` foi removido, junto com o que só
 > existia por eles — o `MicDiag.kt` inteiro, o `requestMicPermission` da
@@ -702,13 +702,13 @@ de terceiro ali ganharia `pickFolder`, `listFolder`, `pickDoc`, `openExternal` e
 > do lado Kotlin é que pede `SHELL_VERSION` novo e Release, e foi o que a X1
 > entregou.
 >
-> **A conta fecha, e é MEDIDA:** 67 de superfície − 3 callbacks sem par no
-> Kotlin (`onShare`, `onRemote`, `onDisplayChange`) + 9 internos = 73 chamados,
-> **73 servidos, zero órfão**. Números envelhecem a cada lote de ponte — a
+> **A conta fecha, e é MEDIDA:** 76 de superfície − 3 callbacks sem par no
+> Kotlin (`onShare`, `onRemote`, `onDisplayChange`) − 1 sonda síncrona sem par
+> (`pacoteCultoProprio`) + 9 internos = 81 chamados, **81 servidos, zero órfão**. Números envelhecem a cada lote de ponte — a
 > varredura que os refaz é a mesma do `CLAUDE.md`:
 > `@JavascriptInterface` + `fun <nome>` no `NativeBridge.kt` contra `B.<nome>(`
 > no `native.js` (as ocorrências de `@JavascriptInterface` em comentário do
-> arquivo não contam). Remedida em 2026-11-13 (shell 87): 67 · 73 · 73.
+> arquivo não contam). Remedida em 2026-11-20 (shell 91, medido na v1.15.5): 76 · 81 · 81.
 
 <!-- Extraído do `CLAUDE.md` na faxina de 2026-09-07. -->
 
@@ -826,6 +826,11 @@ window.AVNative = {
   otaApply(),          // APLICA-a agora: as duas páginas recarregam
   otaCheck(forcar),    // PROCURA agora; `forcar` pula o piso do shell
   otaDiag(),           // → string: quando foi a última busca e o que ela deu
+  otaCanal(),          // (shell 91) → { teste } | null: o canal do OTA (a chave
+                       //   mora no shell, pref `canal-teste`; padrão o PÚBLICO)
+  otaCanalDefinir(t),  // (shell 91) → { teste } | null: troca o canal e procura
+                       //   na hora. Os dois são opcionais (`typeof`); sem eles
+                       //   a linha da seção "Inicialização" some
   atualizacaoEstado(), // → { web, webAtual, shell, shellBytes, shellAtual,
                        //     webNotas, diag }
                        //   OS DOIS CANAIS numa leitura só — ele não

@@ -699,6 +699,18 @@
     // o que ela deu e quantas falhas seguidas.
     otaDiag: () => call((id) => B.otaDiag(id), CALL_TIMEOUT_MS).then((r) => r || ''),
 
+    // O CANAL DE TESTE (shell 91): `{teste}` ou null. A chave mora no shell (quem lê o
+    // manifesto é a ronda do Kotlin); num casco < 91 os dois resolvem null na hora e a
+    // linha da seção "Inicialização" fica escondida — não há canal a escolher.
+    otaCanal: () => (typeof B.otaCanal === 'function'
+      ? call((id) => B.otaCanal(id), CALL_TIMEOUT_MS)
+        .then((r) => (r && typeof r === 'object' ? r : null))
+      : Promise.resolve(null)),
+    otaCanalDefinir: (teste) => (typeof B.otaCanalDefinir === 'function'
+      ? call((id) => B.otaCanalDefinir(!!teste, id), CALL_TIMEOUT_MS)
+        .then((r) => (r && typeof r === 'object' ? r : null))
+      : Promise.resolve(null)),
+
     // O FAROL: uma busca por dia, para o app poder responder "quantos aparelhos
     // usaram isto esta semana?" (shell 58).
     //

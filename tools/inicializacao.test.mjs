@@ -13,7 +13,10 @@
 //     define e oferece o caminho do sistema — e não repete o pedido;
 //   · VOLUME na abertura — chave mestra DESLIGADA por padrão; ligada, a abertura
 //     chama `systemVolumeDefinir(<barra>/100)` UMA vez. Desligada, a barra fica
-//     inerte e apagada mas GUARDA o número.
+//     inerte e apagada mas GUARDA o número;
+//   · ATUALIZAÇÕES DE TESTE (v1.15.5) — a chave mora no SHELL (`otaCanal`/
+//     `otaCanalDefinir`), DESLIGADA por padrão; sem os métodos na ponte (casco
+//     < 91, navegador) a linha NÃO aparece. A abertura não a toca.
 //
 // O modo de falhar é o pior deste app: um `setStreamVolume` a mais na abertura não
 // aparece em erro nenhum (o app "só está sendo prestativo"), um
@@ -41,7 +44,7 @@ const PONTE = (opts) => `(() => {
   window.__sis = { cur: o.cur == null ? 10 : o.cur, max: 10 };
   window.__acesso = o.acesso !== false;
   window.__dndLigado = o.dnd === true;
-  window.__chamadas = { definir: [], dnd: [], acesso: 0 };
+  window.__chamadas = { definir: [], dnd: [], acesso: 0, canal: [] };
   const B = {
     shellVersion: () => 89,
     role: () => 'controle',
@@ -67,6 +70,21 @@ const PONTE = (opts) => `(() => {
     },
     abrirAcessoNaoPerturbe: () => { window.__chamadas.acesso++; },
   };
+  // O CANAL DO OTA só existe quando o teste pede (\`canal\`): o padrão é o casco
+  // 89 de cima, sem os métodos — e a linha da seção tem de sumir. O estado mora
+  // no \`localStorage\` do teste só para atravessar a reabertura, como as prefs
+  // do shell atravessam no aparelho.
+  if (o.canal) {
+    const lerCanal = () => localStorage.getItem('__teste.canal') === '1';
+    B.otaCanal = (id) => setTimeout(() => {
+      try { window.__avResolve(id, { teste: lerCanal() }); } catch (_) {}
+    }, 0);
+    B.otaCanalDefinir = (teste, id) => {
+      window.__chamadas.canal.push(!!teste);
+      localStorage.setItem('__teste.canal', teste ? '1' : '0');
+      setTimeout(() => { try { window.__avResolve(id, { teste: lerCanal() }); } catch (_) {} }, 0);
+    };
+  }
   const nomes = ['apkInstalar','apkProcurar','bgProgress','captureVolumeKeys','projecaoLocal','castTarget','saidaDeAudioAlvo',
     'cifraDiag','cifraHtml','deckDiscard','deckExportUrl','deckPages','displays',
     'espelhoCertApagar','espelhoCertEstado','espelhoCertImportar','espelhoDerrubar',
@@ -133,7 +151,8 @@ const secao = (pg) => pg.evaluate(() => {
   const vol = document.getElementById('bootVolSeg');
   const r = raiz.getBoundingClientRect();
   const ro = document.querySelector('#fadePopup .fade-opts').getBoundingClientRect();
-  const rows = [...raiz.querySelectorAll('.boot-corpo > .fade-row')].map((n) => {
+  // Só as linhas PINTADAS: a do canal de teste nasce \`hidden\` sem a ponte dela.
+  const rows = [...raiz.querySelectorAll('.boot-corpo > .fade-row')].filter((n) => n.getClientRects().length > 0).map((n) => {
     const b = n.getBoundingClientRect();
     return { topo: +b.top.toFixed(1), esq: +b.left.toFixed(1), dir: +b.right.toFixed(1), alt: +b.height.toFixed(1) };
   });
@@ -165,6 +184,8 @@ const secao = (pg) => pg.evaluate(() => {
     cartaoNoDom: !!document.getElementById('volAvisoPop') || !!document.getElementById('volAvisoVeu'),
     cartaoAntigo: document.querySelectorAll('.vol-aviso, .vol-veu').length,
     larguraJanela: innerWidth,
+    testeVisivel: !document.getElementById('bootTesteLinha').hidden,
+    teste: document.getElementById('bootTesteSeg').dataset.estado,
   };
 });
 const modoInicial = (pg) => pg.evaluate(() => document.documentElement.dataset.modoInicial || '');
@@ -202,6 +223,8 @@ try {
     checar(!s.dicaVisivel && !s.acessoVisivel,
       'A · com a autorização de Não perturbe dada, o caminho do sistema não aparece',
       JSON.stringify({ dica: s.dicaVisivel, acesso: s.acessoVisivel }));
+    checar(!s.testeVisivel,
+      'A · num casco sem `otaCanal` a linha "Receber atualizações de teste" NÃO aparece', String(s.testeVisivel));
 
     // A GEOMETRIA a 390×844: a seção dentro da folha, as três linhas empilhadas
     // na ordem do pedido, nada estourando a largura e todo alvo ≥ `--hit`.
@@ -356,6 +379,51 @@ try {
       'D · volume do sistema em 0% e chaves desligadas: nenhuma chamada na abertura', JSON.stringify(ch));
     checar(await pg.evaluate(() => document.getElementById('volAvisoPop') === null),
       'D · e nenhum cartão de volume no DOM — a abertura não pergunta mais nada de volume');
+    await ctx.close();
+  }
+
+  // ── E · O CANAL DE TESTE: DESLIGADO POR PADRÃO, A CHAVE É DO SHELL ────────
+  {
+    const ctx = await contexto({ canal: true });
+    const pg = await abrir(ctx);
+    await pg.waitForTimeout(400);
+    const c0 = await chamadas(pg);
+    checar(c0.canal.length === 0,
+      'E · a abertura NÃO mexe no canal do OTA', JSON.stringify(c0.canal));
+    await abrirSecao(pg);
+    await esperar(pg, () => !document.getElementById('bootTesteLinha').hidden, null, 8000);
+    const s = await secao(pg);
+    checar(s.testeVisivel && s.teste === 'off',
+      'E · com a ponte do canal, a linha aparece DESLIGADA (o padrão é o canal público)',
+      JSON.stringify({ visivel: s.testeVisivel, teste: s.teste }));
+    checar(s.rows.length === 4 && s.rows[2].topo < s.rows[3].topo,
+      'E · e ela é a QUARTA linha, depois do volume', JSON.stringify(s.rows));
+    checar(s.rows.every((r) => r.esq >= s.rolagem.esq - 0.5 && r.dir <= s.rolagem.dir + 0.5)
+      && s.alvos.every((a) => Math.min(a.w, a.h) >= s.piso - 0.5),
+      'E · cabendo na folha e com o piso de toque', JSON.stringify({ rows: s.rows, alvos: s.alvos }));
+
+    await pg.click('#bootTesteSeg .fit-opt[data-teste="on"]');
+    await esperar(pg, () => document.getElementById('bootTesteSeg').dataset.estado === 'on', null, 8000);
+    const c1 = await chamadas(pg);
+    checar((await secao(pg)).teste === 'on',
+      'E · tocado "Ligado", a chave PINTA ligado (a resposta da ponte)', (await secao(pg)).teste);
+    checar(c1.canal.length === 1 && c1.canal[0] === true,
+      'E · "Ligado" chama `otaCanalDefinir(true)` UMA vez', JSON.stringify(c1.canal));
+    checar(await pg.evaluate(() => Object.keys(localStorage).filter((k) => /canal|teste/i.test(k) && k !== '__teste.canal').length === 0),
+      'E · e a decisão NÃO vai para o `localStorage` do app (mora no shell)');
+
+    // REABERTO: a pintura vem da PONTE.
+    const pg2 = await abrir(ctx);
+    await abrirSecao(pg2);
+    await esperar(pg2, () => document.getElementById('bootTesteSeg').dataset.estado === 'on', null, 8000);
+    const c2 = await chamadas(pg2);
+    checar((await secao(pg2)).teste === 'on' && c2.canal.length === 0,
+      'E · reaberto, a seção mostra "Ligado" pela ponte e a abertura não regrava', JSON.stringify(c2.canal));
+    await pg2.click('#bootTesteSeg .fit-opt[data-teste="off"]');
+    await esperar(pg2, () => document.getElementById('bootTesteSeg').dataset.estado === 'off', null, 8000);
+    const c3 = await chamadas(pg2);
+    checar((await secao(pg2)).teste === 'off' && c3.canal.length === 1 && c3.canal[0] === false,
+      'E · "Desligado" volta ao canal público (`otaCanalDefinir(false)`)', JSON.stringify(c3.canal));
     await ctx.close();
   }
 

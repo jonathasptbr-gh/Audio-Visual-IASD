@@ -2074,7 +2074,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.15.4</span>
+          <span id="appVersion">v1.15.5</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
@@ -2451,6 +2451,8 @@
                a mesma chave do gesto de 5 s), o NÃO PERTURBE e o VOLUME. As duas
                últimas são as chaves novas, e as duas nascem DESLIGADAS: quem não
                abrir esta seção não vê o app mexer no som nem no filtro do sistema.
+               A QUARTA (v1.15.5) é o canal do OTA — "Receber atualizações de
+               teste", DESLIGADA —, e só existe no app (casco ≥ 91).
                O QUE NÃO ESTÁ AQUI: o tour. Ele continua com a marca `av.tour` e a
                janela "Quer fazer o tour?" da abertura. -->
           <section id="bootSecao" class="cfg-sec" data-secao="boot" hidden>
@@ -2506,6 +2508,19 @@
                   <input type="range" id="bootVolBar" min="0" max="100" step="1" value="60" aria-label="Volume do sistema quando o app abrir">
                   <span class="boot-vol-num" id="bootVolNum">60%</span>
                 </label>
+              </div>
+              <!-- 4 · AS ATUALIZAÇÕES DE TESTE (v1.15.5). Padrão DESLIGADO: o
+                   aparelho lê o canal PÚBLICO, que só recebe o fim de um conjunto
+                   (`X.Y.0`). Ligado, lê o canal de teste e recebe cada lote assim
+                   que sai. A chave mora no SHELL (`otaCanal`), e a linha nasce
+                   `hidden`: só aparece quando a ponte responde (casco ≥ 91). -->
+              <div class="fade-row fade-row--fit" id="bootTesteLinha" hidden>
+                <span class="boot-rot">Receber atualizações de teste</span>
+                <div class="fit-seg" id="bootTesteSeg" data-estado="off">
+                  <button type="button" class="fit-opt" data-teste="off">Desligado</button>
+                  <button type="button" class="fit-opt" data-teste="on">Ligado</button>
+                </div>
+                <p class="boot-nota" id="bootTesteNota">Desligado, o app só atualiza quando um conjunto de novidades fica pronto. Ligado, recebe cada ajuste assim que sai.</p>
               </div>
             </div>
           </section>
