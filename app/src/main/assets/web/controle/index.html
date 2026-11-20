@@ -764,6 +764,12 @@
       <path d="M16 6.25h3.4a1.6 1.6 0 0 1 1.6 1.6v2.9a1.6 1.6 0 0 1-1.6 1.6H12"/>
       <rect x="10" y="12.35" width="4" height="8.15" rx="1.4"/>
     </symbol>
+    <!-- O CHECK da miniatura escolhida na grade do Wallpaper (v1.15.2) — quem o
+         põe é o `wallMostrarMais`, em cada miniatura; a folha o mostra só na
+         `.escolhida`. -->
+    <symbol id="icoCheck" viewBox="0 0 24 24">
+      <path d="M5 12.5l4.5 4.5L19 7.5"/>
+    </symbol>
     <!-- UM `<symbol>` SEM CONSUMIDOR não erra alto — ele viaja no bundle do OTA
          em todo aparelho e não desenha nada —, daí o desenho sair junto com o
          recurso que o usava. -->
@@ -2068,7 +2074,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.15.1</span>
+          <span id="appVersion">v1.15.2</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
@@ -2604,17 +2610,23 @@
                 </div>
                 <div id="wallGaleriaBox" hidden>
                   <p class="boot-nota" id="wallGaleriaNota">Procurando as imagens das músicas…</p>
+                  <!-- A GRADE ROLA SOZINHA (v1.15.2, pedido do operador): com altura
+                       própria, a prévia acima continua à vista enquanto se escolhe. -->
                   <div class="wall-galeria" id="wallGaleria"></div>
-                  <button type="button" class="dialog-btn wall-mais" id="wallGaleriaMais" hidden>Mostrar mais</button>
                 </div>
               </div>
               <div class="fade-row fade-row--fit">
                 <span class="boot-rot">Identificação da igreja</span>
-                <div class="fit-seg" id="wallIgrejaSeg" data-estado="off">
-                  <button type="button" class="fit-opt" data-igreja="off">Desligada</button>
-                  <button type="button" class="fit-opt" data-igreja="on">Ligada</button>
+                <!-- OS QUATRO NÍVEIS (v1.15.2): nenhuma · só o símbolo (maior) ·
+                     símbolo + "Igreja Adventista do Sétimo Dia" · tudo, com o nome
+                     da igreja local. Grade 2x2: quatro rótulos não cabem numa linha. -->
+                <div class="fit-seg wall-niveis" id="wallNivelSeg" data-nivel="nenhuma">
+                  <button type="button" class="fit-opt" data-nivel="nenhuma">Sem identificação</button>
+                  <button type="button" class="fit-opt" data-nivel="logo">Só o logo</button>
+                  <button type="button" class="fit-opt" data-nivel="iasd">Logo e IASD</button>
+                  <button type="button" class="fit-opt" data-nivel="completa">Completa</button>
                 </div>
-                <p class="boot-nota">O símbolo da IASD, "Igreja Adventista do Sétimo Dia" e, embaixo, o nome da sua igreja.</p>
+                <p class="boot-nota">Completa: o logo, "Igreja Adventista do Sétimo Dia" e, embaixo, o nome da sua igreja.</p>
                 <input type="text" id="wallIgrejaNome" class="wall-campo" maxlength="60" enterkeyhint="done" autocomplete="off" placeholder="Nome da igreja (ex.: Igreja Central)" aria-label="Nome da igreja local">
                 <div class="fit-seg" id="wallPosSeg" data-pos="centro">
                   <button type="button" class="fit-opt" data-pos="centro">No centro</button>

@@ -713,13 +713,13 @@ Dia" + o nome da igreja local por cima.
 | peça | o quê |
 |---|---|
 | `#wallPrevia` | a imagem no ar (copiada do `.pv-wall` por `applyPvWallpaper`); vazia, o SVG padrão pela folha |
-| `#wallFonteSeg` | `padrao` · `biblioteca` · `foto`. **Biblioteca só MOSTRA o banco** (`#wallGaleria`); o telão muda no toque numa miniatura. **Foto** é o `<label>` `#wallFoto` sobre o `#wallFile` (invariante 6) |
-| o banco | `wallListarImagens`: os `imageOpfsPath` das estrofes de `AVDB.filesAll()`, sem repetição, relidos a cada abertura; páginas de `WALL_PAGINA`, miniatura só à vista (`IntersectionObserver`, solta a URL fora de vista) |
-| `#wallIgrejaSeg` · `#wallIgrejaNome` · `#wallPosSeg` | a identificação: ligada, o nome (≤ 60, aplicado 900 ms depois da última tecla, no Enter ou ao recolher) e `centro` · `rodape` |
+| `#wallFonteSeg` | `padrao` · `biblioteca` · `foto`. **Biblioteca só MOSTRA o banco** (`#wallGaleria`, que ROLA SOZINHA desde a v1.15.2 — a prévia fica à vista; a escolhida leva o check `#icoCheck` e é rolada à vista ao abrir); o telão muda no toque numa miniatura. **Foto** é o `<label>` `#wallFoto` sobre o `#wallFile` (invariante 6) |
+| o banco | `wallListarImagens`: os `imageOpfsPath` das estrofes de `AVDB.filesAll()`, sem repetição, relidos a cada abertura; páginas de `WALL_PAGINA` (a seguinte entra perto do fim da rolagem, `wallRolouGaleria`), miniatura só à vista (`IntersectionObserver` com a grade de raiz, solta a URL fora de vista) |
+| `#wallNivelSeg` · `#wallIgrejaNome` · `#wallPosSeg` | a identificação em QUATRO níveis (v1.15.2): `nenhuma` · `logo` (só o símbolo, maior: 420 px no centro, 220 embaixo) · `iasd` (+ "Igreja Adventista do Sétimo Dia") · `completa` (+ o nome, ≤ 60, aplicado 900 ms depois da última tecla, no Enter ou ao recolher; o campo só vale na completa); e `centro` · `rodape` |
 
 - **O RESULTADO É UM BLOB SÓ no state `wallpaper`** (`setWallpaper`, que só
   GRAVA): Display, preview e telas da rede não mudaram de contrato. Sem
-  identificação, foto e imagem da biblioteca vão como estão; com ela,
+  identificação (`nenhuma`), foto e imagem da biblioteca vão como estão; com ela,
   `wallCompor` desenha 1920x1080 num canvas (JPEG 0,9). Padrão sem identificação
   é `null`.
 - **O símbolo e o gradiente saem do próprio `shared/wallpaper-padrao.svg`**

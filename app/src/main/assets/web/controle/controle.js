@@ -496,7 +496,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.15.1';
+const WEB_VERSION = '1.15.2';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -42046,7 +42046,7 @@ async function setWallpaper(blob) {
 // |---|---|
 // | o FUNDO: `padrao` · `biblioteca` (um `imageOpfsPath` de estrofe) · `foto` | `wallpaperCfg` |
 // | a foto do aparelho, já reduzida (`fitWallpaperImage`) | `wallpaperFoto` (Blob) |
-// | a IDENTIFICAÇÃO: ligada, nome da igreja, `centro` · `rodape` | `wallpaperCfg` |
+// | a IDENTIFICAÇÃO (`nivel`): `nenhuma` · `logo` · `iasd` · `completa`; o nome da igreja; `centro` · `rodape` | `wallpaperCfg` |
 //
 // O RESULTADO É UM BLOB SÓ, no state `wallpaper` de sempre (`setWallpaper`): o
 // Display, a preview e as telas da rede não aprendem nada novo. Sem
@@ -42057,8 +42057,11 @@ async function setWallpaper(blob) {
 //
 // O BANCO DE IMAGENS é o conjunto dos `imageOpfsPath` das estrofes do catálogo,
 // sem repetição (`wallListarImagens`), lido a cada abertura da seção — a
-// biblioteca muda entre uma e outra. A grade carrega por página e só decodifica o
-// que está à vista (`IntersectionObserver`); o que sai de vista solta a URL.
+// biblioteca muda entre uma e outra. A grade ROLA SOZINHA (v1.15.2: a prévia
+// fica à vista enquanto se escolhe), carrega a página seguinte perto do fim da
+// rolagem e só decodifica o que está à vista (`IntersectionObserver` com a
+// própria grade de raiz); o que sai de vista solta a URL. A escolhida leva o
+// check (`#icoCheck`).
 const WALL_CFG_KEY = 'wallpaperCfg';
 const WALL_FOTO_KEY = 'wallpaperFoto';
 const WALL_W = 1920;
@@ -42072,8 +42075,7 @@ const wallFonteSegEl = document.getElementById('wallFonteSeg');
 const wallGaleriaBoxEl = document.getElementById('wallGaleriaBox');
 const wallGaleriaEl = document.getElementById('wallGaleria');
 const wallGaleriaNotaEl = document.getElementById('wallGaleriaNota');
-const wallGaleriaMaisEl = document.getElementById('wallGaleriaMais');
-const wallIgrejaSegEl = document.getElementById('wallIgrejaSeg');
+const wallNivelSegEl = document.getElementById('wallNivelSeg');
 const wallIgrejaNomeEl = document.getElementById('wallIgrejaNome');
 const wallPosSegEl = document.getElementById('wallPosSeg');
 let wallCfg = null;
@@ -42086,12 +42088,14 @@ let wallSeq = 0;               // a composição mais nova vence
 let wallNomeTimer = 0;
 let wallDesenhoP = null;
 
+const WALL_NIVEIS = ['nenhuma', 'logo', 'iasd', 'completa'];
+// `igreja: true` é a escolha da v1.15.0 (um liga-desliga), e ligada era a completa.
 function wallCfgNormal(v) {
   const c = (v && typeof v === 'object') ? v : {};
   return {
     fonte: ['padrao', 'biblioteca', 'foto'].includes(c.fonte) ? c.fonte : 'padrao',
     imagem: typeof c.imagem === 'string' && c.imagem ? c.imagem : null,
-    igreja: c.igreja === true,
+    nivel: WALL_NIVEIS.includes(c.nivel) ? c.nivel : (c.igreja === true ? 'completa' : 'nenhuma'),
     nome: typeof c.nome === 'string' ? c.nome.slice(0, WALL_NOME_MAX) : '',
     posicao: c.posicao === 'rodape' ? 'rodape' : 'centro',
   };
@@ -42133,10 +42137,17 @@ function wallPintar() {
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
   }
-  pintarBootChave(wallIgrejaSegEl, 'igreja', c.igreja);
+  if (wallNivelSegEl) {
+    wallNivelSegEl.dataset.nivel = c.nivel;
+    wallNivelSegEl.querySelectorAll('.fit-opt').forEach((b) => {
+      const on = b.dataset.nivel === c.nivel;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
   if (wallIgrejaNomeEl) {
     if (document.activeElement !== wallIgrejaNomeEl) wallIgrejaNomeEl.value = c.nome;
-    wallIgrejaNomeEl.disabled = !c.igreja;
+    wallIgrejaNomeEl.disabled = c.nivel !== 'completa';
   }
   if (wallPosSegEl) {
     wallPosSegEl.dataset.pos = c.posicao;
@@ -42144,7 +42155,7 @@ function wallPintar() {
       const on = b.dataset.pos === c.posicao;
       b.classList.toggle('active', on);
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
-      b.disabled = !c.igreja;
+      b.disabled = c.nivel === 'nenhuma';
     });
   }
   if (wallGaleriaBoxEl) wallGaleriaBoxEl.hidden = !wallVerGaleria;
@@ -42195,13 +42206,13 @@ function wallThumbSoltar(btn) {
 }
 
 function wallMostrarMais() {
-  if (!wallImagens || !wallGaleriaEl) return;
+  if (!wallImagens || !wallGaleriaEl || wallMostradas >= wallImagens.length) return;
   if (!wallObs && typeof IntersectionObserver === 'function') {
     wallObs = new IntersectionObserver((ents) => {
       for (const e of ents) {
         if (e.isIntersecting) wallThumbCarregar(e.target); else wallThumbSoltar(e.target);
       }
-    }, { rootMargin: '300px 0px' });
+    }, { root: wallGaleriaEl, rootMargin: '200px 0px' });
   }
   const fim = Math.min(wallImagens.length, wallMostradas + WALL_PAGINA);
   for (let i = wallMostradas; i < fim; i++) {
@@ -42216,12 +42227,23 @@ function wallMostrarMais() {
     img.alt = '';
     img.decoding = 'async';
     b.appendChild(img);
+    const check = document.createElement('span');
+    check.className = 'wall-check';
+    check.setAttribute('aria-hidden', 'true');
+    check.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"'
+      + ' stroke-linecap="round" stroke-linejoin="round"><use href="#icoCheck"/></svg>';
+    b.appendChild(check);
     wallGaleriaEl.appendChild(b);
     if (wallObs) wallObs.observe(b); else wallThumbCarregar(b);
   }
   wallMostradas = fim;
-  if (wallGaleriaMaisEl) wallGaleriaMaisEl.hidden = wallMostradas >= wallImagens.length;
   wallMarcarEscolhida();
+}
+// A PÁGINA SEGUINTE entra perto do fim da rolagem da grade.
+function wallRolouGaleria() {
+  if (!wallGaleriaEl || !wallImagens) return;
+  const g = wallGaleriaEl;
+  if (g.scrollTop + g.clientHeight >= g.scrollHeight - 160) wallMostrarMais();
 }
 
 async function wallAbrirGaleria() {
@@ -42243,6 +42265,14 @@ async function wallAbrirGaleria() {
     }
     if (!wallMostradas) wallMostrarMais();
   });
+  // A escolhida fica à vista ao abrir (ela pode estar além da 1ª página).
+  const c = wallCfg || wallCfgNormal(null);
+  if (c.fonte === 'biblioteca' && c.imagem) {
+    const i = wallImagens.findIndex((x) => x.caminho === c.imagem);
+    while (i >= wallMostradas && wallMostradas < wallImagens.length) wallMostrarMais();
+    const alvo = i >= 0 ? wallGaleriaEl.children[i] : null;
+    if (alvo) wallGaleriaEl.scrollTop = Math.max(0, alvo.offsetTop - 8);   // a grade é `position: relative`
+  }
 }
 
 function wallFecharGaleria() {
@@ -42327,7 +42357,7 @@ function wallPintarSimbolo(ctx, simbolo, cx, cy, altura) {
 
 async function wallCompor(cfg) {
   const base = await wallBase(cfg);
-  if (!cfg.igreja) return base;   // sem identificação: a imagem como está (ou o padrão)
+  if (cfg.nivel === 'nenhuma') return base;   // sem identificação: a imagem como está (ou o padrão)
   const d = await wallDesenho();
   const cv = document.createElement('canvas');
   cv.width = WALL_W;
@@ -42357,13 +42387,28 @@ async function wallCompor(cfg) {
     ctx.fillRect(-1, -1, 3, 3);
     ctx.restore();
   }
-  const nome = (cfg.nome || '').trim();
+  // O QUE ENTRA: `logo` só o símbolo (maior); `iasd` + o nome da IASD;
+  // `completa` + o nome da igreja (vazio, ela desenha como `iasd`).
+  const soLogo = cfg.nivel === 'logo';
+  const nome = cfg.nivel === 'completa' ? (cfg.nome || '').trim() : '';
   const sombra = (on) => {
     ctx.shadowColor = on ? 'rgba(0, 0, 0, .6)' : 'transparent';
     ctx.shadowBlur = on ? 18 : 0;
   };
   ctx.textBaseline = 'top';
-  if (cfg.posicao === 'rodape') {
+  if (soLogo) {
+    if (foto) {
+      const v = ctx.createRadialGradient(WALL_W / 2, WALL_H / 2, 0, WALL_W / 2, WALL_H / 2, WALL_W * 0.6);
+      v.addColorStop(0, 'rgba(0, 0, 0, .45)');
+      v.addColorStop(1, 'rgba(0, 0, 0, .1)');
+      ctx.fillStyle = v;
+      ctx.fillRect(0, 0, WALL_W, WALL_H);
+    }
+    sombra(foto);
+    if (cfg.posicao === 'rodape') wallPintarSimbolo(ctx, d.simbolo, WALL_W / 2, WALL_H - 90 - 110, 220);
+    else wallPintarSimbolo(ctx, d.simbolo, WALL_W / 2, WALL_H / 2, 420);
+    sombra(false);
+  } else if (cfg.posicao === 'rodape') {
     // EMBAIXO: o símbolo à esquerda, os dois nomes à direita, o bloco centrado na
     // largura de 4:3 (uma TV 4:3 corta as laterais pelo `cover`).
     if (foto) {
@@ -42536,16 +42581,12 @@ if (wallGaleriaEl) {
     wallAplicar();
   });
 }
-if (wallGaleriaMaisEl) {
-  wallGaleriaMaisEl.addEventListener('click', () => animarAlturaDasSecoes(wallMostrarMais));
-}
-if (wallIgrejaSegEl) {
-  wallIgrejaSegEl.addEventListener('click', (e) => {
+if (wallGaleriaEl) wallGaleriaEl.addEventListener('scroll', wallRolouGaleria, { passive: true });
+if (wallNivelSegEl) {
+  wallNivelSegEl.addEventListener('click', (e) => {
     const b = e.target.closest('.fit-opt');
-    if (!b || !wallCfg) return;
-    const on = b.dataset.igreja === 'on';
-    if (on === wallCfg.igreja) return;
-    wallCfg = Object.assign({}, wallCfg, { igreja: on });
+    if (!b || !wallCfg || !WALL_NIVEIS.includes(b.dataset.nivel) || b.dataset.nivel === wallCfg.nivel) return;
+    wallCfg = Object.assign({}, wallCfg, { nivel: b.dataset.nivel });
     wallPintar();
     wallAplicar();
   });

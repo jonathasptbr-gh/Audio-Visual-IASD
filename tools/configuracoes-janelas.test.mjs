@@ -547,7 +547,7 @@ try {
   // O PADRÃO devolve o telão ao desenho padrão (`setWallpaper(null)`) e não abre
   // seletor nenhum.
   await c.pg.evaluate(() => {
-    wallCfg = Object.assign({}, wallCfg, { fonte: 'foto', igreja: false });
+    wallCfg = Object.assign({}, wallCfg, { fonte: 'foto', nivel: 'nenhuma' });
     window.__resets = 0;
     window.setWallpaper = (arg) => { window.__resets++; window.__resetArg = arg; };
     return true;
@@ -564,15 +564,60 @@ try {
     JSON.stringify([estado, abriuSeletorNoPadrao]));
   // A IDENTIFICAÇÃO COMPÕE UM 1920x1080 sobre o padrão — o canvas desenha o
   // símbolo lido do próprio `wallpaper-padrao.svg`.
+  // OS QUATRO NÍVEIS (v1.15.2): `nenhuma` sobre o padrão é o padrão (`null`); os
+  // outros três compõem; e o `igreja: true` da v1.15.0 é lido como `completa`.
   const composto = await c.pg.evaluate(async () => {
-    const b = await wallCompor(wallCfgNormal({ fonte: 'padrao', igreja: true, nome: 'Igreja Central', posicao: 'rodape' }));
-    if (!(b instanceof Blob)) return { blob: false };
-    const im = await createImageBitmap(b);
-    return { blob: true, tipo: b.type, w: im.width, h: im.height };
+    const um = async (cfg) => {
+      const b = await wallCompor(wallCfgNormal(cfg));
+      if (!(b instanceof Blob)) return null;
+      const im = await createImageBitmap(b);
+      return b.type + ' ' + im.width + 'x' + im.height;
+    };
+    return {
+      nenhuma: await um({ fonte: 'padrao', nivel: 'nenhuma' }),
+      logo: await um({ fonte: 'padrao', nivel: 'logo', posicao: 'rodape' }),
+      iasd: await um({ fonte: 'padrao', nivel: 'iasd' }),
+      completa: await um({ fonte: 'padrao', nivel: 'completa', nome: 'Igreja Central', posicao: 'rodape' }),
+      antiga: wallCfgNormal({ igreja: true }).nivel,
+      botoes: [...document.querySelectorAll('#wallNivelSeg .fit-opt')].map((b) => b.dataset.nivel).join(','),
+    };
   });
-  checar(composto.blob && composto.tipo === 'image/jpeg' && composto.w === 1920 && composto.h === 1080,
-    'C · com a identificação ligada o wallpaper é COMPOSTO em 1920x1080',
-    JSON.stringify(composto));
+  const ok = 'image/jpeg 1920x1080';
+  checar(composto.nenhuma === null && composto.logo === ok && composto.iasd === ok && composto.completa === ok
+    && composto.antiga === 'completa' && composto.botoes === 'nenhuma,logo,iasd,completa',
+    'C · os quatro níveis: sem identificação fica o padrão; só o logo, logo + IASD e '
+    + 'completa compõem 1920x1080; a escolha antiga vira completa', JSON.stringify(composto));
+  // A GRADE ROLA SOZINHA e a escolhida leva o CHECK (v1.15.2), com o banco de
+  // verdade: duas faixas com imagem de estrofe no OPFS.
+  await c.pg.evaluate(async () => {
+    for (let i = 0; i < 2; i++) {
+      const cv = document.createElement('canvas'); cv.width = 64; cv.height = 36;
+      const x = cv.getContext('2d'); x.fillStyle = i ? '#a33' : '#3a3'; x.fillRect(0, 0, 64, 36);
+      const b = await new Promise((r) => cv.toBlob(r, 'image/jpeg'));
+      await AVDB.opfsWriteFile('folders/oraculo/est' + i + '.jpg', b);
+      await AVDB.fileAdd({ id: 'oraculo-' + i, folder: 'oraculo', name: 'Hino ' + i, kind: 'audio',
+        lyrics: [{ time: 0, cover: true, imageOpfsPath: 'folders/oraculo/est' + i + '.jpg' }] });
+    }
+    window.setWallpaper = async () => {};
+  });
+  await tocar(c.pg, '#wallFonteSeg [data-fonte="biblioteca"]');
+  await esperar(c.pg, () => document.querySelectorAll('#wallGaleria .wall-thumb').length === 2, null, 10000);
+  await tocar(c.pg, '#wallGaleria .wall-thumb:nth-child(2)');
+  const galeria = await c.pg.evaluate(() => {
+    const g = document.getElementById('wallGaleria');
+    const vis = (n) => n && getComputedStyle(n).display !== 'none' && n.getBoundingClientRect().width > 0;
+    const t = [...g.querySelectorAll('.wall-thumb')];
+    return { rola: getComputedStyle(g).overflowY, teto: getComputedStyle(g).maxHeight,
+      checks: t.map((b) => vis(b.querySelector('.wall-check'))),
+      simbolo: (t[1].querySelector('.wall-check use') || {}).getAttribute
+        ? t[1].querySelector('.wall-check use').getAttribute('href') : null,
+      cfg: wallCfg.fonte + ' ' + wallCfg.imagem };
+  });
+  checar(galeria.rola === 'auto' && galeria.teto !== 'none'
+    && galeria.checks.join() === 'false,true' && galeria.simbolo === '#icoCheck'
+    && galeria.cfg === 'biblioteca folders/oraculo/est1.jpg',
+    'C · a grade do banco ROLA com altura própria (a prévia fica à vista) e só a '
+    + 'imagem escolhida mostra o check', JSON.stringify(galeria));
   await c.ctx.close();
 
   // =========================================================================

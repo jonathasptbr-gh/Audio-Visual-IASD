@@ -11452,7 +11452,19 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   background-size: cover; background-position: center;
 }
 #wallFoto { display: flex; align-items: center; justify-content: center; }
-.wall-galeria { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); margin-top: var(--sp-3); }
+/* A GRADE ROLA SOZINHA (v1.15.2) — a exceção declarada ao "as listas das seções
+   não rolam": o operador pediu para ver as opções COM a prévia à vista. Duas
+   linhas e meia de miniaturas (a meia linha diz que há mais), `contain` para o
+   fim da grade não arrastar Configurações. `relative`: o `offsetTop` das
+   miniaturas é medido contra ela (`wallAbrirGaleria`). */
+.wall-galeria {
+  position: relative;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-2);
+  margin-top: var(--sp-3); padding: var(--sp-2);
+  max-height: min(38vh, 15.5rem); overflow-y: auto;
+  overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius-card); background: var(--surface-sunk);
+}
 .wall-galeria:empty { display: none; }
 .wall-thumb {
   position: relative; aspect-ratio: 16 / 9; padding: 0; overflow: hidden;
@@ -11466,8 +11478,18 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
    grade, e o `outline` do foco continua sendo o do navegador. */
 .wall-thumb.escolhida { box-shadow: inset 0 0 0 3px var(--accent); }
 .wall-thumb.escolhida img { opacity: .85; }
-.wall-mais { margin-top: var(--sp-3); width: 100%; }
-.wall-mais[hidden] { display: none; }
+/* O CHECK da escolhida (v1.15.2): o círculo do acento no canto, com o traço na
+   tinta sobre o acento. Fora da escolhida ele não existe na tela. */
+.wall-check {
+  position: absolute; top: 4px; right: 4px;
+  width: 22px; height: 22px; border-radius: 50%;
+  display: none; align-items: center; justify-content: center;
+  background: var(--accent-fill); color: var(--on-accent);
+}
+.wall-check svg { width: 14px; height: 14px; }
+.wall-thumb.escolhida .wall-check { display: flex; }
+/* OS QUATRO NÍVEIS em 2x2 (v1.15.2). */
+.wall-niveis { display: grid; grid-template-columns: 1fr 1fr; }
 #wallGaleriaBox[hidden] { display: none; }
 /* O CAMPO é o do renomear da linha (`.linha-renome-campo`), na largura toda. */
 .wall-campo {

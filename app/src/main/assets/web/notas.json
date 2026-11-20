@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.15.2",
+    "itens": [
+      "As imagens da biblioteca agora ficam numa grade que rola sozinha, com a prévia sempre à vista.",
+      "A imagem escolhida ganha um check no canto.",
+      "A identificação tem quatro opções: sem identificação, só o logo, logo e IASD, ou completa.",
+      "\"Só o logo\" mostra o símbolo maior; \"Completa\" inclui o nome da sua igreja embaixo.",
+      "Não precisa instalar nada: chega pela atualização automática."
+    ]
+  },
+  {
     "versao": "1.15.1",
     "itens": [
       "Na tela de espera, o fundo agora mostra as imagens das músicas baixadas, sorteadas.",

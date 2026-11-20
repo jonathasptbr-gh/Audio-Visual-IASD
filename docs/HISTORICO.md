@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.15.2** — o Wallpaper, a pedido do operador: a grade do banco ROLA SOZINHA (a prévia fica à vista), a escolhida leva o check, e a identificação vira quatro níveis (`nenhuma` · `logo` · `iasd` · `completa`) (só web).
 - **v1.15.1** — a tela de espera ganha FUNDOS em rodízio: `itinerario.espera.fundos` (até 24 imagens das músicas baixadas, sorteadas) trocadas a cada 20 s pelo relógio de cada tela, com crossfade, atrás do bloco da contagem (só web).
 - **v1.15.0** — a seção do WALLPAPER (`#wallSecao`): fundo padrão, foto ou o BANCO de imagens das estrofes da biblioteca, e a identificação da igreja (símbolo + "Igreja Adventista do Sétimo Dia" + nome local, no centro ou embaixo) composta num canvas 1920x1080 (só web).
 - **v1.14.90** — dois defeitos da tela de espera: o fim (horário ou ajuste) deixava a letra/capa do playback presa no telão e na preview (`media-clear` + `text-hide` na mesma janela de fade → `restoreSceneAfterText` remontava a cena); os avisos não se atualizavam com o cronograma (só web).
@@ -825,6 +826,18 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.15.2 — o banco do wallpaper rola sozinho, a escolhida tem check e a identificação tem quatro níveis
+
+**O PEDIDO** (operador, 20/11, sobre a v1.15.0): *"use um scroll com grade para as imagens disponíveis ao invés de apenas fazer uma grade, desse modo eu consigo ver as opções enquanto olho para a tela de preview … está sem feedback de seleção da imagem escolhida além da mudança na preview. Faça um check na imagem selecionada. E de as opções de: não ter identificação no wallpaper, ter apenas o logo maior, ter o logo e o nome IASD sem a igreja local e por fim tudo junto completo."*
+
+| parte | o que mudou |
+|---|---|
+| a grade | `.wall-galeria` com `max-height: min(38vh, 15.5rem)` e `overflow-y: auto` (`contain`) — a exceção declarada ao "as listas das seções não rolam". O "Mostrar mais" saiu: `wallRolouGaleria` puxa a página seguinte a 160 px do fim; o `IntersectionObserver` tem a grade de raiz. Ao abrir, a escolhida é carregada e rolada à vista |
+| o check | `<symbol id="icoCheck">` novo; cada miniatura leva `.wall-check` (círculo `--accent-fill`, traço `--on-accent`), visível só na `.escolhida` |
+| os níveis | `#wallIgrejaSeg` (liga-desliga) → `#wallNivelSeg` 2x2 (`WALL_NIVEIS`). `wallCfg.nivel` substitui `igreja` (`igreja: true` → `completa` em `wallCfgNormal`). `logo`: só o símbolo, 420 px no centro ou 220 px embaixo, véu radial mais leve sobre foto; `iasd`: o desenho de antes sem o nome; o campo do nome só vale na `completa`; a posição, em todos menos `nenhuma` |
+
+`configuracoes-janelas.test.mjs` C: os quatro níveis (`nenhuma` sobre o padrão = `null`, os outros três JPEG 1920x1080, `igreja: true` → `completa`, a ordem dos botões) e, com duas faixas reais no OPFS, a grade com `overflow-y: auto` e teto, e o check só na escolhida. Medido no Chromium do arnês com 21 imagens falsas.
 
 ## v1.15.1 — os fundos da tela de espera, em rodízio
 
