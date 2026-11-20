@@ -193,6 +193,20 @@ else
   echo "$fora" | sed 's/^/       /'
 fi
 
+# O LEMBRETE DO GUIA (o antigo Pacote 29, decisão do operador em 2026-11-20):
+# não reprova — avisa, e só quando o lote toca no guia. O texto inteiro mora em
+# `docs/BUILD.md`, "A página do site"; tirar daqui = tirar de lá.
+for f in "${arquivos[@]}"; do
+  case "$f" in
+    site/sonoplastia/*|site/telas/*)
+      echo
+      echo "== LEMBRETE DO GUIA (não reprova): o lote toca no guia do site"
+      echo "   as capturas de Ferramentas e do Cronograma estão velhas — refaça-as"
+      echo "   neste lote se der (docs/BUILD.md, \"A página do site\": o lembrete)"
+      break ;;
+  esac
+done
+
 echo
 if [ "$falhas" -eq 0 ]; then
   echo "PORTÃO: tudo passou. Mexeu em algo depois disto? Rode de novo antes do commit."

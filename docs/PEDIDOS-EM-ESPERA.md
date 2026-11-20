@@ -74,6 +74,11 @@ os **Pacotes 42 a 45** — três de tela e um de abertura — e nenhum está aut
 qual seguir**. A nota de cada um é **provisória** até o pacote ser lido: foi dada pelo que o
 operador descreveu e pelo que a medição da abertura já mostra, não pelo código de cada área.
 
+**Edição de 2026-11-20.** O operador releu a fila: dos estudos do Pacote 13, *"apenas o 13.2 e o
+13.3 são reais"* — viraram os **Pacotes 48** (transmissão ao vivo) e **49** (layout de paisagem), e o
+13.1 saiu. O **Pacote 29** deixou de ser pacote e virou o LEMBRETE DO GUIA (`docs/BUILD.md`, "A
+página do site"), que o `tools/portao.sh` imprime quando o lote toca no guia.
+
 **Regra do arquivo:** ele ESVAZIA. Um pacote entregue sai daqui (a nota vai ao
 `docs/HISTORICO.md`, como sempre); um pedido revogado sai com uma linha dizendo
 quem revogou. Não é log, e não é `docs/ACHADOS-EM-ABERTO.md` (lá moram defeitos
@@ -93,8 +98,8 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 
 | pacote | nota | tipo | área |
 |---|---|---|---|
-| **13** — Estudos (não são fila de execução) | 4 | estudo | nenhuma entrega |
-| **29** — Guia do site: a captura da lista de Ferramentas e do Cronograma | 2 (I2×U1) | resíduo | só site (pede o app em tela) |
+| **48** — Transmissão ao vivo (câmera fixa → YouTube) | 3 (I3×U1) | pedido | Kotlin + servidor da rede + web (Release) |
+| **49** — O layout de paisagem | 3 (I3×U1) | pedido | CSS do Controle (OTA) + manifesto (Release) |
 
 ---
 
@@ -107,8 +112,8 @@ diferentes, e um lote nunca mistura dois temas.
 
 | tema | pacotes | o que sai junto |
 |---|---|---|
-| **Site** | 29 | as capturas do guia |
-| **Estudos** | 13 | não são fila de execução: a entrega é a decisão do operador |
+| **Transmissão** | 48 | a câmera, o reenvio ao YouTube e o comando pelo Controle |
+| **Telas largas** | 49 | a grade de duas colunas e a rotação liberada |
 
 ---
 
@@ -140,51 +145,20 @@ ordem; a fila é dele.
 
 ---
 
-## O índice — 2026-11-16
+## O índice — 2026-11-20
 
 | # | pacote · pedido | tipo | I | U | nota | entrega |
 |---|---|---|---|---|---|---|
-| **13** | **Estudos — não são fila de execução** | estudo | 4 | 1 | **4** | decisão |
-| 13.1 | controle de slides + compartilhar itinerário/cronograma | | 4 | 1 | 4 | estudo |
-| 13.2 | transmissão ao vivo | | 3 | 1 | 3 | estudo |
-| 13.3 | layout de paisagem (o app no Windows saiu) | | 3 | 1 | 3 | estudo |
-| **29** | **Guia do site: a captura da lista de Ferramentas e do Cronograma** | resíduo | 2 | 1 | **2** | site |
+| **48** | **Transmissão ao vivo (câmera fixa → YouTube)** | pedido | 3 | 1 | **3** | decisões, depois APK + web |
+| **49** | **O layout de paisagem** | pedido | 3 | 1 | **3** | web (OTA) + APK |
 
 ---
 
-## Pacote 13 — Estudos (não são fila de execução)
+## Pacote 48 — Transmissão ao vivo (câmera fixa → YouTube)
 
-Três estudos preliminares; nada sai para código sem decisão do operador. A nota
-deles mede o valor da RESPOSTA, não de uma entrega — por isso ficam fora das
-faixas.
-
-### 13.1 Controle remoto de slides e compartilhamento de itinerários
-
-| hora | pedido | o que já se sabe |
-|---|---|---|
-| 2026-10-30 | *"controle remoto de slides para o pregador, algum link de site, endereço ou código que não requer internet… onde ele pode controlar os slides pelo próprio aparelho dele, seja vendo os slides. Ou… integração com aparelhos de passagem de slides bluetooth"* | ESTUDO. Duas vias. **(a) Passador Bluetooth:** quase todo passador é um TECLADO HID (manda PageDown/PageUp, setas, às vezes B/F5); pareado com o celular, as teclas chegam à `MainActivity.onKeyDown` como chegam as de volume — o caminho já existe (`captureVolumeKeys` → `__avVolumeKey`), e ligar `KEYCODE_PAGE_DOWN/UP`, `DPAD_RIGHT/LEFT` ao ⏮/⏭ de slide é Kotlin pequeno + Release. Medir: quais teclas os passadores comuns mandam, e se o pareado como teclado esconde o teclado virtual. **(b) Pelo celular do pregador:** o servidor das telas da rede (sem internet, Wi-Fi ou ponto de acesso) já serve páginas; uma página de CONTROLE (anterior/próximo, e opcionalmente a página atual em miniatura) por uma rota nova com o mesmo pareamento e teto de sessões. Cuidado: hoje a rota de subida aceita só `TIPOS_QUE_SOBEM` (lista de permissão) — um comando de slide vindo da rede é uma porta nova de CONTROLE, não só de exibição, e pede decisão de segurança (código de entrada? só no ponto de acesso?). Ver `docs/TELAO-POR-COMANDOS.md` |
-| 10:34 | *"Vamos estudar e planejar um sistema de compartilhar itinerários e ou cronogramas de forma mais facilitada… compartilhar no whatsapp… um simples link, que ao tocar, abre o app, e busca/baixa oque for necessário inclusive baixando diretamente do aparelho de origem… Talvez precisamos de um servidor? Estude as opções para o menor atrito possível…"* | entregável é um ESTUDO para o operador decidir, não código. Eixos: link de app (App Links no domínio `audiovisualiasd.com.br`, que já é nosso — exige o arquivo de associação de domínio (Digital Asset Links) no `site/` e `intent-filter` no manifesto, logo Release) vs. arquivo `.avpkg` pequeno só com a LISTA; de onde vem a mídia (LouvorJA e YouTube já são re-baixáveis por id; mídia própria do aparelho é o problema difícil — sem servidor, só com os dois aparelhos online ao mesmo tempo); e o que NÃO viajar (privacidade, `docs/MEDICAO-DE-ALCANCE.md`). Comparar com o `.avpkg` atual (`docs/recursos/PACOTE.md`) |
-
-**Promovido em 2026-11-13:** o eixo (b) deste estudo virou o **Pacote 16** — o
-operador deu o caso de uso (o líder de desbravadores e o cronograma da
-cerimônia) e pediu planejamento. O (a), o passador Bluetooth, continua só
-estudo.
-
-**Promovido em 2026-11-15, e decidido:** o mesmo eixo (b), agora com um desenho
-próprio, virou o **Pacote 34** — o operador decidiu ("método completo"): a página
-do pregador com três prévias, desenho vertical próprio, a cortina e nada mais. A
-via da rede local foi confirmada como a única: **sem servidor**, o link vale na
-mesma Wi-Fi (ou no ponto de acesso do celular), nunca por 4G. O (a), o passador
-Bluetooth, foi RECUSADO por ele na mesma resposta e não volta a esta fila.
-
-**Estudo entregue (2026-11-17):** [`ESTUDO-CRONOGRAMA.md`](ESTUDO-CRONOGRAMA.md) — o
-compartilhamento e os MODELOS de cronograma como as duas faces da mesma moeda: as
-três rotas de entrega (arquivo pequeno, link do app, os dois aparelhos na Wi-Fi),
-os três modelos de culto (sábado de manhã, domingo à noite, quarta à noite) e as
-quatro decisões que o operador precisa tomar. **Nada foi autorizado:** a fila
-espera a resposta.
-
-### 13.2 Transmissão ao vivo (câmera fixa → YouTube)
+**Nota 3 (I3 × U1) · pedido · Kotlin + servidor da rede + web.** Era o estudo
+13.2; o operador o confirmou como pedido real em 2026-11-20. **Antes de código,
+as decisões** do fim desta seção.
 
 Pedido (2026-10-31 11:53): um segundo celular dedicado é a CÂMERA (720p/30 na
 tomada); manda o vídeo pela rede local ao celular de CONTROLE, com ~1 s de
@@ -199,18 +173,21 @@ transmissão").
 | captura na câmera | `getUserMedia` exige contexto seguro: no WebView do app ok (`appassets`), mas o projeto NEGA captura por invariante (`onPermissionRequest` nega com log; `tools/sem-captura.test.mjs` cobra). Ligar a câmera só no papel `camera` é decisão de projeto. Num navegador comum, o certificado do `EspelhoCert` é autoassinado (aviso de segurança) | média |
 | WebRTC com 1 s de buffer | possível: `RTCRtpReceiver.jitterBufferTarget` (Chromium) aceita até ~4 s | baixa |
 | **reenvio RTMP** | **nenhum navegador fala RTMP.** O vídeo teria de sair do WebView para o Kotlin — e tirar quadros decodificados do WebView para re-codificar é caro e frágil | **alta** |
-| alternativa sem re-codificar | a câmera codifica H.264/AAC em Kotlin (`MediaCodec`, como o `MuxMp4` já usa o lado de multiplexação) e manda pela LAN; o Controle só REMULTIPLEXA para FLV/RTMP, sem decodificar. Ou mais simples: a câmera manda RTMP DIRETO ao YouTube e o Controle só VÊ (prévia) e manda (início/fim). Perde: sobrepor letra/slides na live (exige compor e re-codificar) | média; RTMP à mão (handshake + FLV) é ~500 linhas Kotlin, ou uma dependência (seria a 5ª exceção, com justificativa) |
+| alternativa sem re-codificar | a câmera codifica H.264/AAC em Kotlin (`MediaCodec`, como o `MuxMp4` já usa o lado de multiplexação) e manda pela LAN; o Controle só REMULTIPLEXA para FLV/RTMP, sem decodificar. Ou mais simples: a câmera manda RTMP DIRETO ao YouTube e o Controle só VÊ (prévia) e manda (início/fim). Perde: sobrepor letra/slides na live (exige compor e re-codificar) | média; RTMP à mão (handshake + FLV) é ~500 linhas Kotlin, ou uma dependência (seria a 6ª exceção, com justificativa) |
 | YouTube | chave de transmissão colada pelo operador (sem OAuth) é o mínimo; criar a transmissão pelo app exige a API do YouTube com OAuth — bem mais | média |
 | riscos de culto | aquecimento e bateria dos dois aparelhos por 2 h; uplink da igreja (720p30 ≈ 2,5–4 Mb/s); o Wi-Fi da igreja passa a carregar câmera + telas da rede; o Controle já hospeda dois WebViews e a `Presentation` (memória) | — |
 
 **Recomendação do estudo:** começar pela via "câmera manda RTMP direto, o
 Controle comanda e mostra a prévia" — é a única que não põe o vídeo da live
-dentro do processo do telão. Vizinho do 13.1 (controle remoto do pregador pelo
-mesmo servidor): as duas são PORTAS NOVAS DE SUBIDA e a decisão de segurança
-(código de entrada? só no ponto de acesso?) é UMA só para as duas. Pede Release
+dentro do processo do telão. Vizinho do passador de slides (Pacote 34, entregue
+na v1.14.33, pelo mesmo servidor): ler como ele resolveu a porta nova de subida
+(`docs/TELAO-POR-COMANDOS.md`) antes de decidir a da câmera. Pede Release
 (Kotlin) e decisão sobre a invariante de captura.
 
-### 13.3 O layout de paisagem
+## Pacote 49 — O layout de paisagem
+
+**Nota 3 (I3 × U1) · pedido · CSS do Controle (OTA) + manifesto (Release).** Era
+o estudo 13.3; o operador o confirmou como pedido real em 2026-11-20.
 
 Estudo (2026-10-31). **O app no Windows saiu do projeto** — decisão do operador
 em 2026-11-13, depois do estudo: não haverá segunda casca nativa. O que sobra
@@ -223,28 +200,20 @@ tablet Android, celular deitado e qualquer tela larga. Estudo: um
 duplicar DOM; folhas viram painéis laterais. Riscos: a escada de camadas, as
 folhas que "não mudam de tamanho entre estados", e os **76 oráculos que medem
 geometria** — eles partem do viewport de 430×900 do arnês (`tools/arnes.mjs`),
-que é a forma de um celular em pé; cada um ganha a célula de paisagem. Liberar a
+que é a forma de um celular em pé; cada um ganha a célula de paisagem (a
+contagem é de 2026-10-31 — remedir antes de planejar). Liberar a
 rotação no Android é Release; o CSS é OTA.
 
 ---
 
-## Pacote 29 — Guia do site: a captura da lista de Ferramentas e do Cronograma
-
-**Nota 2 (I2 × U1) · resíduo · só site**
-
-**Onde:** `site/sonoplastia/index.html` e `site/telas/`.
-
-Achado M6-1 da revisão de 14/11, ampliado em 15/11. A captura da lista de
-Ferramentas mostra Relógio, Cronômetro, Timer, Itinerário, Mensagens e Sorteio;
-o app tem SEIS linhas desde a v1.14.32 (o Itinerário saiu para o Cronograma e o
-"Editar mídia" entrou na v1.14.7). A captura do Cronograma também ficou velha:
-não mostra a faixa de opções do itinerário (`#itinBar`) nem as linhas de momento.
-Refazer as capturas pede **o app em tela** — não há aparelho nesta máquina: ou o
-operador manda a captura, ou ela sai da prévia visual no Chromium.
-
----
-
 ## O que saiu desta lista (rastro, não log)
+
+**2026-11-20, só docs:** decisão do operador na releitura da fila. O **Pacote 13 se desfaz**: o 13.2 e
+o 13.3 viram os Pacotes 48 e 49, e o **13.1 sai** (o (a), o passador Bluetooth, já estava recusado; o
+(b) saiu como Pacote 34; o compartilhamento de cronogramas teve o estudo entregue em
+[`ESTUDO-CRONOGRAMA.md`](ESTUDO-CRONOGRAMA.md)). O **Pacote 29 sai** e vira o lembrete do guia em
+`docs/BUILD.md` ("A página do site"), impresso pelo `tools/portao.sh` quando o lote toca em
+`site/sonoplastia/` ou `site/telas/`.
 
 **v1.14.89 (2026-11-19), só web:** o **Pacote 5 fecha** — a TELA DE ESPERA do itinerário (5.1): a ampulheta na faixa liga, antes do 1º momento, a contagem até o horário, as mensagens do cronograma anteriores ao 1º momento em rodízio e playbacks baixados do Hinário ao fundo; no horário a música para e o telão fica limpo; projeção ou mídia do operador desliga.
 

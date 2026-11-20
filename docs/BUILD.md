@@ -702,6 +702,21 @@ Rodar local: `./gradlew assembleDebug` (exige Android SDK).
   `userAgent` VERBATIM (o iPad entre eles, sem código próprio: a asserção
   guarda a PROPRIEDADE, não o mecanismo) e a falha aberta em asserção própria.
 
+- **O LEMBRETE DO GUIA — o próximo lote que mexer no guia refaz duas
+  capturas** (o antigo Pacote 29; o operador o tirou da fila em 2026-11-20:
+  *"apenas um lembrete durante uma futura modificação/atualização do guia"*). O
+  `tools/portao.sh` o imprime, sem reprovar, quando o lote passa um arquivo de
+  `site/sonoplastia/` ou `site/telas/`.
+
+  | captura | o que está velho |
+  |---|---|
+  | a lista de Ferramentas (`site/telas/ferramentas.webp` e `320/`) | a imagem é de antes da v1.14.32: mostra o Itinerário (que virou opção do Cronograma) e não mostra o "Editar mídia" (v1.14.7). As anotações e o texto já descrevem a lista nova |
+  | o Cronograma (`site/telas/cronograma.webp` e `320/`) | não mostra a faixa de opções do itinerário (`#itinBar`) nem as linhas de momento |
+
+  Refazer pede **o app em tela** — não há aparelho nesta máquina: ou o operador
+  manda a captura, ou ela sai da prévia visual no Chromium. **Feitas as duas,
+  este item e o bloco do `portao.sh` saem juntos.**
+
 ## As dependências
 
 - **Sem dependências externas** — Kotlin puro + AndroidX no shell, JavaScript
