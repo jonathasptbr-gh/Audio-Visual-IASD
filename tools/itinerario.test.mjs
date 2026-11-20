@@ -1478,7 +1478,7 @@ try {
     const v = await pv();
     checar(v.linhas.join() === '09:00 Recepção,*10:00 Louvor,10:40 Pregação',
       'C · ao cruzar 10:00 o destaque passa para "Louvor" e a LISTA FICA INTEIRA no telão (três momentos cabem na '
-      + 'janela — v1.14.36: só uma lista maior que seis linhas rola a partir do momento de agora)', v);
+      + 'janela — v1.14.36: só uma lista maior que a janela, quatro linhas desde 20/11, rola a partir do momento de agora)', v);
     checar(v.lista.join() === 'Louvor' && v.subs.join(' | ') === '1 h até Louvor | Agora · 40 min até Pregação | Último momento',
       'C · a lista do cronograma acompanha o relógio (a marca e o subtítulo passam para "Louvor")', { lista: v.lista, subs: v.subs });
     checar(!/^0s/.test(await pg.evaluate(() => getComputedStyle(document.querySelector('#pvTextItin .itin-linha')).transitionDuration)),
@@ -1824,6 +1824,30 @@ try {
     checar(t.linhas.join() === '10:00 Louvor,*10:20 Fim [Agora]' && animou === 0 && /^0s/.test(trans),
       'H · com `prefers-reduced-motion` a troca acontece SEM movimento (nem deslize, nem transição)',
       { linhas: t.linhas, animou, trans });
+  }
+
+  // ── E°. A JANELA DE QUATRO (20/11: *"Ajuste a lista de momentos visíveis no telão,
+  // para apenas 4"*). Seis momentos: antes do 1º a janela começa nele; no meio ela
+  // rola a partir do de agora, e perto do fim PARA cheia; a altura reservada
+  // (`--itin-linhas`) é de quatro.
+  {
+    const r = await tv.evaluate(() => {
+      const box = document.createElement('div'); document.body.appendChild(box);
+      const ol = document.createElement('ol'); ol.className = 'itin'; box.appendChild(ol);
+      const d = { itens: ['a', 'b', 'c', 'd', 'e', 'f'].map((k, i) => ({ k, min: 540 + i * 10, titulo: k.toUpperCase() })),
+        desloc: 0, horas: true, fuso: 180 };
+      const em = (iso) => {
+        createStage.desenharItinerario(ol, d, new Date(iso).getTime(), false);
+        const vivas = [...ol.children].filter((li) => !li.classList.contains('itin-saindo'));
+        return { ks: vivas.map((li) => li.dataset.k).join(''), linhas: ol.style.getPropertyValue('--itin-linhas') };
+      };
+      const out = { antes: em('2026-10-24T08:30:00-03:00'), meio: em('2026-10-24T09:21:00-03:00'),
+        quase: em('2026-10-24T09:11:00-03:00'), fim: em('2026-10-24T09:55:00-03:00') };
+      box.remove();
+      return out;
+    });
+    checar(r.antes.ks === 'abcd' && r.meio.ks === 'cdef' && r.fim.ks === 'cdef' && r.quase.ks === 'bcde' && r.antes.linhas === '4' && r.fim.linhas === '4',
+      'E° · o telão mostra QUATRO momentos: antes do 1º, a partir dele; depois, a partir do de agora; perto do fim a janela PARA cheia (o último não fica sozinho); a altura reservada é de quatro', r);
   }
 
   // ── E″. A TELA DE ESPERA (Pacote 5.1) ───────────────────────────────────

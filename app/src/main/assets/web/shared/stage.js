@@ -1684,7 +1684,7 @@
   // 00:00 ou depois de 23:59 é mostrado com a hora dada a volta, mas comparado
   // como se fosse do mesmo dia.
   const ITIN_TICK_MS = 1000;   // o minuto vira sem atraso perceptível
-  const ITIN_JANELA = 6;       // o que a altura reservada comporta
+  const ITIN_JANELA = 4;       // linhas à vista no telão (pedido de 20/11: eram 6)
   const ITIN_ANIM_MS = 700;
   const ITIN_CURVA = 'cubic-bezier(.2, .7, .2, 1)';
   const DIA_MS = 86400000;
@@ -1902,7 +1902,9 @@
   // de agora, depois do último horário sobrava UMA linha — e o encerramento é um
   // momento como os outros, então o telão passava o resto do culto mostrando só ele.
   function itinerarioJanela(l) {
-    const ini = l.itens.length <= ITIN_JANELA ? 0 : Math.max(l.ativo, 0);
+    // Perto do fim a janela PARA de rolar e fica cheia: ancorada só no de agora, o
+    // último momento ficaria sozinho na tela (o mesmo defeito, numa lista longa).
+    const ini = Math.max(0, Math.min(Math.max(l.ativo, 0), l.itens.length - ITIN_JANELA));
     return l.itens.slice(ini, ini + ITIN_JANELA).map((x, j) => Object.assign({}, x, {
       estado: ini + j === l.ativo ? 'agora' : (l.ativo < 0 && j === 0 ? 'seguir' : ''),
     }));

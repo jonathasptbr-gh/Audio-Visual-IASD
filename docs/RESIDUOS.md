@@ -45,6 +45,7 @@ medição em aparelho não é fino.**
 
 | quando · lote | onde | o que ficou | dono | por que não foi agora |
 |---|---|---|---|---|
+| 2026-11-20 · v1.15.3 | `ITIN_JANELA` | nenhum resíduo novo; a altura do bloco com quatro linhas no telão HDMI só foi vista no Chromium | medição | conferir no telão |
 | 2026-11-20 · v1.15.2 | `#wallPrevia` | a prévia não gruda: numa tela baixa (ou com a fonte do sistema grande) a grade de 38vh pode empurrá-la para fora da vista, e aí escolher volta a pedir rolagem — medido só a 430x900, onde as duas cabem | medição | conferir no aparelho do operador; se não couber, a prévia vira `sticky` sob o cabeçalho |
 | 2026-11-20 · v1.15.1 | fundos da tela de espera nas telas da rede (`fundosUrl`, `itinFundoPorUrl`) | o caminho da rede não tem oráculo próprio (o `tela-rede` não cobre fundos); uma tela pareada DEPOIS de ligar a espera não recebe os bytes das imagens (religar resolve); o crossfade e o peso das imagens no telão HDMI só foram vistos no Chromium | medição | conferir no aparelho e numa tela da rede; o caso de oráculo da rede pede lote próprio |
 | 2026-11-20 · v1.15.0 | seção do Wallpaper (`wallListarImagens`, `wallCompor`) | medida só no Chromium com 7 imagens falsas: o tempo de `filesAll()` num acervo de ~1900 faixas, a rolagem da grade com ~1000 imagens no WebView e o resultado no telão HDMI não foram vistos; a fonte é a `system-ui` do aparelho, não a Advent Sans oficial | medição | conferir no aparelho abrindo Biblioteca e ligando a identificação com o telão conectado |

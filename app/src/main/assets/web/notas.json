@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.15.3",
+    "itens": [
+      "O itinerário no telão mostra até 4 momentos de cada vez (eram 6).",
+      "Com mais de 4, a lista anda junto com o momento de agora.",
+      "Perto do fim do culto, os 4 últimos momentos ficam à vista, e o último não fica sozinho.",
+      "Não precisa instalar nada: chega pela atualização automática."
+    ]
+  },
+  {
     "versao": "1.15.2",
     "itens": [
       "As imagens da biblioteca agora ficam numa grade que rola sozinha, com a prévia sempre à vista.",

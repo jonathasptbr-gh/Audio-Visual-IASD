@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.15.3** — o itinerário no telão mostra QUATRO momentos (`ITIN_JANELA` 6 → 4) e a janela para cheia perto do fim (só web).
 - **v1.15.2** — o Wallpaper, a pedido do operador: a grade do banco ROLA SOZINHA (a prévia fica à vista), a escolhida leva o check, e a identificação vira quatro níveis (`nenhuma` · `logo` · `iasd` · `completa`) (só web).
 - **v1.15.1** — a tela de espera ganha FUNDOS em rodízio: `itinerario.espera.fundos` (até 24 imagens das músicas baixadas, sorteadas) trocadas a cada 20 s pelo relógio de cada tela, com crossfade, atrás do bloco da contagem (só web).
 - **v1.15.0** — a seção do WALLPAPER (`#wallSecao`): fundo padrão, foto ou o BANCO de imagens das estrofes da biblioteca, e a identificação da igreja (símbolo + "Igreja Adventista do Sétimo Dia" + nome local, no centro ou embaixo) composta num canvas 1920x1080 (só web).
@@ -826,6 +827,12 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.15.3 — quatro momentos no telão
+
+**O PEDIDO** (operador, 20/11): *"Ajuste a lista de momentos visiveis no telão, para apenas 4"*.
+
+`ITIN_JANELA` (shared/stage.js) de 6 para 4: a lista inteira até quatro momentos, e a reserva de altura (`--itin-linhas`) até quatro. **E a janela PARA CHEIA perto do fim:** `itinerarioJanela` ancorava o início no momento de agora (`Math.max(ativo, 0)`), e numa lista maior que a janela isso deixava o último momento SOZINHO na tela depois do seu horário — o defeito da v1.14.36, que só tinha sido fechado para listas que cabiam inteiras; com a janela de quatro ele passaria a morder em todo culto comum. Agora `ini = max(0, min(max(ativo, 0), itens.length − ITIN_JANELA))`. `itinerario.test.mjs` E° (seis momentos: antes do 1º `abcd`, no 2º `bcde`, no 3º `cdef`, depois do último `cdef`; `--itin-linhas` 4).
 
 ## v1.15.2 — o banco do wallpaper rola sozinho, a escolhida tem check e a identificação tem quatro níveis
 
