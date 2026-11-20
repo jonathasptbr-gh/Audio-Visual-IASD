@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.14.89** — Pacote 5.1, a TELA DE ESPERA do itinerário: `itinerario.espera = { avisos }` no descritor (contagem até o 1º momento efetivo, avisos em rodízio, tela limpa no horário) e o interruptor `#itinEsperaBtn` (8ª célula da `#itinBar`) com fila própria de playbacks baixados (só web).
 - **v1.14.88** — a lista dos modelos da gaveta abre e fecha animada (`cronoModelosAlternar`) e a gaveta cabe no `.list-body` (`max-height: calc(100% - 2 * --sp-3)`, coluna flex) — a sombra de baixo ficava sob a barra de controles (só web).
 - **v1.14.87** — aplicar um modelo e importar um culto forçam os momentos À VISTA (`mostrarMomentos`) (só web).
 - **v1.14.86** — a linha de criar da gaveta: "+ Novo" (rótulo curto, `title` "Novo cronograma") e "Modelos" na MESMA largura (`.crono-criar` em grade `repeat(2, minmax(0, 1fr))`, sem quebra); o J do `cronogramas-multiplos` mira fora da gaveta e o `aoSair` remede a sombra da borda depois de zerar a altura (o Z do `itinerario` instável) (só web).
@@ -821,6 +822,18 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.14.89 — a tela de espera antes do primeiro momento (Pacote 5.1)
+
+**O PEDIDO** (operador, 30/10, confirmado em 15/11 como o lote seguinte à fusão da v1.14.32): uma opção do itinerário, um interruptor só, *"com tudo automatizado"* — antes do 1º momento, contagem regressiva, música de fundo de playbacks aleatórios do Hinário e, se houver, avisos; termina sozinha no horário. **As decisões de 19/11:** avisos = as MENSAGENS do cronograma ANTES do 1º momento; qualquer projeção/mídia do operador DESLIGA a espera; no horário o telão fica LIMPO (não a lista); a música só com playbacks JÁ BAIXADOS (sem consentimento de download).
+
+| parte | o que mudou |
+|---|---|
+| telão (`stage.js`, `display.css` + a gêmea `.pv-text-content` do `controle.css`) | `itinerario.espera = { avisos: string[] }`, aditivo. `createStage.itinerarioEspera(d, agora)` → `null` \| `{fim:true}` \| `{fim:false, restaMs, conta, alvo, aviso}`; o alvo é o 1º momento pelo relógio, `min + desloc`, pelo fuso do descritor (o ±5 move a contagem). `m:ss` abaixo de 1 h, `h:mm:ss` acima, segundos por `ceil`; "às HH:MM" (`itinHora`); aviso = `avisos[floor(agora/10000) % n]`. Sem laço novo: o desvio mora em `desenharItinerario`, que o `liveTick`/`pvLiveTick` já chamam a cada segundo (assinatura `E\|` em `__itinAssin`). `resta ≤ 0` → `.itin.em-espera` com o cartão `[hidden]`: limpo mesmo sem o Controle |
+| Controle (`controle.js`, módulo "TELA DE ESPERA") | `#itinEsperaBtn` (ampulheta, 4º do ESTADO, vermelho desligado). `telaEspera` só em memória (recarregar a perde). `itinDescriptor` emite `espera` só ligada; avisos = `text` das mensagens antes da 1ª linha-momento. Música = FILA PRÓPRIA (`esperaPool` → `montarPool` com `soNoAparelho`, `embaralhar`; `esperaProxima` por `send(id, true, rec)`; o `autoAdvance` desvia quando `currentId === telaEspera.faixa`) — `plItems` nunca é tocado (nada de `trocarFila`) e a view fica `'visual'` (a cortina do sorteio cobriria o texto). Desligam (`esperaDesligar`, linha no Registro): o interruptor, `send` do operador, `clearItinSession`, `hideItin`. Fim: `esperaArmar` (temporizador ≤ 30 s, refeito em `itinMudou` e no `visibilitychange`) → música para + `text-hide`; o relógio só ENCERRA, nunca dispara mídia do 1º momento ("mídias não tocam pelo horário" segue de pé). Sem momento futuro não liga (`appConfirm`: o Controle não tem toast) |
+| a faixa | OITO células: a 360 numa linha (o degrau −4 px do número do atraso estendido a aba < 330); a 320 (aba < 300) a SEÇÃO do atraso desce para uma 2ª linha — o piso `--hit` não deixa os oito numa linha |
+
+`itinerario.test.mjs` E″ (o desenho: puro, telão real pelo barramento, preview) e E‴ (o interruptor), e o U/L′ para oito células. Reversões medidas: sem o desvio em `desenharItinerario` as cinco células puras e a do telão reprovam; sem o desvio do `autoAdvance` a Playlist do operador avança e o E‴ reprova. `sorteio.test.mjs` e `playlist-automatica-estavel` verdes.
 
 ## v1.14.88 — os modelos abrem animados, e a gaveta cabe na área da lista
 

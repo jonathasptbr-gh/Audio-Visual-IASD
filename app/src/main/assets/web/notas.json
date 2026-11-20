@@ -1,5 +1,17 @@
 [
   {
+    "versao": "1.14.89",
+    "itens": [
+      "Na faixa do itinerário há um botão novo, a ampulheta: liga a tela de espera antes do culto.",
+      "Com ela ligada, o telão mostra a contagem até o primeiro momento e o horário de início.",
+      "As mensagens postas antes do primeiro momento do cronograma aparecem em rodízio na tela.",
+      "Ao fundo tocam playbacks do Hinário sorteados, só os que já estão baixados no aparelho.",
+      "Na hora do primeiro momento a música para e o telão fica limpo, sem tocar nada sozinho.",
+      "Se você projetar ou tocar outra coisa durante a espera, ela se desliga.",
+      "Não precisa instalar nada: chega pela atualização automática."
+    ]
+  },
+  {
     "versao": "1.14.88",
     "itens": [
       "Na lista de cronogramas, \"Modelos\" abre e fecha a lista de modelos com animação.",

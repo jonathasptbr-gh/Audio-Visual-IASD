@@ -45,6 +45,8 @@ medição em aparelho não é fino.**
 
 | quando · lote | onde | o que ficou | dono | por que não foi agora |
 |---|---|---|---|---|
+| 2026-11-19 · v1.14.89 | tela de espera (`esperaLigar`/`esperaProxima`, `itinerarioEspera`) | medida só no Chromium do arnês, com a música por gravadores (o `send` dos playbacks é falso no E‴): a música real no aparelho, o fim com o WebView em segundo plano e a contagem no telão HDMI não foram vistos; o Parar silencia a música mas NÃO desliga a espera (a contagem segue); recarregar o Controle perde a espera (não há retomada) | medição | conferir no aparelho num ensaio antes de um culto; se o Parar ou a recarga incomodarem, vira pedido |
+| 2026-11-19 · v1.14.89 | `#itinBar` com oito células | a 320 px (aba < 300) a seção do atraso desce para uma 2ª linha; a 360 cabe com o número do atraso um degrau menor — medido só no Chromium, com a fonte 1× | medição | conferir no aparelho com a fonte real do operador |
 | 2026-11-19 · v1.14.88 | `cronoModelosAlternar` | a animação e o encaixe da gaveta foram medidos só no Chromium do arnês; o ritmo no WebView e a altura real da área da lista no aparelho não foram vistos | medição | conferir no aparelho abrindo e fechando "Modelos" com vários cronogramas |
 | 2026-11-19 · v1.14.87 | `mostrarMomentos` | nenhum resíduo novo; o interruptor é do aparelho, então forçar à vista vale também para os outros cronogramas depois da troca — o mesmo que tocar no botão | — | é o comportamento pedido |
 | 2026-11-19 · v1.14.86 | `.crono-criar` | nenhum resíduo novo; a largura igual e o rótulo sem vazar foram medidos só no Chromium do arnês | medição | conferir no aparelho |

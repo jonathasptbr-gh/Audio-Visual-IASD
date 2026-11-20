@@ -93,7 +93,6 @@ Nada aqui está autorizado: **pergunte ao operador qual seguir**.
 
 | pacote | nota | tipo | área |
 |---|---|---|---|
-| **5** — Itinerário: a tela de espera antes do primeiro momento | 8 (I4×U2) | pedido | só web, depois de planejar |
 | **13** — Estudos (não são fila de execução) | 4 | estudo | nenhuma entrega |
 | **29** — Guia do site: a captura da lista de Ferramentas e do Cronograma | 2 (I2×U1) | resíduo | só site (pede o app em tela) |
 
@@ -109,7 +108,6 @@ diferentes, e um lote nunca mistura dois temas.
 | tema | pacotes | o que sai junto |
 |---|---|---|
 | **Site** | 29 | as capturas do guia |
-| **Fila anterior a 14/11** | 5 | a tela de espera do Itinerário, na ordem que a fila já tinha |
 | **Estudos** | 13 | não são fila de execução: a entrega é a decisão do operador |
 
 ---
@@ -146,45 +144,11 @@ ordem; a fila é dele.
 
 | # | pacote · pedido | tipo | I | U | nota | entrega |
 |---|---|---|---|---|---|---|
-| **5** | **Itinerário: a tela de espera antes do primeiro momento** | pedido | 4 | 2 | **8** | web |
-| 5.1 | contagem regressiva + música + avisos | | 4 | 2 | 8 | web |
 | **13** | **Estudos — não são fila de execução** | estudo | 4 | 1 | **4** | decisão |
 | 13.1 | controle de slides + compartilhar itinerário/cronograma | | 4 | 1 | 4 | estudo |
 | 13.2 | transmissão ao vivo | | 3 | 1 | 3 | estudo |
 | 13.3 | layout de paisagem (o app no Windows saiu) | | 3 | 1 | 3 | estudo |
 | **29** | **Guia do site: a captura da lista de Ferramentas e do Cronograma** | resíduo | 2 | 1 | **2** | site |
-
----
-
-## Pacote 5 — Itinerário: a tela de espera antes do primeiro momento
-
-**Nota 8 (I4 × U2) · pedido · só web, depois de planejar**
-
-**Onde:** a faixa de opções do itinerário (`#itinBar`), a Camada de Texto
-(`mode: 'itinerario'`) e a regra do `sorteio.js`.
-
-**O que já saiu (v1.14.32, 2026-11-15):** o conceito mudou a pedido do operador
-e a primeira metade do pacote foi entregue — o Itinerário deixou de ser uma
-ferramenta e virou uma OPÇÃO DO CRONOGRAMA (os momentos são linhas da lista;
-a faixa `#itinBar` tem telão, horários, ajuste e adicionar; as mídias se
-arrastam para debaixo de cada momento; nada toca sozinho pelo horário). A
-fusão está em `docs/HISTORICO.md` e em `docs/arquitetura/CAMADA-DE-TEXTO.md`.
-
-### 5.1 A tela de espera: a contagem, a música e os avisos
-
-Pedido do operador (2026-10-30), confirmado em 2026-11-15 como o lote
-seguinte à fusão: uma OPÇÃO do itinerário (um interruptor só, *"com tudo
-automatizado"*) que, antes do primeiro momento do cronograma ativo, põe no
-telão uma tela de espera: contagem regressiva até o primeiro horário, música
-de fundo de PLAYBACKS aleatórios do Hinário (a regra do `sorteio.js`,
-categoria do hinário, variante playback) e, se houver, avisos. Termina sozinha
-no horário do primeiro momento. **O interruptor mora na faixa `#itinBar`**, e
-o "primeiro momento" é o primeiro do relógio entre os momentos do cronograma
-ativo (`itinItens`). A planejar: o que conta como "avisos" (Mensagens?
-apresentação?), a camada de texto que leva a contagem (o Itinerário já é
-provedor por descritor), a largura da faixa (hoje 9 peças a 360 px: a peça
-nova pede lugar ou vira opção do `⋮`), e o que acontece se o operador tocar
-algo no meio.
 
 ---
 
@@ -281,6 +245,8 @@ operador manda a captura, ou ela sai da prévia visual no Chromium.
 ---
 
 ## O que saiu desta lista (rastro, não log)
+
+**v1.14.89 (2026-11-19), só web:** o **Pacote 5 fecha** — a TELA DE ESPERA do itinerário (5.1): a ampulheta na faixa liga, antes do 1º momento, a contagem até o horário, as mensagens do cronograma anteriores ao 1º momento em rodízio e playbacks baixados do Hinário ao fundo; no horário a música para e o telão fica limpo; projeção ou mídia do operador desliga.
 
 **v1.14.79 (2026-11-19), só web:** o **Pacote 16 fecha** — o modelo "Sábado de manhã" refeito pela régua do operador (lição até 10h15, sermão das 11h15 ao meio-dia), "Salvar como modelo" e "Meus modelos" (16.e), e a linha da gaveta compactada em nome · enviar · ⋮ (renomear, salvar como modelo e excluir nas opções). O pacote saiu da fila; o que ficou sem pedido (o modelo viajar sozinho, a dica de cada momento) está no `RESIDUOS.md` com dono `operador`. Nota em `docs/HISTORICO.md`.
 

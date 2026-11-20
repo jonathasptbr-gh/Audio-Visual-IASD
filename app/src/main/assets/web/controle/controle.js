@@ -493,7 +493,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.88';
+const WEB_VERSION = '1.14.89';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -8676,6 +8676,8 @@ function itinDescriptor() {
     itens: itinItens().map((x) => ({ k: x.id, min: x.min, titulo: x.titulo })),
     desloc: itin.desloc, horas: itin.horas,
     fuso: new Date().getTimezoneOffset(),
+    // A TELA DE ESPERA (Pacote 5.1) é um campo ADITIVO: só com ela ligada.
+    ...(telaEspera ? { espera: { avisos: esperaAvisos() } } : {}),
   };
 }
 
@@ -8707,6 +8709,7 @@ function projectItin() {
 
 // Tira do telão SEM apagar a lista — espelha o `hideChrono`.
 function hideItin() {
+  if (telaEspera) esperaDesligar('itinerário fora do telão', { tela: '' });
   if (!itinProjecting()) return;
   itinSession.projecting = false;
   cmd({ type: 'text-hide' });
@@ -8719,7 +8722,127 @@ function hideItin() {
   renderItinBar();
 }
 
+// ===== A TELA DE ESPERA (Pacote 5.1) =====
+// O interruptor da faixa (`#itinEsperaBtn`): o itinerário vai ao telão com
+// `espera` no descritor — a contagem até o 1º momento EFETIVO e os avisos — e
+// a música é uma FILA PRÓPRIA (`telaEspera.fila`): playbacks do Hinário 2022 JÁ
+// BAIXADOS, baralhados; `plItems` do operador não é tocado, e o `autoAdvance`
+// desvia para `esperaProxima` enquanto a faixa no ar for a da espera.
+// DESLIGAM: o interruptor; um `send` do operador (mídia); o itinerário perder o
+// cartão (`clearItinSession` — outra projeção — ou `hideItin` — o monitor);
+// o horário (`esperaArmar`: fila parada e telão LIMPO). O ±5 só move o alvo.
+// O relógio só ENCERRA: nunca dispara mídia do 1º momento (HISTORICO.md:2916).
+// Não sobrevive a recarregar o Controle.
+let telaEspera = null;       // { fila: [{ coll, s }], i, faixa, itinAntes, timer } | null
+let esperaEnviando = false;  // o `send` da própria espera não a desliga
+
+// Os AVISOS: as MENSAGENS sem grupo (antes do 1º momento, na ordem da lista).
+function esperaAvisos() {
+  const out = [];
+  for (const r of libItems || []) {
+    if (ehMomento(r)) break;
+    if (!r || r.kind !== 'cue' || r.cue !== 'message') continue;
+    const d = r.data || {};
+    const m = d.msgId ? messages.find((x) => x.id === d.msgId) : null;
+    const t = String((m ? m.text : d.text) || '').trim();
+    if (t) out.push(t);
+  }
+  return out;
+}
+
+// Quanto falta (ms) para o 1º momento EFETIVO (min + desloc); ≤ 0 = passou ou não há.
+function esperaRestaMs() {
+  const pri = itinItens()[0];
+  if (!pri) return 0;
+  const t = new Date();
+  return (pri.min + itin.desloc) * 60000
+    - (((t.getHours() * 60 + t.getMinutes()) * 60 + t.getSeconds()) * 1000 + t.getMilliseconds());
+}
+
+// A regra do sorteio, sem pedir download: só os playbacks já no aparelho.
+function esperaPool() {
+  const hin = allCollections().find((c) => c.id === HYMNAL_2022_ID);
+  if (!hin) return [];
+  const f = AVSorteio.sanear({ categorias: [AVSorteio.CAT_HINARIO_2022], variante: AVSorteio.VARIANTE_PLAYBACK, soNoAparelho: true });
+  return AVSorteio.embaralhar(AVSorteio.montarPool([hin], f, sorteioCap()).itens.filter((i) => i.noAparelho), Math.random);
+}
+
+function esperaAvisar(msg) {
+  appConfirm({ title: 'Tela de espera', message: msg, okText: 'Entendi', cancelText: null });
+}
+
+async function esperaLigar() {
+  if (telaEspera) return;
+  if (!(esperaRestaMs() > 0)) {
+    diagC('tela de espera: não ligou (sem momento futuro)');
+    esperaAvisar(itinItens().length
+      ? 'O primeiro momento do cronograma já passou: não há horário para esperar.'
+      : 'O cronograma não tem momentos: adicione o primeiro para ligar a tela de espera.');
+    return;
+  }
+  const e = telaEspera = { fila: [], i: 0, faixa: '', itinAntes: itinProjecting(), timer: 0 };
+  projectItin();
+  esperaArmar();
+  try { await ensureLyricIndex(); } catch (_) { /* o pool lê o que houver */ }
+  if (telaEspera !== e) return;
+  e.fila = esperaPool();
+  diagC('tela de espera: ligada (' + esperaAvisos().length + ' avisos, ' + e.fila.length + ' playbacks)');
+  if (!e.fila.length) {
+    esperaAvisar('Nenhum playback do Hinário está baixado neste aparelho: a tela de espera fica sem música.');
+    return;
+  }
+  esperaProxima();
+}
+
+// A próxima da fila PRÓPRIA (em laço); um playback que não abre é pulado.
+async function esperaProxima() {
+  const e = telaEspera;
+  if (!e || !e.fila.length) return;
+  for (let k = 0; k < e.fila.length; k++) {
+    const it = e.fila[e.i++ % e.fila.length];
+    const id = it && it.s && it.s.fileIdPlayback;
+    const rec = id ? await AVDB.getMedia(id) : null;
+    if (telaEspera !== e) return;
+    if (!rec) continue;
+    e.faixa = id;
+    esperaEnviando = true;
+    const p = send(id, true, rec);   // a guarda do `send` é síncrona
+    esperaEnviando = false;
+    await p;
+    return;
+  }
+  diagC('tela de espera: nenhum playback abriu — segue sem música');
+}
+
+// `tela`: 'esconder' (hideItin), 'lista' (o itinerário fica, sem espera) ou ''
+// (quem chamou já cuida do cartão). A música da espera no ar sai sempre.
+function esperaDesligar(motivo, o) {
+  const e = telaEspera;
+  if (!e) return Promise.resolve();
+  telaEspera = null;
+  clearTimeout(e.timer);
+  const op = o || {};
+  diagC('tela de espera: ' + (op.fim ? 'terminou' : 'desligada') + ' (' + motivo + ')');
+  const p = (e.faixa && currentId === e.faixa && midiaNoAr) ? pararMidia('media-clear') : Promise.resolve();
+  const tela = op.tela != null ? op.tela : (e.itinAntes ? 'lista' : 'esconder');
+  if (tela === 'esconder') hideItin(); else if (tela === 'lista') pushItin();
+  renderItinBar();
+  return p;
+}
+
+// O ALVO É RELIDO a cada armada (o ±5 do `itinMudou`, a volta do segundo plano,
+// e um passo de até 30 s): passou o horário, a espera TERMINA.
+function esperaArmar() {
+  if (!telaEspera) return;
+  clearTimeout(telaEspera.timer);
+  const resta = esperaRestaMs();
+  if (!(resta > 0)) { esperaDesligar('horário do primeiro momento', { fim: true, tela: 'esconder' }); return; }
+  telaEspera.timer = setTimeout(esperaArmar, Math.min(resta + 50, 30000));
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) esperaArmar(); });
+
 function clearItinSession() {
+  if (telaEspera) esperaDesligar('outra projeção no telão', { tela: '' });
   if (!itinSession) return;
   itinSession = null;
   renderNowPlaying();
@@ -8744,6 +8867,7 @@ function itinSincronizar() {
 }
 
 function itinMudou() {
+  esperaArmar();
   saveItin();
   pushItin();
   renderItinBar();
@@ -9307,6 +9431,11 @@ const ITIN_MAIS = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" s
 // a fonte é um subset e não há glifo para ele.
 const ITIN_ICO_LISTA = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7.4 5.7 9.1 9.4 5.4"/><path d="M12.6 7.4H20"/><path d="M4 16.4 5.7 18.1 9.4 14.4"/><path d="M12.6 16.4H20"/></svg>';
 
+// A AMPULHETA da tela de espera (inline, como a checklist: o sprite não tem uma).
+const ITIN_ICO_ESPERA_D = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12"/><path d="M6 21h12"/><path d="M7 3v2.5a5 5 0 0 0 2.2 4.1L12 12l2.8-2.4A5 5 0 0 0 17 5.5V3"/><path d="M7 21v-2.5a5 5 0 0 1 2.2-4.1L12 12l2.8 2.4a5 5 0 0 1 2.2 4.1V21"/>';
+const ITIN_ICO_ESPERA = ITIN_ICO_ESPERA_D + '</svg>';
+const ITIN_ICO_ESPERA_OFF = ITIN_ICO_ESPERA_D + '<path d="M3 3l18 18"/></svg>';
+
 function renderItinBar() {
   if (!itinBarEl) return;
   // UM DESENHO POR FORA CANCELA O MOVIMENTO (Pacote 37): a animação de altura é
@@ -9339,7 +9468,7 @@ function renderItinBar() {
   // O que o botão dos momentos mostra: o PEDIDO em curso, senão o estado (ver `itinMomentosPedido`).
   const ocultos = itinMomentosPedido !== null ? itinMomentosPedido : !!itin.momentosOcultos;
   const assin = [itinFaixaAberta ? 1 : 0, live ? 1 : 0, n ? 1 : 0, itin.desloc, itin.horas ? 1 : 0, ocultos ? 1 : 0,
-    itinEditor ? 1 : 0].join('|');
+    itinEditor ? 1 : 0, telaEspera ? 1 : 0].join('|');
   if (assin === itinBarAssin) return;
   itinBarAssin = assin;
   itinBarEl.textContent = '';
@@ -9370,6 +9499,13 @@ function renderItinBar() {
       : 'Mostrando só os títulos no telão — toque para mostrar os horários',
     itin.horas ? icoSprite('icoHoras') : icoSprite('icoHorasOff'), () => itinSetHoras(!itin.horas));
   hor.setAttribute('aria-pressed', itin.horas ? 'true' : 'false');
+  // A TELA DE ESPERA (Pacote 5.1): a ampulheta, riscada desligada.
+  const esp = itinBarBotao('itinEsperaBtn', 'itin-telaEspera-b' + (telaEspera ? ' active' : ''),
+    telaEspera ? 'Tela de espera ligada — toque para desligar' : 'Tela de espera: contagem e avisos até o primeiro momento',
+    telaEspera ? ITIN_ICO_ESPERA : ITIN_ICO_ESPERA_OFF,
+    () => (telaEspera ? esperaDesligar('interruptor', { manual: true }) : esperaLigar()));
+  esp.setAttribute('aria-label', 'Tela de espera');
+  esp.setAttribute('aria-pressed', telaEspera ? 'true' : 'false');
   const passo = (d) => {
     const b = itinBarBotao('', 'itin-passo', (d > 0 ? 'Atrasar ' : 'Adiantar ') + Math.abs(d) + ' min',
       (d > 0 ? '+' : '−') + Math.abs(d), () => itinAjustar(d));
@@ -9410,7 +9546,7 @@ function renderItinBar() {
     return d;
   };
   itinBarEl.append(secao('criacao', 'Criar', [novo]),
-    secao('estado', 'Estado do itinerário', [tel, mom, hor]),
+    secao('estado', 'Estado do itinerário', [tel, mom, hor, esp]),
     secao('atraso', 'Atraso', [passo(-5), txt, passo(5)]));
   // O DESENHO PODE MUDAR A ALTURA (quebra de linha com a fonte do sistema), e a
   // sub-aba mora na borda de baixo: a medida é refeita junto com o desenho.
@@ -16179,6 +16315,8 @@ function favBtn(id) {
 async function send(id, daFila, recPronto) {
   const faixaDoToque = faixaPendente;   // ver `faixaPendente`: consumido em TODO envio
   faixaPendente = null;
+  // MÍDIA DO OPERADOR DESLIGA A TELA DE ESPERA (a música dela sai antes).
+  if (telaEspera && !esperaEnviando) await esperaDesligar('mídia do operador');
   ++projecaoSeq;   // ver `projecaoSeq`: invalida um versículo de roteiro em voo
   ++cenaSeq;       // ver `cenaSeq`: a senha do SLOT DE MÍDIA, só deste ponto
   // E DESARMA A VOLTA DA APRESENTAÇÃO. `send` é o ponto por onde todo caminho
@@ -20216,6 +20354,8 @@ function autoAdvance() {
   // item da fila: deixá-lo cair no avanço normal projetaria o próximo louvor no
   // meio do sermão, e com `repeat: 'one'` ele tocaria em laço para sempre.
   if (deckVideoVolta) { deckVideoVoltar(); return; }
+  // A FILA DA TELA DE ESPERA é dela: a Playlist do operador não anda.
+  if (telaEspera && telaEspera.faixa && currentId === telaEspera.faixa) { esperaProxima(); return; }
   if (repeat === 'one') { if (currentId) send(currentId, true); return; }
   // FILA VAZIA TAMBÉM É FIM DE CENA, nos QUATRO modos. Um `return` seco deixaria
   // `midiaNoAr` em `true` para o resto da sessão: as rotinas de acervo nunca

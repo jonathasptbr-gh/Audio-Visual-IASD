@@ -1718,7 +1718,81 @@
     const msDia = (((t - fuso * 60000) % DIA_MS) + DIA_MS) % DIA_MS;
     let ativo = -1;
     for (let i = 0; i < itens.length; i++) if (itens[i].ef * 60000 <= msDia) ativo = i;
-    return { itens, ativo, horas: o.horas !== false, desloc };
+    return { itens, ativo, horas: o.horas !== false, desloc, msDia };
+  }
+
+  // A TELA DE ESPERA (Pacote 5.1): com `espera` no descritor, ANTES do horário
+  // EFETIVO do primeiro momento (o `ef` da leitura: desloc e fuso entram, o ±5
+  // move a contagem) a tela conta até ele; no horário e depois, `fim` — nada se
+  // desenha, nunca contagem negativa. Decide o relógio DESTA tela, sem comando.
+  // O aviso roda pelo relógio (`ESPERA_AVISO_MS` cada): todas as telas em fase.
+  // Sem `espera`: null, e o desenho é a lista de sempre.
+  const ESPERA_AVISO_MS = 10000;
+  function itinerarioEspera(d, agora) {
+    const o = (d && typeof d === 'object') ? d : {};
+    if (!o.espera || typeof o.espera !== 'object') return null;
+    const t = agora == null ? Date.now() : agora;
+    const l = itinerarioLeitura(o, t);
+    const pri = l.itens[0];
+    const resta = pri ? pri.ef * 60000 - l.msDia : 0;
+    if (!(resta > 0)) return { fim: true };
+    const seg = Math.ceil(resta / 1000), h = Math.floor(seg / 3600), m = Math.floor((seg % 3600) / 60);
+    const avisos = (Array.isArray(o.espera.avisos) ? o.espera.avisos : [])
+      .map((x) => (x == null ? '' : String(x)).trim()).filter(Boolean);
+    return {
+      fim: false, restaMs: resta, alvo: pri.hora,
+      conta: (h > 0 ? h + ':' + pad2(m) : String(m)) + ':' + pad2(seg % 60),
+      aviso: avisos.length ? avisos[Math.floor(t / ESPERA_AVISO_MS) % avisos.length] : '',
+    };
+  }
+
+  // O cartão da espera é IRMÃO da `<ol>` (criado na 1ª vez, os dois documentos
+  // sem HTML novo); a `<ol>` sai com `.em-espera`. A assinatura é a mesma
+  // `__itinAssin` (prefixo `E|`), então `limparItin` zera as duas.
+  function esperaEl(ol) {
+    if (ol.__espera && ol.__espera.isConnected) return ol.__espera;
+    const el = document.createElement('div');
+    el.className = 'itin-espera';
+    ['itin-espera-rotulo', 'itin-espera-conta', 'itin-espera-alvo', 'itin-espera-aviso'].forEach((c) => {
+      const s = document.createElement('div'); s.className = c; el.appendChild(s);
+    });
+    el.firstChild.textContent = 'O culto começa em';
+    ol.after(el);
+    ol.__espera = el;
+    return el;
+  }
+
+  // Troca SUAVE do aviso: o velho esmaece, o novo entra; seca sem movimento ou fora da tela.
+  function trocarAviso(el, txt, animar) {
+    if (el.__aviso === txt) return;
+    el.__aviso = txt;
+    if (el.__troca) { el.__troca.cancel(); el.__troca = null; }
+    const suave = animar && txt && el.textContent && !reduzMovimento()
+      && typeof el.animate === 'function' && el.getClientRects().length > 0;
+    if (!suave) { el.textContent = txt; return; }
+    const a = el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, easing: 'ease-in', fill: 'forwards' });
+    el.__troca = a;
+    a.onfinish = () => {
+      el.__troca = null; el.textContent = txt; a.cancel();
+      el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, easing: 'ease-out' });
+    };
+  }
+
+  function desenharEspera(ol, esp, animar) {
+    const assin = esp.fim ? 'E|fim' : ['E', esp.conta, esp.alvo, esp.aviso].join('|');
+    if (ol.__itinAssin === assin) return false;
+    ol.__itinAssin = assin;
+    if (ol.firstChild) ol.textContent = '';
+    ol.classList.add('em-espera');
+    const el = esperaEl(ol);
+    el.hidden = !!esp.fim;
+    if (esp.fim) return true;
+    const [, conta, alvo, aviso] = el.children;
+    conta.textContent = esp.conta;
+    alvo.textContent = 'às ' + esp.alvo;
+    aviso.hidden = !esp.aviso;
+    trocarAviso(aviso, esp.aviso, animar);
+    return true;
   }
 
   // O QUE A TELA MOSTRA: a LISTA INTEIRA quando ela cabe na janela (até ITIN_JANELA
@@ -1759,6 +1833,10 @@
    */
   function desenharItinerario(ol, d, agora, animar) {
     if (!ol) return false;
+    const esp = itinerarioEspera(d, agora);
+    if (esp) return desenharEspera(ol, esp, animar);
+    if (ol.__espera) ol.__espera.hidden = true;
+    ol.classList.remove('em-espera');
     const l = itinerarioLeitura(d, agora);
     const jan = itinerarioJanela(l);
     const assin = (l.horas ? 'h' : 't') + '|' + l.itens.length + '|' + jan.map((x) =>
@@ -1910,4 +1988,5 @@
   createStage.itinHora = itinHora;
   createStage.itinerarioLeitura = itinerarioLeitura;
   createStage.desenharItinerario = desenharItinerario;
+  createStage.itinerarioEspera = itinerarioEspera;
 })(this);

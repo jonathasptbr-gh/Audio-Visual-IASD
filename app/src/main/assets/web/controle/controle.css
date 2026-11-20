@@ -7685,20 +7685,20 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
 }
 .itin-b svg { width: var(--icon-md); height: var(--icon-md); flex: none; }
 /* DESATIVADO É O VÉU DO DECK (`--op-inativo`), como nas outras famílias — e NÃO o
-   vermelho: quem veste o vermelho são os três de ESTADO (abaixo). O pedido de 16/11
+   vermelho: quem veste o vermelho são os de ESTADO (abaixo). O pedido de 16/11
    é explícito: *"os botões que devem ficar vermelhos não são os de atraso, mas sim os
    3 de estado, que tecnicamente ligam e desligam elementos"*. */
 .itin-b:disabled { opacity: var(--op-inativo); cursor: default; }
-/* ===== O VERMELHO É DOS TRÊS DE ESTADO (Pacote 37) =====
+/* ===== O VERMELHO É DOS INTERRUPTORES DE ESTADO (Pacote 37; a espera desde o 5.1) =====
    O mesmo par do volume mudo e do wallpaper alternado (`--btn-danger` +
    `--danger-strong`, o `.pv-fab--mute.muted` / `.vol-pill.mudo` — a superfície da
    própria família, nunca a tinta sozinha: tokens.css). E no mesmo lugar da FRASE do
    pedido: *"desativados em vermelho"* — o vermelho é o estado DESLIGADO do
    interruptor; LIGADO é o cinza comum (ver a regra seguinte). Desligado: o itinerário fora do telão, os momentos ocultos na lista, as horas
-   escondidas no telão — as três coisas que mudam o que a igreja vê.
+   escondidas no telão, a tela de espera desligada — o que muda o que a igreja vê.
    `opacity: 1` porque o olho sem momento nenhum é `disabled` E desligado: o véu por
    cima do vermelho o apagaria (1,8:1), e o que se quer ali é justamente vê-lo. */
-.itin-b:is(#itinTelaoBtn, #itinMomentosBtn, #itinHorasBtn):not(.active) {
+.itin-b:is(#itinTelaoBtn, #itinMomentosBtn, #itinHorasBtn, #itinEsperaBtn):not(.active) {
   background: var(--btn-danger); color: var(--danger-strong); opacity: 1;
 }
 /* LIGADO É O CINZA DO DECK (16/11: *"os botões de estado não devem ser azuis antes de
@@ -7724,8 +7724,8 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
    sem andar quando o texto muda de "0 min" para "−5 min". */
 .itin-b.itin-ajuste-txt {
   /* A LEITURA É A CÉLULA MAIS LARGA (1,6×): é ela que carrega TEXTO ("−20 min") e
-     não um ícone, e a 320px as seis células de ícone ainda medem 34,3px — o piso
-     de toque —, enquanto o rótulo ganha os ~55px de que precisa. */
+     não um ícone, e a 320px as células de ícone ficam no piso de toque
+     (com a 8ª célula, a seção do atraso desce de linha: abaixo), enquanto o rótulo ganha os ~55px de que precisa. */
   flex: 1.6 1 0; min-width: 0; text-align: center;
   background: var(--surface); color: var(--muted);
   font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;
@@ -7754,7 +7754,7 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
    O ATRASO é COMPACTO — o ±5 encosta no texto (pedido de 15/11) —, então ele não é
    elástico: quem absorve a sobra é o vão entre as seções. */
 /* AS TRÊS SEÇÕES CONTINUAM NO DOM (é delas que vêm os `role="group"` com o nome de
-   cada uma), mas SEM CAIXA: `display: contents` faz os sete botões serem itens do
+   cada uma), mas SEM CAIXA: `display: contents` faz os oito botões serem itens do
    MESMO flex, e é isso que dá a fileira do deck — todos dividindo a largura, com
    UM vão só entre vizinhos quaisquer. Antes, cada seção era um bloco `flex: none`
    e o `space-between` repartia a sobra entre três vãos desiguais; a fileira tinha
@@ -7765,7 +7765,7 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
    mede o CONTEÚDO da faixa: o recuo de .8rem de cada lado já está descontado — 360px de tela
    são ~334px aqui.)
    O LIMITE SUBIU DE 400 PARA 456 NO PACOTE 37 e não é gosto: desde que a fileira divide a
-   largura em sete células iguais, a do atraso mede ~1,6 célula, e a escrita longa ("Atrasado
+   largura em células iguais (oito desde o 5.1), a do atraso mede ~1,6 célula, e a escrita longa ("Atrasado
    720 min", o máximo de `ITIN_DESLOC_MAX`) precisa de ~76px de conteúdo — que só existem com
    a faixa acima de ~456px. Abaixo disso ela era CORTADA com reticências (medido: "Atrasado
    720…"), e um rótulo cortado mente sobre o número. Em tela de tablet e no navegador de
@@ -7785,8 +7785,15 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
    a 360 o conteúdo já mede 323 — o NÚMERO cai 4px; o ±5 continua a 22px, e um
    degrau num número de dois algarismos não muda a leitura (o que o operador recusou
    na v1.14.52 era 13px contra 22, quase a metade). Acima disso nada muda. */
-@container (max-width: 299.98px) {
+/* PACOTE 5.1: com a OITAVA célula (a ampulheta da tela de espera) o degrau vale até
+   330px de aba (a 360 de tela ela mede ~323), e abaixo de 300 (320 de tela) a fileira
+   NÃO cabe com o piso de `--hit` — sobraria ~6px ao atraso: a SEÇÃO do atraso desce
+   inteira para uma segunda linha, a fileira dela própria. */
+@container (max-width: 329.98px) {
   .itin-ajuste-txt .itin-num { font-size: calc(var(--icon-md) - 4px); }
+}
+@container (max-width: 299.98px) {
+  .itin-secao--atraso { display: flex; flex: 1 0 100%; column-gap: var(--deck-gap); }
 }
 /* A PORTA DA FAIXA, NA BARRA DO TOPO (`#itinBarBtn`): mora sozinha na trilha 1 — as
    trilhas não mudam e o título não sai do eixo. Chapada, como a engrenagem, nos DOIS
@@ -8295,6 +8302,34 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
 .pv-text-content .itin-linha.agora .itin-titulo { font-weight: var(--fw-forte); }
 .pv-text-content .itin-linha.agora .itin-tag { background: var(--stage-on-accent); color: var(--stage-accent); }
 .pv-text-content .itin-linha.seguir .itin-tag { color: var(--stage-accent); }
+/* A TELA DE ESPERA (Pacote 5.1): `itinerario.espera` troca a lista pela contagem
+   até o 1º momento (`createStage.itinerarioEspera`). O cartão é irmão da `<ol>`,
+   que sai com `.em-espera`; `[hidden]` no horário = só o wallpaper. Mesmo bloco
+   escuro e tokens do PALCO da lista; a gêmea mora em display.css. */
+.pv-text-content .itin.em-espera, .pv-text-content .itin-espera[hidden], .pv-text-content .itin-espera-aviso[hidden] { display: none; }
+.pv-text-content:not(.mode-itinerario) .itin-espera { display: none; }
+.pv-text-content .itin-espera {
+  align-self: center; box-sizing: border-box;
+  width: min(100%, max(60cqw, 100cqmin)); padding: 4cqmin 4cqmin 3.6cqmin;
+  border-radius: 2.4cqmin; background: var(--stage-painel);
+  display: flex; flex-direction: column; align-items: center; gap: 1.2cqmin;
+  text-align: center; color: var(--stage-text);
+}
+.pv-text-content .itin-espera-rotulo {
+  font-size: 4.4cqmin; font-weight: var(--fw-medio); line-height: 1.2; color: var(--stage-text-dim);
+  letter-spacing: .06em; text-transform: uppercase;
+}
+.pv-text-content .itin-espera-conta {
+  font-size: 22cqmin; font-weight: var(--fw-forte); line-height: 1;
+  font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
+}
+.pv-text-content .itin-espera-alvo { font-size: 5.2cqmin; font-weight: var(--fw-medio); line-height: 1.2; color: var(--stage-accent); }
+.pv-text-content .itin-espera-aviso {
+  align-self: stretch; margin-top: 4.4cqmin; padding: 0 2cqmin;
+  font-size: 4.6cqmin; font-weight: 500; line-height: 1.25;
+  overflow: hidden; text-overflow: ellipsis; display: -webkit-box;
+  -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
 @media (prefers-reduced-motion: reduce) {
   .pv-text-content .itin-linha, .pv-text-content .itin-hora { transition: none; }
 }

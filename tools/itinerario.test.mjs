@@ -45,6 +45,10 @@
 //  F. O TELÃO: a mesma lista pelo DESCRITOR, e o REENVIO na reconexão.
 //  G. Antes do primeiro e depois do último, no telão.
 //  H. `prefers-reduced-motion`: nada se move.
+//  E″. (Pacote 5.1) A TELA DE ESPERA (`itinerario.espera`): contagem até o 1º momento
+//     efetivo, aviso em rodízio, desloc move, no horário = vazio; sem ela, a lista.
+//  E‴. (Pacote 5.1) O INTERRUPTOR da tela de espera no Controle: avisos certos, fila
+//     própria de música (a Playlist intacta), projeção/mídia/fim desligam, sem futuro não liga.
 //  I. Lista sem momentos: o "Telão" é APAGADO e diz por quê; esvaziar no ar tira do telão.
 //  J. Com o itinerário no ar o ⏮/⏭ é o AJUSTE de 5 em 5 min, com apagado nos extremos.
 //  L. A SUB-ABA de um momento: roletas de hora e minuto, nenhum `<input type="time">`.
@@ -458,7 +462,7 @@ try {
         tbtn: getComputedStyle(document.querySelector('.transport .t-btn')).backgroundColor,
         faixa: getComputedStyle(document.getElementById('itinBar')).backgroundColor,
         cinzas: [...document.querySelectorAll('#itinBar .itin-b')]
-          .filter((b) => !b.classList.contains('itin-novo') && !(['itinTelaoBtn', 'itinMomentosBtn', 'itinHorasBtn'].includes(b.id) && !b.classList.contains('active')))
+          .filter((b) => !b.classList.contains('itin-novo') && !(['itinTelaoBtn', 'itinMomentosBtn', 'itinHorasBtn', 'itinEsperaBtn'].includes(b.id) && !b.classList.contains('active')))
           .map((b) => getComputedStyle(b).backgroundColor),
       });
       const escuro = ler();
@@ -736,8 +740,8 @@ try {
   {
     const f = await faixa();
     checar(f.aberta && f.porta.expandido === 'true'
-      && f.filhos.join(' ') === 'itinNovoBtn itinTelaoBtn itinMomentosBtn itinHorasBtn passo−5 itinAjusteTxt passo+5',
-      'U · a porta ABRE a faixa com os sete, na ordem (v1.14.52: o criar no extremo esquerdo): Novo · Telão · Momentos · Horários · −5 · ajuste · +5 '
+      && f.filhos.join(' ') === 'itinNovoBtn itinTelaoBtn itinMomentosBtn itinHorasBtn itinEsperaBtn passo−5 itinAjusteTxt passo+5',
+      'U · a porta ABRE a faixa com os oito, na ordem (v1.14.52: o criar no extremo esquerdo; Pacote 5.1: a espera fecha o estado): Novo · Telão · Momentos · Horários · Espera · −5 · ajuste · +5 '
       + '(sem o ±1 e sem botão de recolher; os "−" são U+2212)', f);
     const p1 = await portaDesenho();
     checar(p1.qual === 'seta' && p1.usos.join() === '#icoExpandir' && p1.tracos === 0
@@ -763,12 +767,12 @@ try {
     });
     const semRegua = icones.celulas.filter((c) => c.nome !== 'itinAjusteTxt'
       && !(c.svg !== null ? Math.abs(c.svg - icones.md) <= 0.5 : Math.abs(c.fonte - icones.md) <= 0.5));
-    checar(icones.md > 0 && icones.celulas.length === 7 && semRegua.length === 0,
+    checar(icones.md > 0 && icones.celulas.length === 8 && semRegua.length === 0,
       'U · todos os ícones da faixa medem `--icon-md` (' + icones.md + 'px), o padrão dos botões de controle — inclusive '
       + 'os dois do ±5, que são TEXTO e mediam o tamanho de rótulo', { semRegua, icones });
-    checar(f.secoes.join(' / ') === 'itin-secao itin-secao--criacao|group|Criar|1 / itin-secao itin-secao--estado|group|Estado do itinerário|3 / '
+    checar(f.secoes.join(' / ') === 'itin-secao itin-secao--criacao|group|Criar|1 / itin-secao itin-secao--estado|group|Estado do itinerário|4 / '
       + 'itin-secao itin-secao--atraso|group|Atraso|3',
-      'U · e os sete moram em TRÊS seções (`role="group"`, cada uma com o nome dela): Criar [1] · Estado [3] · Atraso [3]', f.secoes);
+      'U · e os oito moram em TRÊS seções (`role="group"`, cada uma com o nome dela): Criar [1] · Estado [4] · Atraso [3]', f.secoes);
     checar(f.telao[0] === 'false' && f.telao[1] === false && f.telao[2] === '' && f.momentos === 'true' && f.horas === 'true'
       && f.ajuste[0] === true && f.ajuste[1] === false,
       'U · estado inicial: o olho do telão (SÓ o ícone) desligado e aceso, os momentos à vista, horários ligados, atraso apagado', f);
@@ -802,18 +806,18 @@ try {
         novo: [cs.backgroundColor, cs.color], contraste: +razao(cs.backgroundColor, cs.color).toFixed(2),
       };
     });
-    const ESTADO = ['itinTelaoBtn', 'itinMomentosBtn', 'itinHorasBtn'];
+    const ESTADO = ['itinTelaoBtn', 'itinMomentosBtn', 'itinHorasBtn', 'itinEsperaBtn'];
     const cores = await coresEm();
     const estado = cores.botoes.filter((b) => ESTADO.includes(b.nome));
     const resto = cores.botoes.filter((b) => !ESTADO.includes(b.nome) && !b.novo);
-    checar(cores.fundo === cores.barra && cores.botoes.length === 7 && estado.length === 3
+    checar(cores.fundo === cores.barra && cores.botoes.length === 8 && estado.length === 4
       && estado.filter((b) => b.active).length === 2
       && estado.filter((b) => b.active).every((b) => b.bg === cores.ligado)
       && estado.filter((b) => !b.active).every((b) => b.bg === cores.alerta)
       && resto.length === 3 && resto.every((b) => b.bg === cores.cartao && !/rgba\(0, 0, 0, 0\)$/.test(b.bg))
       && cores.novo[0] === cores.acento && !/rgba\(0, 0, 0, 0\)$/.test(cores.novo[0]) && cores.contraste >= 4.5
       && cores.botoes.filter((b) => b.bg === cores.acento).map((b) => b.nome).join() === 'itinNovoBtn',
-      'U · o padrão do DECK: a faixa pinta `--bar`; os TRÊS de estado pintam o CINZA `--surface` do `.t-btn` LIGADOS '
+      'U · o padrão do DECK: a faixa pinta `--bar`; os QUATRO de estado pintam o CINZA `--surface` do `.t-btn` LIGADOS '
       + '(16/11: nada de azul antes do vermelho) e `--btn-danger` DESLIGADOS; o ±5 e o ajuste pintam o CARTÃO `--surface`; e SÓ o "+" é `--accent-fill` '
       + '(texto acima de 4,5:1)', cores);
     // E O DESATIVADO NÃO É VERMELHO: o atraso em "No horário" é uma LEITURA (cartão e
@@ -1058,8 +1062,8 @@ try {
         })(),
       };
     });
-    checar(g.n === 7 && g.passaram.length === 0 && g.semLargura.length === 0 && g.rolagem <= 1,
-      'U · em ' + w + 'px de largura NENHUM dos sete botões da faixa passa da borda da faixa (e a faixa não rola)', g);
+    checar(g.n === 8 && g.passaram.length === 0 && g.semLargura.length === 0 && g.rolagem <= 1,
+      'U · em ' + w + 'px de largura NENHUM dos oito botões da faixa passa da borda da faixa (e a faixa não rola)', g);
     checar(g.noRecuo.length === 0,
       'U · e em ' + w + 'px nenhum botão invade o recuo da direita (o `padding` da faixa)', g);
     checar(g.longo !== g.curto, 'U · em ' + w + 'px o atraso aparece em UMA escrita só (longa ou curta)', g);
@@ -1067,7 +1071,8 @@ try {
     // estreita que a da faixa sangrada: a fonte larga do runner CORTARIA o "+45" a 22px, e
     // a regra de contêiner da aba o deixa um degrau menor ali (o ±5 segue a 22). Acima de
     // 300px de aba — de 360 de tela para cima — vale a igualdade estrita.
-    const cedido = w <= 320 ? 4 : 0;
+    // (Pacote 5.1) com OITO células o degrau vale também a 360 (a aba < 330px).
+    const cedido = w <= 360 ? 4 : 0;
     checar(!!g.num && Math.abs(parseFloat(g.num.fonte) - (parseFloat(g.num.fonteP) - cedido)) <= 0.5
       && Math.abs(g.num.caixa[1] - g.num.caixaP[1]) <= (cedido ? 7 : 0.5)
       && Math.abs(g.num.caixa[0] - g.num.caixaP[0]) <= (cedido ? 4 : 1)
@@ -1082,23 +1087,29 @@ try {
     // duas linhas, as seções que dividem a linha com o vão ENTRE maior que o DENTRO, e nada
     // passando da borda (as duas asserções acima).
     // A FILEIRA É UMA SÓ, COMO A DO DECK (Pacote 37). O que se cobra em TODA largura:
-    // os sete numa linha, o mesmo vão entre vizinhos (o `--deck-gap` do transporte),
-    // as seis células de ícone do mesmo tamanho, nenhuma abaixo do piso de toque e a
+    // os oito numa linha, o mesmo vão entre vizinhos (o `--deck-gap` do transporte),
+    // as sete células de ícone do mesmo tamanho, nenhuma abaixo do piso de toque e a
     // do atraso mais larga — é ela que carrega texto, não um ícone. A faixa continua
     // mais baixa que a barra do topo, que é o teto de altura da segunda linha.
-    const seis = g.fileira.larguras.filter((_, i) => i !== 5);
-    checar(g.fileira.n === 7 && g.fileira.tops.length === 1
-      && g.fileira.vaos.length === 6 && g.fileira.vaos.every((x) => Math.abs(x - g.fileira.vao) <= 0.5)
+    // (Pacote 5.1) OITO: a ampulheta da tela de espera entrou no fim do ESTADO; o atraso é o 7º.
+    const icones = g.fileira.larguras.filter((_, i) => i !== 6);
+    // A 320 (aba < 300px) a fileira de oito NÃO cabe com o piso de toque: a SEÇÃO do atraso
+    // desce inteira (a 2ª linha é dela), e o vão entre a 5ª e a 6ª é a quebra, não um vizinho.
+    const duas = w <= 320;
+    const vaosDaLinha = duas ? g.fileira.vaos.filter((_, i) => i !== 4) : g.fileira.vaos;
+    checar(g.fileira.n === 8 && g.fileira.tops.length === (duas ? 2 : 1)
+      && vaosDaLinha.length === (duas ? 6 : 7) && vaosDaLinha.every((x) => Math.abs(x - g.fileira.vao) <= 0.5)
       && Math.abs(g.fileira.vao - g.fileira.gapDeck) <= 0.5
-      && Math.max(...seis) - Math.min(...seis) <= 0.5
+      && (duas ? [icones.slice(0, 5), icones.slice(5)] : [icones]).every((l) => Math.max(...l) - Math.min(...l) <= 0.5)
       && Math.min(...g.fileira.larguras) >= g.fileira.piso - 0.5
-      && g.fileira.larguras[5] > Math.max(...seis)
+      && g.fileira.larguras[6] > Math.max(...icones)
       && new Set(g.fileira.alturas).size === 1,
-      'U · em ' + w + 'px os SETE ficam numa linha só, com o MESMO vão entre vizinhos (o do deck, ' + g.fileira.vao
-      + 'px), as seis células de ícone do mesmo tamanho e a do ATRASO mais larga; todas com a MESMA altura, nenhuma '
-      + 'abaixo do piso de toque', { fileira: g.fileira, seis });
-    checar(g.h > 0 && g.h < 2 * g.hTopo,
-      'U · em ' + w + 'px a faixa cabe numa LINHA (bem menos que duas alturas da barra do topo)', { h: g.h, hTopo: g.hTopo });
+      'U · em ' + w + 'px os OITO ficam numa linha só' + (duas ? ' (a 320, o atraso numa 2ª linha; cada linha com as células iguais)' : '') + ', com o MESMO vão entre vizinhos (o do deck, ' + g.fileira.vao
+      + 'px), as sete células de ícone do mesmo tamanho e a do ATRASO mais larga; todas com a MESMA altura, nenhuma '
+      + 'abaixo do piso de toque', { fileira: g.fileira, icones });
+    checar(g.h > 0 && g.h < (duas ? 3 : 2) * g.hTopo,
+      'U · em ' + w + 'px a faixa cabe numa LINHA (bem menos que duas alturas da barra do topo)'
+      + (duas ? ' — a 320, em DUAS (o atraso desce): menos que três' : ''), { h: g.h, hTopo: g.hTopo });
   }
   await pg.setViewportSize({ width: 360, height: 800 });
   await esperar(pg, () => innerWidth === 360);
@@ -1811,6 +1822,83 @@ try {
     checar(t.linhas.join() === '10:00 Louvor,*10:20 Fim [Agora]' && animou === 0 && /^0s/.test(trans),
       'H · com `prefers-reduced-motion` a troca acontece SEM movimento (nem deslize, nem transição)',
       { linhas: t.linhas, animou, trans });
+  }
+
+  // ── E″. A TELA DE ESPERA (Pacote 5.1) ───────────────────────────────────
+  // `itinerario.espera = { avisos }` troca a lista pela CONTAGEM até o 1º momento
+  // EFETIVO (desloc e fuso entram); no horário e depois, NADA. Primeiro o desenho
+  // puro (o MESMO `desenharItinerario`, relógio passado à mão, numa `<ol>` solta);
+  // depois o telão real pelo barramento, e a gêmea da preview.
+  {
+    const r = await tv.evaluate(() => {
+      const box = document.createElement('div'); document.body.appendChild(box);
+      const ol = document.createElement('ol'); ol.className = 'itin'; box.appendChild(ol);
+      const d = { itens: [{ k: 'b', min: 600, titulo: 'Louvor' }, { k: 'a', min: 570, titulo: 'Abertura' }],
+        desloc: 0, horas: true, fuso: 180, espera: { avisos: ['Desligue o celular', 'Bem-vindos'] } };
+      const em = (iso, dd) => {
+        const t = new Date(iso).getTime();
+        createStage.desenharItinerario(ol, dd || d, t, false);
+        const e = ol.__espera;
+        return { vazio: !ol.children.length && !!e && e.hidden, lista: ol.children.length,
+          espera: ol.classList.contains('em-espera'),
+          txt: e && !e.hidden ? [...e.children].map((c) => (c.hidden ? '' : c.textContent)).join('|') : '' };
+      };
+      const t0 = Math.floor(new Date('2026-10-24T09:00:00-03:00').getTime() / 10000) * 10000;
+      const iso = (ms) => new Date(ms).toISOString();
+      const out = {
+        meiaHora: em('2026-10-24T09:00:00-03:00'),
+        horaEMeia: em('2026-10-24T08:00:00-03:00'),
+        ultimo: em('2026-10-24T09:29:59.500-03:00'),
+        rodizio: [em(iso(t0)), em(iso(t0 + 10000)), em(iso(t0 + 20000))].map((x) => x.txt.split('|')[3]),
+        deslocado: em('2026-10-24T09:30:00-03:00', Object.assign({}, d, { desloc: 5 })),
+        noHorario: em('2026-10-24T09:30:00-03:00'),
+        depois: em('2026-10-24T11:00:00-03:00'),
+        semAviso: em('2026-10-24T09:00:00-03:00', Object.assign({}, d, { espera: { avisos: [] } })),
+        semEspera: em('2026-10-24T09:00:00-03:00', Object.assign({}, d, { espera: undefined })),
+      };
+      box.remove();
+      return out;
+    });
+    checar(r.meiaHora.txt === 'O culto começa em|30:00|às 09:30|' + r.rodizio[0] && r.meiaHora.espera
+      && r.horaEMeia.txt.split('|')[1] === '1:30:00' && r.ultimo.txt.split('|')[1] === '0:01',
+      'E″ · antes do 1º momento (fora de ordem no descritor), a CONTAGEM m:ss (h:mm:ss acima de 1 h) e o horário-alvo', r);
+    checar(r.rodizio[0] && r.rodizio[1] && r.rodizio[0] !== r.rodizio[1] && r.rodizio[2] === r.rodizio[0],
+      'E″ · os avisos RODAM pelo relógio, um por vez, a cada 10 s', r.rodizio);
+    checar(r.deslocado.txt.split('|').slice(1, 3).join() === '5:00,às 09:35',
+      'E″ · o ajuste (desloc +5) MOVE a contagem e o horário-alvo', r.deslocado);
+    checar(r.noHorario.vazio && r.noHorario.espera && r.depois.vazio,
+      'E″ · no horário e depois: TELA LIMPA (nem contagem, nem lista; nunca negativa)', [r.noHorario, r.depois]);
+    checar(r.semAviso.txt === 'O culto começa em|30:00|às 09:30|', 'E″ · `avisos: []`: sem a faixa do aviso', r.semAviso);
+    checar(!r.semEspera.espera && r.semEspera.lista === 2 && !r.semEspera.txt,
+      'E″ · SEM `espera` a lista volta como antes (o cartão de espera some)', r.semEspera);
+  }
+  {
+    const agoraMin = await tv.evaluate(() => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); });
+    const itin = (min, avisos) => ({ itens: [{ k: 'e', min, titulo: 'Culto' }], desloc: 0, horas: true, fuso, espera: { avisos } });
+    await mandar({ type: 'text', mode: 'itinerario', view: 'visual', __mid: 'it:e1', itinerario: itin(Math.min(agoraMin + 30, 1439), ['Aviso A']) });
+    const r1 = await esperar(tv, () => { const e = document.querySelector('#textItin + .itin-espera'); return !!e && !e.hidden && e.getClientRects().length > 0; });
+    const t1 = await tv.evaluate(() => {
+      const e = document.querySelector('#textItin + .itin-espera'), fs = (c) => parseFloat(getComputedStyle(e.querySelector(c)).fontSize);
+      return { txt: e.textContent, lista: document.getElementById('textItin').getClientRects().length, escala: fs('.itin-espera-conta') / fs('.itin-espera-rotulo') };
+    });
+    checar(r1 === true && /^(29|30):\d\d/.test(t1.txt.replace('O culto começa em', '')) && /Aviso A$/.test(t1.txt) && t1.lista === 0 && t1.escala > 3,
+      'E″ · no TELÃO real, pelo barramento: a contagem grande no lugar da lista, com o aviso', porque(r1) || t1);
+    await mandar({ type: 'text', mode: 'itinerario', view: 'visual', __mid: 'it:e2', itinerario: itin(Math.max(agoraMin - 1, 0), ['Aviso A']) });
+    const r2 = await esperar(tv, () => document.querySelector('#textItin + .itin-espera').hidden
+      && document.getElementById('textItin').getClientRects().length === 0 && !document.getElementById('text').hidden);
+    checar(r2 === true, 'E″ · no TELÃO, passado o horário: o cartão fica LIMPO (só o wallpaper), sem contagem', porque(r2));
+    const pv = await pg.evaluate((dd) => {
+      const ol = document.getElementById('pvTextItin');
+      if (!document.getElementById('pvTextContent').classList.contains('mode-itinerario')) return { semPreview: true };
+      createStage.desenharItinerario(ol, dd, Date.now(), false);
+      const e = ol.nextElementSibling, fs = (c) => parseFloat(getComputedStyle(e.querySelector(c)).fontSize);
+      return { classe: e.className, visivel: e.getClientRects().length > 0, escala: fs('.itin-espera-conta') / fs('.itin-espera-rotulo') };
+    }, itin(Math.min(agoraMin + 30, 1439), []));
+    checar(pv.classe === 'itin-espera' && pv.visivel && pv.escala > 3,
+      'E″ · na PREVIEW o mesmo desenho, pela gêmea do `controle.css`', pv);
+    await mandar({ type: 'text', mode: 'itinerario', view: 'visual', __mid: 'it:e3',
+      itinerario: { itens: [{ k: 'a', min: 600, titulo: 'Louvor' }, { k: 'b', min: 620, titulo: 'Fim' }], desloc: 0, horas: true, fuso } });
+    await esperar(tv, () => /Fim/.test(document.getElementById('textItin').textContent));
   }
 
   // ── W. CRONOGRAMA MÚLTIPLO: cada cronograma tem os SEUS momentos ─────────
@@ -2727,6 +2815,89 @@ try {
       'G″ · e com a faixa ABERTA (lápis e lixeira no desenho) a linha continua em ' + da.caixa + 'px por momento, '
       + 'com os dois botões no alvo `--hit` e o centro ainda dentro do `li`', { caixa: da.caixa, botoes: da.botoes, hit: aberta.hit });
     await fecharFaixa();
+  }
+
+  // ── E‴. O INTERRUPTOR DA TELA DE ESPERA (Pacote 5.1, o Controle) ───────
+  // A música é FALSA (o pool, o `getMedia`, o `send` dos playbacks e o `pararMidia`
+  // são trocados por gravadores): o que se prova é a ORQUESTRAÇÃO — a fila dela é
+  // própria e a Playlist não anda. O `send` do OPERADOR é o real.
+  {
+    const ini = await pg.evaluate(async () => {
+      if (!window.__cmds) {
+        window.__cmds = [];
+        const orig = AVDB.sendCommand;
+        AVDB.sendCommand = function (c) { window.__cmds.push(c); return orig.apply(this, arguments); };
+      }
+      itinAjusteZerar();
+      const c = await AVDB.addCue('message', { text: 'Sejam bem-vindos' }, { name: 'Aviso 0', list: 'imports' });
+      await load();
+      await moverNaListaPara('imports', c.id, 0);
+      const c2 = await AVDB.addCue('message', { text: 'Depois do momento' }, { name: 'Aviso D', list: 'imports' });
+      await load();
+      await moverNaListaPara('imports', c2.id, 2);
+      await new Promise((r) => setTimeout(r, 300));
+      await load();
+      window.__esp = { sends: [], parou: 0 };
+      plItems.push({ id: 'op-1', kind: 'audio', name: 'Da Playlist do operador' });
+      window.__realSend = send; window.__realParar = pararMidia; window.__realGet = AVDB.getMedia; window.__realPool = esperaPool;
+      esperaPool = () => [{ s: { fileIdPlayback: 'esp-1' } }, { s: { fileIdPlayback: 'esp-2' } }];
+      AVDB.getMedia = (id) => (/^esp-/.test(id) ? Promise.resolve({ id, kind: 'audio', name: id, __falso: true }) : window.__realGet.call(AVDB, id));
+      send = function (id, f, rec) {
+        if (rec && rec.__falso) { window.__esp.sends.push(id); currentId = id; midiaNoAr = true; return Promise.resolve(); }
+        return window.__realSend.apply(this, arguments);
+      };
+      pararMidia = () => { window.__esp.parou++; midiaNoAr = false; return Promise.resolve(); };
+      const nomes = libItems.map((r) => r.name);
+      const iMom = libItems.findIndex(ehMomento);
+      const depois = libItems.slice(iMom).filter((r) => r.kind === 'cue' && r.cue === 'message').map((r) => r.data.text);
+      return { pri: itinItens()[0].min, cue: c.id, nomes, depois };
+    });
+    const hm = (m) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+    await ctx.clock.setSystemTime(T(hm(ini.pri - 30)));
+    const estado = () => pg.evaluate(() => {
+      const b = document.getElementById('itinEsperaBtn');
+      const it = window.__cmds.filter((c) => c.type === 'text' && c.mode === 'itinerario').pop();
+      return { on: !!telaEspera, pressed: b && b.getAttribute('aria-pressed'), sends: window.__esp.sends.slice(), parou: window.__esp.parou,
+        pl: plItems.map((m) => m.id).join(), espera: it && it.itinerario.espera, desloc: it && it.itinerario.desloc,
+        ultimo: (window.__cmds[window.__cmds.length - 1] || {}).type, noAr: itinProjecting() };
+    });
+    const ligar = async () => { await abrirFaixa(); await pg.click('#itinEsperaBtn'); await esperar(pg, () => !!telaEspera && window.__esp.sends.length > 0); };
+    const pl0 = (await estado()).pl;
+    await pg.evaluate(() => { window.__cmds.length = 0; window.__esp.sends.length = 0; });
+    await ligar();
+    const e1 = await estado();
+    checar(e1.on && e1.pressed === 'true' && e1.noAr && e1.espera && e1.espera.avisos[0] === 'Sejam bem-vindos'
+      && ini.depois.length > 0 && !ini.depois.some((t) => e1.espera.avisos.includes(t)),
+      'E‴ · ligar projeta o itinerário COM `espera`: os avisos são as mensagens ANTES do 1º momento, não as de depois', { e1, ini });
+    await pg.evaluate(() => autoAdvance());
+    const e2 = await estado();
+    checar(e2.sends.join() === 'esp-1,esp-2' && e2.pl === pl0,
+      'E‴ · a música é uma FILA PRÓPRIA (o fim da faixa chama a próxima dela) e a Playlist do operador fica INTACTA', { e2, pl0 });
+    await pg.evaluate(() => itinAjustar(5));
+    const e3 = await estado();
+    checar(e3.on && e3.espera && e3.desloc === 5, 'E‴ · o +5 do itinerário NÃO desliga: o descritor segue com a espera, deslocado', e3);
+    await pg.evaluate(() => { itinAjusteZerar(); projetarMensagemCue({ text: 'Projeção do operador' }, 'x'); });
+    const e4 = await estado();
+    checar(!e4.on && e4.pressed === 'false' && e4.parou === 1,
+      'E‴ · uma PROJEÇÃO do operador desliga a espera: a música sai e o interruptor apaga', e4);
+    await pg.evaluate(() => { window.__esp.sends.length = 0; });
+    await ligar();
+    await pg.evaluate((id) => send(id), ini.cue);
+    const e5 = await estado();
+    checar(!e5.on && e5.pressed === 'false' && e5.parou === 2, 'E‴ · uma MÍDIA do operador (`send`) desliga a espera e a música dela sai', e5);
+    await pg.evaluate(() => { window.__esp.sends.length = 0; });
+    await ligar();
+    await ctx.clock.setSystemTime(T(hm(ini.pri), 1));
+    await pg.evaluate(() => { window.__cmds.length = 0; document.dispatchEvent(new Event('visibilitychange')); });
+    const e6 = await estado();
+    checar(!e6.on && e6.parou === 3 && e6.ultimo === 'text-hide' && !e6.noAr && e6.sends.length === 1,
+      'E‴ · no HORÁRIO (conferido na volta do segundo plano) a espera TERMINA: a música para, o telão fica LIMPO e nada do 1º momento toca', e6);
+    await pg.click('#itinEsperaBtn');
+    const e7 = await esperar(pg, () => [...document.querySelectorAll('.dialog-btn')].some((b) => b.textContent === 'Entendi'));
+    const diz = await pg.evaluate(() => { const b = [...document.querySelectorAll('.dialog-btn')].find((x) => x.textContent === 'Entendi'); const t = b.closest('[role="dialog"], dialog, .dialog') || document.body; const msg = t.textContent; b.click(); return { on: !!telaEspera, msg }; });
+    checar(e7 === true && !diz.on && /já passou/.test(diz.msg), 'E‴ · SEM momento futuro não liga, e diz por quê', { e7, diz });
+    await pg.evaluate(() => { send = window.__realSend; pararMidia = window.__realParar; AVDB.getMedia = window.__realGet; esperaPool = window.__realPool;
+      plItems = plItems.filter((m) => m.id !== 'op-1'); });
   }
 
   checar(erros.length === 0, 'nenhum erro de console', erros);
