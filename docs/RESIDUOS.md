@@ -45,6 +45,7 @@ medição em aparelho não é fino.**
 
 | quando · lote | onde | o que ficou | dono | por que não foi agora |
 |---|---|---|---|---|
+| 2026-11-20 · v1.15.4 | `.itin-hora` animada, `desenharItinerario` sem reinserir | nenhum resíduo novo; o ritmo da animação no telão HDMI e o destaque "Agora" agora com transição de cor só foram vistos no Chromium | medição | conferir no telão alternando os horários |
 | 2026-11-20 · v1.15.3 | `ITIN_JANELA` | nenhum resíduo novo; a altura do bloco com quatro linhas no telão HDMI só foi vista no Chromium | medição | conferir no telão |
 | 2026-11-20 · v1.15.2 | `#wallPrevia` | a prévia não gruda: numa tela baixa (ou com a fonte do sistema grande) a grade de 38vh pode empurrá-la para fora da vista, e aí escolher volta a pedir rolagem — medido só a 430x900, onde as duas cabem | medição | conferir no aparelho do operador; se não couber, a prévia vira `sticky` sob o cabeçalho |
 | 2026-11-20 · v1.15.1 | fundos da tela de espera nas telas da rede (`fundosUrl`, `itinFundoPorUrl`) | o caminho da rede não tem oráculo próprio (o `tela-rede` não cobre fundos); uma tela pareada DEPOIS de ligar a espera não recebe os bytes das imagens (religar resolve); o crossfade e o peso das imagens no telão HDMI só foram vistos no Chromium | medição | conferir no aparelho e numa tela da rede; o caso de oráculo da rede pede lote próprio |

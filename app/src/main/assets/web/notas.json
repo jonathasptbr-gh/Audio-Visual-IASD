@@ -1,5 +1,14 @@
 [
   {
+    "versao": "1.15.4",
+    "itens": [
+      "No itinerário do telão, mostrar ou ocultar os horários agora é animado.",
+      "A hora some ou volta aos poucos, e o nome do momento desliza para o lugar.",
+      "A troca do destaque \"Agora\" de um momento para o outro também ficou suave.",
+      "Não precisa instalar nada: chega pela atualização automática."
+    ]
+  },
+  {
     "versao": "1.15.3",
     "itens": [
       "O itinerário no telão mostra até 4 momentos de cada vez (eram 6).",

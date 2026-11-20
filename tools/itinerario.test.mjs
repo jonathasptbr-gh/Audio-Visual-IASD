@@ -1603,9 +1603,34 @@ try {
   }
 
   // ── E. HORÁRIOS × SÓ OS TÍTULOS, PELA FAIXA ──────────────────────────────
+  // As transições da hora são GRAVADAS (`transitionrun`, que borbulha) desde antes do
+  // toque: ler `getAnimations()` depois da espera perdia uma transição de 0,45 s.
+  const gravarHora = () => pg.evaluate(() => {
+    window.__horaTr = new Set();
+    const ol = document.getElementById('pvTextItin');
+    if (ol.__horaOuve) ol.removeEventListener('transitionrun', ol.__horaOuve);
+    ol.__horaOuve = (e) => { if (e.target.classList.contains('itin-hora')) window.__horaTr.add(e.propertyName); };
+    ol.addEventListener('transitionrun', ol.__horaOuve);
+  });
+  await gravarHora();
   await abrirFaixa();
   await pg.click('#itinHorasBtn');
   await esperar(pg, () => document.getElementById('pvTextItin').classList.contains('sem-horas'));
+  // A HORA SAI ANIMADA (20/11: *"minimamente animada e não apenas de forma a piscar"*):
+  // logo depois do flip há TRANSIÇÕES de largura e opacidade correndo na hora, e não um
+  // `display: none`; terminadas (`finish`), a coluna mede zero e a hora está apagada.
+  const horaSai = await pg.evaluate(() => {
+    const hs = [...document.querySelectorAll('#pvTextItin .itin-linha:not(.itin-saindo) .itin-hora')];
+    // O evento chega no quadro seguinte; a animação já está viva: vale a união dos dois.
+    const props = new Set([...window.__horaTr, ...hs.flatMap((h) => h.getAnimations().map((a) => a.transitionProperty))]);
+    const display = getComputedStyle(hs[0]).display;
+    hs.forEach((h) => h.getAnimations().forEach((a) => a.finish()));
+    const fim = hs.map((h) => [h.getBoundingClientRect().width, getComputedStyle(h).opacity]);
+    return { props: [...props].sort(), display, fim };
+  });
+  checar(horaSai.props.includes('max-width') && horaSai.props.includes('opacity') && horaSai.display !== 'none'
+    && horaSai.fim.every(([w, o]) => w < 0.5 && o === '0'),
+    'E · ocultar os horários é ANIMADO: a largura e a opacidade da hora transitam (não pisca), e no fim ela mede zero', horaSai);
   // E PELO DRENO DO ESTADO (run #2640, reprovou na 1ª tentativa e o re-run do
   // mesmo commit passou): o flip da classe é síncrono com o render, mas a
   // escolha GRAVADA mora atrás de `await` (`saveItin` → `updateState`) — a
@@ -1620,14 +1645,25 @@ try {
     const v = await pv();
     const b = await banco();
     const bt = await pg.evaluate(() => { const t = document.getElementById('itinHorasBtn'); return [t.getAttribute('aria-pressed'), t.classList.contains('active')]; });
-    checar(v.semHoras && v.horaVisivel === 'none' && b.horas === false && bt.join() === 'false,false',
+    checar(v.semHoras && v.horaVisivel !== null && b.horas === false && bt.join() === 'false,false',
       'E · "só os títulos": a hora some da lista projetada, o botão desliga (`aria-pressed="false"`) e a escolha é guardada', { v, horas: b.horas, bt });
     checar(v.linhas.length === 3 && v.linhas.some((x) => x.startsWith('*')),
       'E · e o item de agora CONTINUA marcado (a lista fica inteira)', v.linhas);
   }
+  await gravarHora();
   await abrirFaixa();
   await pg.click('#itinHorasBtn');
   await esperar(pg, () => !document.getElementById('pvTextItin').classList.contains('sem-horas'));
+  {
+    const volta = await pg.evaluate(() => {
+      const hs = [...document.querySelectorAll('#pvTextItin .itin-linha:not(.itin-saindo) .itin-hora')];
+      const props = new Set([...window.__horaTr, ...hs.flatMap((h) => h.getAnimations().map((a) => a.transitionProperty))]);
+      hs.forEach((h) => h.getAnimations().forEach((a) => a.finish()));
+      return { props: [...props].sort(), fim: hs.map((h) => [h.getBoundingClientRect().width > 1, getComputedStyle(h).opacity]) };
+    });
+    checar(volta.props.includes('max-width') && volta.fim.every(([w, o]) => w && o === '1'),
+      'E · e MOSTRAR também é animado: a hora cresce de volta e reaparece', volta);
+  }
   await esperarDb(pg, async () => {
     const s = await AVDB.getState('itinerario');
     return !!s && s.horas !== false;

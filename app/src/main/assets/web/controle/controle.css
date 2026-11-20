@@ -8276,25 +8276,25 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
 .pv-text-content .itin-linha {
   height: var(--itin-h); box-sizing: border-box; flex-shrink: 0;
   display: grid; grid-template-columns: var(--itin-tag-w) auto minmax(0, 1fr);
-  align-items: center; column-gap: 2.4cqmin;
+  align-items: center; column-gap: 0;
   padding: 0 3cqmin 0 1.2cqmin; border-radius: 1.6cqmin;
   font-size: 5.2cqmin; line-height: 1.2; color: var(--stage-text);
   transition: background-color .7s ease, color .7s ease;
 }
-.pv-text-content .itin.sem-horas .itin-linha { grid-template-columns: var(--itin-tag-w) minmax(0, 1fr); }
 .pv-text-content .itin-linha.itin-saindo { position: absolute; left: var(--itin-pad); right: var(--itin-pad); }
 .pv-text-content .itin-hora {
+  white-space: nowrap; overflow: hidden; max-width: 24cqmin; margin-right: 2.4cqmin;
   color: var(--stage-text-dim); font-weight: var(--fw-medio);
   font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
-  transition: color .7s ease;
+  transition: color .7s ease, max-width .45s ease, margin-right .45s ease, opacity .35s ease;
 }
-.pv-text-content .itin.sem-horas .itin-hora { display: none; }
+.pv-text-content .itin.sem-horas .itin-hora { max-width: 0; margin-right: 0; opacity: 0; }
 .pv-text-content .itin-titulo {
   min-width: 0; font-weight: 500;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .pv-text-content .itin-tag {
-  justify-self: end; white-space: nowrap;
+  justify-self: end; white-space: nowrap; margin-right: 2.4cqmin;
   font-size: 2.6cqmin; font-weight: var(--fw-max); line-height: 1;
   letter-spacing: .08em; text-transform: uppercase;
   padding: .7cqmin 1.3cqmin; border-radius: 99cqmin;

@@ -530,26 +530,31 @@ html, body {
 .itin-linha {
   height: var(--itin-h); box-sizing: border-box; flex-shrink: 0;
   display: grid; grid-template-columns: var(--itin-tag-w) auto minmax(0, 1fr);
-  align-items: center; column-gap: 2.4cqmin;
+  align-items: center; column-gap: 0;
   padding: 0 3cqmin 0 1.2cqmin; border-radius: 1.6cqmin;
   font-size: 5.2cqmin; line-height: 1.2; color: var(--stage-text);
   transition: background-color .7s ease, color .7s ease;
 }
-.itin.sem-horas .itin-linha { grid-template-columns: var(--itin-tag-w) minmax(0, 1fr); }
 /* A que SAI fica fora do fluxo, no lugar em que estava, enquanto esmaece. */
 .itin-linha.itin-saindo { position: absolute; left: var(--itin-pad); right: var(--itin-pad); }
+/* MOSTRAR/OCULTAR OS HORÁRIOS É ANIMADO (pedido de 20/11: *"minimamente animada e não
+   apenas de forma a piscar"*): a hora não sai por `display: none` — a largura
+   (`max-width`), o vão à direita dela (`margin-right`, o `column-gap` da linha é 0)
+   e a opacidade vão a zero, e o título desliza para o lugar. O vão da marca é a
+   `margin-right` da `.itin-tag`. */
 .itin-hora {
+  white-space: nowrap; overflow: hidden; max-width: 24cqmin; margin-right: 2.4cqmin;
   color: var(--stage-text-dim); font-weight: 600;
   font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1;
-  transition: color .7s ease;
+  transition: color .7s ease, max-width .45s ease, margin-right .45s ease, opacity .35s ease;
 }
-.itin.sem-horas .itin-hora { display: none; }
+.itin.sem-horas .itin-hora { max-width: 0; margin-right: 0; opacity: 0; }
 .itin-titulo {
   min-width: 0; font-weight: 500;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .itin-tag {
-  justify-self: end; white-space: nowrap;
+  justify-self: end; white-space: nowrap; margin-right: 2.4cqmin;
   font-size: 2.6cqmin; font-weight: 800; line-height: 1;
   letter-spacing: .08em; text-transform: uppercase;
   padding: .7cqmin 1.3cqmin; border-radius: 99cqmin;

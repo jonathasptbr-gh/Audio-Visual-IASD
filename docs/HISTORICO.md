@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.15.4** — mostrar/ocultar os horários do itinerário é ANIMADO (`max-width`/`margin-right`/`opacity` da `.itin-hora`, sem `display: none`) e `desenharItinerario` só move a linha fora do lugar — o `appendChild` de toda linha a cada desenho cancelava as transições (só web).
 - **v1.15.3** — o itinerário no telão mostra QUATRO momentos (`ITIN_JANELA` 6 → 4) e a janela para cheia perto do fim (só web).
 - **v1.15.2** — o Wallpaper, a pedido do operador: a grade do banco ROLA SOZINHA (a prévia fica à vista), a escolhida leva o check, e a identificação vira quatro níveis (`nenhuma` · `logo` · `iasd` · `completa`) (só web).
 - **v1.15.1** — a tela de espera ganha FUNDOS em rodízio: `itinerario.espera.fundos` (até 24 imagens das músicas baixadas, sorteadas) trocadas a cada 20 s pelo relógio de cada tela, com crossfade, atrás do bloco da contagem (só web).
@@ -827,6 +828,17 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.15.4 — os horários do itinerário aparecem e somem animados
+
+**O PEDIDO** (operador, 20/11): *"para a aparição dos horários nos itinerários do telão, no caso a função de aparecer ou ocultar: faça com que seja minimamente animada e não apenas de forma a piscar na tela e aparecer derrepente"*.
+
+| parte | o que mudou |
+|---|---|
+| CSS (`display.css` + a gêmea `.pv-text-content` do `controle.css`) | `.itin.sem-horas .itin-hora` era `display: none` e a linha trocava de template (3 → 2 colunas): corte seco. Agora a template é SEMPRE de três colunas com `column-gap: 0`; o vão da marca é a `margin-right` da `.itin-tag`, o da hora é a `margin-right` dela; `.sem-horas` leva `max-width`, `margin-right` e `opacity` da hora a 0 (`.45s`/`.35s`), e o título desliza. Com `prefers-reduced-motion` a regra que já existia (`transition: none` na `.itin-hora`) a deixa seca |
+| `desenharItinerario` (stage.js) | **A CAUSA DE NADA ANIMAR:** o laço fazia `ol.appendChild(li)` em TODA linha a cada desenho, e reinserir um nó descarta o estilo computado — a transição nunca começava. Isso também deixava seca a troca de cor do "Agora" (a `transition` de `background-color` da `.itin-linha` existia e não rodava, salvo quando o `liveTick` passava sem mudar a assinatura). Agora só move a linha fora do lugar (`insertBefore` contra a próxima viva, pulando as `.itin-saindo`) |
+
+`itinerario.test.mjs` E: as transições da hora gravadas por `transitionrun` (borbulha) desde antes do toque, mais `getAnimations()` no instante (o evento chega no quadro seguinte), nos dois sentidos — `max-width` e `opacity` correm, sem `display: none`, e no fim a hora mede 0 (oculta) ou volta à largura e a opacidade 1. Antes do conserto do `stage.js` os dois casos reprovavam com nenhuma transição registrada. O M (a marca colada na hora) segue verde com o vão novo.
 
 ## v1.15.3 — quatro momentos no telão
 

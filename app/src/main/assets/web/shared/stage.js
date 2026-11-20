@@ -1962,6 +1962,11 @@
     });
     const porChave = new Map(vivas.map((li) => [li.dataset.k, li]));
     const novas = new Set();
+    // SÓ MOVE A LINHA FORA DO LUGAR (20/11): reinserir um nó que já está no documento
+    // descarta o estilo computado dele e CANCELA as transições — a hora que some
+    // (`.sem-horas`) e o destaque do "Agora" trocavam secos. As que saem são puladas.
+    const proxViva = (n) => { while (n && n.classList.contains('itin-saindo')) n = n.nextElementSibling; return n; };
+    let prev = null;
     jan.forEach((x) => {
       let li = ficam.has(x.k) ? porChave.get(x.k) : null;
       if (!li) {
@@ -1983,7 +1988,9 @@
       tag.textContent = x.estado === 'agora' ? 'Agora' : x.estado === 'seguir' ? 'A seguir' : '';
       li.classList.toggle('agora', x.estado === 'agora');
       li.classList.toggle('seguir', x.estado === 'seguir');
-      ol.appendChild(li);
+      const alvo = proxViva(prev ? prev.nextElementSibling : ol.firstElementChild);
+      if (li !== alvo) ol.insertBefore(li, alvo);
+      prev = li;
     });
     if (!mover) return true;
     const caixa = ol.getBoundingClientRect();
