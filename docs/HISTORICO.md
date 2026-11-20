@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.15.0** — a seção do WALLPAPER (`#wallSecao`): fundo padrão, foto ou o BANCO de imagens das estrofes da biblioteca, e a identificação da igreja (símbolo + "Igreja Adventista do Sétimo Dia" + nome local, no centro ou embaixo) composta num canvas 1920x1080 (só web).
 - **v1.14.90** — dois defeitos da tela de espera: o fim (horário ou ajuste) deixava a letra/capa do playback presa no telão e na preview (`media-clear` + `text-hide` na mesma janela de fade → `restoreSceneAfterText` remontava a cena); os avisos não se atualizavam com o cronograma (só web).
 - **v1.14.89** — Pacote 5.1, a TELA DE ESPERA do itinerário: `itinerario.espera = { avisos }` no descritor (contagem até o 1º momento efetivo, avisos em rodízio, tela limpa no horário) e o interruptor `#itinEsperaBtn` (8ª célula da `#itinBar`) com fila própria de playbacks baixados (só web).
 - **v1.14.88** — a lista dos modelos da gaveta abre e fecha animada (`cronoModelosAlternar`) e a gaveta cabe no `.list-body` (`max-height: calc(100% - 2 * --sp-3)`, coluna flex) — a sombra de baixo ficava sob a barra de controles (só web).
@@ -823,6 +824,22 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.15.0 — o wallpaper ganha seção: o banco de imagens da biblioteca e a identificação da igreja
+
+**O PEDIDO** (operador, 20/11): *"O app já tem um banco de imagens que vem com as músicas da biblioteca, gostaria de ter acesso a essas imagens, para poder escolher elas como papel de parede para o telão. Organize também para que possamos colocar o logo da iasd, nome da IASD geral e o nome da igreja em questão embaixo. Basicamente fazendo um papel de parede customizado para a igreja local. Tudo isso na seção de wallpaper das configurações"*.
+
+**INCREMENTAL** (1.14.90 → 1.15.0): um lugar novo com fluxo próprio — o tile `#wallTile` deixou de alternar seletor × padrão e ABRE `#wallSecao` (linha `wall` em `SECOES`).
+
+| parte | o que mudou |
+|---|---|
+| a seção | `#wallPrevia` (a imagem no ar), `#wallFonteSeg` `padrao`·`biblioteca`·`foto` (a Foto é o `<label>` `#wallFoto` sobre o `#wallFile`, invariante 6), `#wallGaleria`, `#wallIgrejaSeg`, `#wallIgrejaNome`, `#wallPosSeg` `centro`·`rodape` |
+| o banco | `wallListarImagens`: os `imageOpfsPath` das estrofes de `filesAll()`, sem repetição, relidos a cada abertura; páginas de 36; miniatura só à vista (`IntersectionObserver`, URL solta fora de vista) |
+| a composição | `wallCompor`: sem identificação, a imagem como está (padrão = `null`); com ela, canvas 1920x1080 JPEG 0,9 — o símbolo é o `d` do `wallpaper-padrao.svg` em `Path2D` e o gradiente do padrão é lido das paradas do mesmo SVG (fonte única). Véu escuro só sobre foto. Rodapé dentro da largura 4:3 |
+| o estado | `wallpaperCfg` (a escolha) e `wallpaperFoto` (Blob da foto reduzida); o resultado continua no `wallpaper`. `setWallpaper` passou a só GRAVAR (a redução é de `wallEscolherFoto`). Migração: foto de antes sem `wallpaperCfg` abre como `foto` |
+| o contrato do telão | nenhum: Display, preview e telas da rede leem o mesmo Blob |
+
+`configuracoes-janelas.test.mjs` C reescrito: o tile é `<button>` na Tela e abre a seção; a Foto é o `<label>` com o `<input type=file>` dentro e abre o seletor; o Padrão chama `setWallpaper(null)` uma vez sem seletor; a identificação compõe JPEG 1920x1080. `#wallSecao` entrou na lista "entre a grade e o rodapé" do A. Medido no Chromium do arnês com sete imagens falsas no OPFS (prévia, galeria, centro, embaixo, padrão+embaixo); o aparelho não foi visto.
 
 ## v1.14.90 — a tela de espera termina no wallpaper e acompanha as mensagens
 

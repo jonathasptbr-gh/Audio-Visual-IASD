@@ -222,6 +222,8 @@ O campo `kind` é derivado do `type` (ou definido pelo chamador para itens de UR
 | `fit` | `'contain'` \| `'cover'` \| `'fill'` — preenchimento da mídia (ajustar/preencher/esticar) no Display e na preview |
 | `lyricsBg` | `'image'` (padrão) \| `'black'` — fundo atrás da letra sincronizada: as imagens dos slides ou preto. Ausente conta como `'image'` (só quem ESCOLHEU "Remover" grava `'black'`) |
 | `wallpaper` | `Blob` da imagem escolhida para a cortina do telão, ou ausente/`null` = gradiente padrão (ver "Wallpaper personalizado") |
+| `wallpaperCfg` | `{ fonte: 'padrao'\|'biblioteca'\|'foto', imagem: imageOpfsPath\|null, igreja: bool, nome: string, posicao: 'centro'\|'rodape' }` — a escolha da seção do Wallpaper (v1.15.0); o `wallpaper` é o resultado dela |
+| `wallpaperFoto` | `Blob` da foto do aparelho já reduzida (`fitWallpaperImage`) — a base de `fonte: 'foto'` (v1.15.0) |
 | `favs` | array de IDs — **os FAVORITOS** (v5.103): a marcação de um toque, sem grupo nenhum. É uma das `LISTS` de `db.js`, e é isso que a torna um detentor de referência de verdade (favoritar segura o blob; desfavoritar deixa o gc decidir) |
 | `folders` / `folder_<id>` | **LEGADO** (as pastas virtuais saíram na v5.254). `folder_<id>` era um detentor de referência como as listas, escrito só por `listAdd`/`listRemove`/`folderDrop` — a regra fica porque `isReferenced` ainda varre essas chaves, e é ela que vale para QUALQUER chave de `state` que passe a guardar ids de mídia |
 | `downloadOk` | `true` depois que o operador autorizou o download sob demanda uma vez (modo simplificado — `ensureDownloadConsent`) |

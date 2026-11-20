@@ -8309,6 +8309,18 @@ body:not(.itin-faixa-aberta) .lib-item.momento .row-acoes--solta > :is(.itin-edi
    que sai com `.em-espera`; `[hidden]` no horário = só o wallpaper. Mesmo bloco
    escuro e tokens do PALCO da lista; a gêmea mora em display.css. */
 /* Uma regra por seletor: o `mensagem-estilo` C confere cada um vivo no CSSOM. */
+/* O FUNDO DA ESPERA (20/11), gêmeo do display.css: a imagem cobre a camada. */
+.pv-text .itin-fundo { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.pv-text:not(.mode-itinerario) .itin-fundo { display: none; }
+.pv-text .itin-fundo-img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; opacity: 0; transition: opacity 1.2s ease;
+}
+.pv-text .itin-fundo-img.on { opacity: 1; }
+.pv-text .itin-fundo.seco .itin-fundo-img { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+  .pv-text .itin-fundo-img { transition: none; }
+}
 .pv-text-content .itin.em-espera { display: none; }
 .pv-text-content .itin-espera[hidden] { display: none; }
 .pv-text-content .itin-espera-aviso[hidden] { display: none; }
@@ -11425,6 +11437,48 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
   font-variant-numeric: tabular-nums;
 }
 .boot-vol.apagado .boot-vol-num { color: var(--muted); }
+
+/* ===== O WALLPAPER (v1.15.0) =====
+   A seção do molde da Inicialização (`.boot-corpo` + `.fade-row--fit`), com três
+   peças próprias: a PRÉVIA (a imagem que está no telão, 16:9, e vazia o mesmo
+   desenho padrão do `.pv-wall`), a GRADE do banco de imagens e o CAMPO do nome.
+   A Foto é um `<label>` vestido de `.fit-opt` — a ativação nativa dele abre o
+   seletor (invariante 6) —, então ele ganha o centro que o `<button>` já tem. */
+.wall-previa {
+  aspect-ratio: 16 / 9; width: 100%;
+  border-radius: var(--radius-card); overflow: hidden;
+  background-color: var(--wallpaper);
+  background-image: url('../shared/wallpaper-padrao.svg');
+  background-size: cover; background-position: center;
+}
+#wallFoto { display: flex; align-items: center; justify-content: center; }
+.wall-galeria { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); margin-top: var(--sp-3); }
+.wall-galeria:empty { display: none; }
+.wall-thumb {
+  position: relative; aspect-ratio: 16 / 9; padding: 0; overflow: hidden;
+  border: none; border-radius: var(--radius-btn); cursor: pointer;
+  background: var(--surface);
+}
+.wall-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.wall-thumb img:not([src]) { visibility: hidden; }
+.wall-thumb.falhou { opacity: var(--op-inativo); }
+/* A ESCOLHIDA tem o anel do acento por DENTRO: por fora ele seria cortado pela
+   grade, e o `outline` do foco continua sendo o do navegador. */
+.wall-thumb.escolhida { box-shadow: inset 0 0 0 3px var(--accent); }
+.wall-thumb.escolhida img { opacity: .85; }
+.wall-mais { margin-top: var(--sp-3); width: 100%; }
+.wall-mais[hidden] { display: none; }
+#wallGaleriaBox[hidden] { display: none; }
+/* O CAMPO é o do renomear da linha (`.linha-renome-campo`), na largura toda. */
+.wall-campo {
+  width: 100%; min-height: var(--hit); padding: 0 .7rem;
+  border: none; outline: none; border-radius: var(--radius-btn);
+  appearance: none; -webkit-appearance: none;
+  font-family: inherit; font-size: var(--fs-md);
+  background: var(--surface); color: var(--text);
+}
+.wall-campo::placeholder { color: var(--muted); }
+.wall-campo:disabled { opacity: var(--op-inativo); }
 
 /* ===== EDITAR MÍDIA (v1.12.1) =====
    Duas vistas na mesma seção: o FORMULÁRIO e o SELETOR (grupos como a exportação).

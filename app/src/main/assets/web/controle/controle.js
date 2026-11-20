@@ -397,6 +397,7 @@ const telaTileEl = document.getElementById('telaTile');
 const telaSecaoEl = document.getElementById('telaSecao');
 const pacoteTileEl = document.getElementById('pacoteTile');
 const pacoteSecaoEl = document.getElementById('pacoteSecao');
+const wallSecaoEl = document.getElementById('wallSecao');
 // O EDITOR DE MÍDIA é uma FERRAMENTA desde a v1.14.7, e o corpo dele mora na
 // folha de Ferramentas (`#toolsSheet`), FORA do `#toolsBody`: o corpo da folha é
 // reconstruído a cada troca (`innerHTML = ''`) e o editor é DOM FIXO — dezenas de
@@ -422,6 +423,8 @@ const SECOES = {
   // as três decisões valem ANTES de todas as outras desta folha (v1.14.71).
   boot: { tile: bootTileEl, el: bootSecaoEl, abrir: aoAbrirBoot },
   tela: { tile: telaTileEl, el: telaSecaoEl, abrir: aoAbrirTela },
+  // O WALLPAPER (v1.15.0) abre pelo tile DENTRO da Tela (`#wallTile`).
+  wall: { tile: document.getElementById('wallTile'), el: wallSecaoEl, abrir: aoAbrirWall, recolher: aoRecolherWall },
   pacote: { tile: pacoteTileEl, el: pacoteSecaoEl, abrir: aoAbrirPacote },
   hist: { tile: histOpenRowEl, el: histSecaoEl, abrir: renderHistorico, recolher: aoRecolherHist },
   teste: { tile: testeTileEl, el: testeSecaoEl, abrir: aoAbrirTeste, recolher: aoRecolherTeste },
@@ -493,7 +496,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.14.90';
+const WEB_VERSION = '1.15.0';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -8680,7 +8683,7 @@ function itinDescriptor() {
     desloc: itin.desloc, horas: itin.horas,
     fuso: new Date().getTimezoneOffset(),
     // A TELA DE ESPERA (Pacote 5.1) é um campo ADITIVO: só com ela ligada.
-    ...(telaEspera ? { espera: { avisos: esperaAvisos() } } : {}),
+    ...(telaEspera ? { espera: esperaDescritor() } : {}),
   };
 }
 
@@ -8739,7 +8742,7 @@ function hideItin(levado) {
 // o horário (`esperaArmar`: fila parada e telão LIMPO). O ±5 só move o alvo.
 // O relógio só ENCERRA: nunca dispara mídia do 1º momento (HISTORICO.md:2916).
 // Não sobrevive a recarregar o Controle.
-let telaEspera = null;       // { fila: [{ coll, s }], i, faixa, itinAntes, timer } | null
+let telaEspera = null;       // { fila: [{ coll, s }], i, faixa, itinAntes, timer, fundos? } | null
 let esperaEnviando = false;  // o `send` da própria espera não a desliga
 
 // Os AVISOS: as MENSAGENS sem grupo (antes do 1º momento, na ordem da lista).
@@ -8754,6 +8757,28 @@ function esperaAvisos() {
     if (t) out.push(t);
   }
   return out;
+}
+
+// O FUNDO (pedido de 20/11): as ilustrações de TODAS as músicas baixadas (o
+// conjunto da Biblioteca do Wallpaper, `wallListarImagens`), baralhadas uma vez
+// ao ligar e limitadas a ESPERA_FUNDOS_MAX (a lista viaja no descritor; cada
+// tela escolhe pelo relógio, `itinerarioEspera`). Com tela da rede ativa vai a
+// /m/ paralela (`fundosUrl`, só se todas cunharem) e os bytes entram na fila
+// DEPOIS da música. Sem imagem: sem `fundos`, e o wallpaper fica.
+const ESPERA_FUNDOS_MAX = 24;
+async function esperaFundos() {
+  let l = [];
+  try { l = await wallListarImagens(); } catch (_) { /* banco ilegível: sem fundos */ }
+  return AVSorteio.embaralhar(l.map((x) => x.caminho), Math.random).slice(0, ESPERA_FUNDOS_MAX);
+}
+function esperaDescritor() {
+  const o = { avisos: esperaAvisos() };
+  const f = telaEspera && telaEspera.fundos;
+  if (f && f.length) {
+    o.fundos = f.slice();
+    if (telaAtiva()) { const u = f.map(telaImagemLetraUrl); if (u.every(Boolean)) o.fundosUrl = u; }
+  }
+  return o;
 }
 
 // Quanto falta (ms) para o 1º momento EFETIVO (min + desloc); ≤ 0 = passou ou não há.
@@ -8789,15 +8814,25 @@ async function esperaLigar() {
   const e = telaEspera = { fila: [], i: 0, faixa: '', itinAntes: itinProjecting(), timer: 0 };
   projectItin();
   esperaArmar();
+  const fundos = esperaFundos().then((f) => {
+    if (telaEspera !== e || !f.length) return;
+    e.fundos = f;
+    diagC('tela de espera: ' + f.length + ' fundos');
+    pushItin();
+  });
   try { await ensureLyricIndex(); } catch (_) { /* o pool lê o que houver */ }
   if (telaEspera !== e) return;
   e.fila = esperaPool();
   diagC('tela de espera: ligada (' + esperaAvisos().length + ' avisos, ' + e.fila.length + ' playbacks)');
   if (!e.fila.length) {
     esperaAvisar('Nenhum playback do Hinário está baixado neste aparelho: a tela de espera fica sem música.');
-    return;
+  } else {
+    await esperaProxima();
   }
-  esperaProxima();
+  await fundos;
+  if (telaEspera === e && e.fundos && telaAtiva()) {
+    telaEmpurrarImagensLetra({ lyrics: e.fundos.map((p) => ({ imageOpfsPath: p })) });
+  }
 }
 
 // A próxima da fila PRÓPRIA (em laço); um playback que não abre é pulado.
@@ -41953,6 +41988,10 @@ async function applyPvWallpaper() {
     pvWallEl.style.backgroundImage = '';
   }
   pintarFundoDoPvCartao();
+  // A PRÉVIA DA SEÇÃO DO WALLPAPER é a mesma imagem (e, vazia, o mesmo desenho
+  // padrão pela folha). Por `getElementById`: isto roda na carga.
+  const previa = document.getElementById('wallPrevia');
+  if (previa) previa.style.backgroundImage = pvWallEl.style.backgroundImage;
 }
 
 // Reduz a imagem escolhida para caber num telão 1080p. O operador costuma
@@ -41985,14 +42024,552 @@ async function fitWallpaperImage(file) {
   }
 }
 
-async function setWallpaper(file) {
-  const blob = file ? await fitWallpaperImage(file) : null;
+// GRAVA o wallpaper pronto (ou `null` = o padrão). Quem reduz a foto é quem a
+// recebe (`wallEscolherFoto`); a composição já nasce em 1920x1080.
+async function setWallpaper(blob) {
+  if (!(blob instanceof Blob)) blob = null;
   await AVDB.setState('wallpaper', blob);
   customWallpaper = blob instanceof Blob;
   renderWallTile();
   await applyPvWallpaper();
   // O Display lê o mesmo state — o comando só avisa que mudou.
   AVDB.sendCommand({ type: 'wallpaper' });
+}
+
+// ===== O EDITOR DO WALLPAPER (v1.15.0) =====
+// Pedido do operador: *"O app já tem um banco de imagens que vem com as músicas
+// da biblioteca, gostaria de ter acesso a essas imagens, para poder escolher elas
+// como papel de parede para o telão … colocar o logo da iasd, nome da IASD geral e
+// o nome da igreja em questão embaixo"*.
+//
+// | escolha | onde mora |
+// |---|---|
+// | o FUNDO: `padrao` · `biblioteca` (um `imageOpfsPath` de estrofe) · `foto` | `wallpaperCfg` |
+// | a foto do aparelho, já reduzida (`fitWallpaperImage`) | `wallpaperFoto` (Blob) |
+// | a IDENTIFICAÇÃO: ligada, nome da igreja, `centro` · `rodape` | `wallpaperCfg` |
+//
+// O RESULTADO É UM BLOB SÓ, no state `wallpaper` de sempre (`setWallpaper`): o
+// Display, a preview e as telas da rede não aprendem nada novo. Sem
+// identificação, foto e imagem da biblioteca vão COMO ESTÃO (o mesmo de antes da
+// v1.15.0); com ela, o canvas compõe 1920x1080. Padrão sem identificação é
+// `null` — o desenho de `shared/wallpaper-padrao.svg`, que é também a FONTE do
+// símbolo e do gradiente desenhados aqui (`wallDesenho`).
+//
+// O BANCO DE IMAGENS é o conjunto dos `imageOpfsPath` das estrofes do catálogo,
+// sem repetição (`wallListarImagens`), lido a cada abertura da seção — a
+// biblioteca muda entre uma e outra. A grade carrega por página e só decodifica o
+// que está à vista (`IntersectionObserver`); o que sai de vista solta a URL.
+const WALL_CFG_KEY = 'wallpaperCfg';
+const WALL_FOTO_KEY = 'wallpaperFoto';
+const WALL_W = 1920;
+const WALL_H = 1080;
+const WALL_IASD = 'Igreja Adventista do Sétimo Dia';
+const WALL_PAGINA = 36;
+const WALL_NOME_MAX = 60;
+const wallPreviaEl = document.getElementById('wallPrevia');
+const wallStatusEl = document.getElementById('wallStatus');
+const wallFonteSegEl = document.getElementById('wallFonteSeg');
+const wallGaleriaBoxEl = document.getElementById('wallGaleriaBox');
+const wallGaleriaEl = document.getElementById('wallGaleria');
+const wallGaleriaNotaEl = document.getElementById('wallGaleriaNota');
+const wallGaleriaMaisEl = document.getElementById('wallGaleriaMais');
+const wallIgrejaSegEl = document.getElementById('wallIgrejaSeg');
+const wallIgrejaNomeEl = document.getElementById('wallIgrejaNome');
+const wallPosSegEl = document.getElementById('wallPosSeg');
+let wallCfg = null;
+let wallVerGaleria = false;
+let wallImagens = null;        // [{ caminho, titulo }] | null (não lido nesta abertura)
+let wallMostradas = 0;
+let wallObs = null;
+const wallUrls = new Map();    // miniatura → object URL
+let wallSeq = 0;               // a composição mais nova vence
+let wallNomeTimer = 0;
+let wallDesenhoP = null;
+
+function wallCfgNormal(v) {
+  const c = (v && typeof v === 'object') ? v : {};
+  return {
+    fonte: ['padrao', 'biblioteca', 'foto'].includes(c.fonte) ? c.fonte : 'padrao',
+    imagem: typeof c.imagem === 'string' && c.imagem ? c.imagem : null,
+    igreja: c.igreja === true,
+    nome: typeof c.nome === 'string' ? c.nome.slice(0, WALL_NOME_MAX) : '',
+    posicao: c.posicao === 'rodape' ? 'rodape' : 'centro',
+  };
+}
+
+// A ESCOLHA GUARDADA. Quem escolheu uma foto ANTES da v1.15.0 tem o wallpaper e
+// nenhuma escolha: ela vira `foto`, com o wallpaper de hoje como base — senão a
+// seção abriria dizendo "Padrão" sobre a foto que está no telão.
+async function wallLerCfg() {
+  let v = null;
+  try { v = await AVDB.getState(WALL_CFG_KEY); } catch (_) { /* segue no padrão */ }
+  if (!v) {
+    let atual = null;
+    try { atual = await AVDB.getState('wallpaper'); } catch (_) { /* nada no ar */ }
+    if (atual instanceof Blob) {
+      v = { fonte: 'foto' };
+      let base = null;
+      try { base = await AVDB.getState(WALL_FOTO_KEY); } catch (_) { /* sem base */ }
+      if (!(base instanceof Blob)) await AVDB.setState(WALL_FOTO_KEY, atual).catch(() => {});
+    }
+  }
+  wallCfg = wallCfgNormal(v);
+  return wallCfg;
+}
+
+function wallStatus(texto) {
+  if (!wallStatusEl) return;
+  wallStatusEl.textContent = texto || '';
+  wallStatusEl.hidden = !texto;
+}
+
+function wallPintar() {
+  const c = wallCfg || wallCfgNormal(null);
+  if (wallFonteSegEl) {
+    wallFonteSegEl.dataset.fonte = c.fonte;
+    wallFonteSegEl.querySelectorAll('.fit-opt').forEach((b) => {
+      const on = b.dataset.fonte === c.fonte;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  }
+  pintarBootChave(wallIgrejaSegEl, 'igreja', c.igreja);
+  if (wallIgrejaNomeEl) {
+    if (document.activeElement !== wallIgrejaNomeEl) wallIgrejaNomeEl.value = c.nome;
+    wallIgrejaNomeEl.disabled = !c.igreja;
+  }
+  if (wallPosSegEl) {
+    wallPosSegEl.dataset.pos = c.posicao;
+    wallPosSegEl.querySelectorAll('.fit-opt').forEach((b) => {
+      const on = b.dataset.pos === c.posicao;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.disabled = !c.igreja;
+    });
+  }
+  if (wallGaleriaBoxEl) wallGaleriaBoxEl.hidden = !wallVerGaleria;
+  wallMarcarEscolhida();
+}
+
+function wallMarcarEscolhida() {
+  if (!wallGaleriaEl) return;
+  const c = wallCfg || wallCfgNormal(null);
+  const alvo = c.fonte === 'biblioteca' ? c.imagem : null;
+  wallGaleriaEl.querySelectorAll('.wall-thumb').forEach((b) => {
+    const on = b.dataset.caminho === alvo;
+    b.classList.toggle('escolhida', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+
+// ---- o banco de imagens ----
+async function wallListarImagens() {
+  const vistos = new Map();
+  for (const r of await AVDB.filesAll()) {
+    if (!r || !Array.isArray(r.lyrics)) continue;
+    for (const sl of r.lyrics) {
+      const p = sl && sl.imageOpfsPath;
+      if (p && !vistos.has(p)) vistos.set(p, r.name || '');
+    }
+  }
+  return [...vistos].map(([caminho, titulo]) => ({ caminho, titulo }));
+}
+
+function wallThumbCarregar(btn) {
+  if (wallUrls.has(btn)) return;
+  wallUrls.set(btn, null);   // reservado: um segundo aviso não pede de novo
+  AVDB.opfsGetFile(btn.dataset.caminho).then((f) => {
+    if (!btn.isConnected || wallUrls.get(btn) !== null) return;
+    const url = URL.createObjectURL(f);
+    wallUrls.set(btn, url);
+    btn.querySelector('img').src = url;
+  }).catch(() => { btn.classList.add('falhou'); });
+}
+function wallThumbSoltar(btn) {
+  const url = wallUrls.get(btn);
+  wallUrls.delete(btn);
+  if (!url) return;
+  const img = btn.querySelector('img');
+  if (img) img.removeAttribute('src');
+  URL.revokeObjectURL(url);
+}
+
+function wallMostrarMais() {
+  if (!wallImagens || !wallGaleriaEl) return;
+  if (!wallObs && typeof IntersectionObserver === 'function') {
+    wallObs = new IntersectionObserver((ents) => {
+      for (const e of ents) {
+        if (e.isIntersecting) wallThumbCarregar(e.target); else wallThumbSoltar(e.target);
+      }
+    }, { rootMargin: '300px 0px' });
+  }
+  const fim = Math.min(wallImagens.length, wallMostradas + WALL_PAGINA);
+  for (let i = wallMostradas; i < fim; i++) {
+    const im = wallImagens[i];
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'wall-thumb';
+    b.dataset.caminho = im.caminho;
+    b.title = im.titulo || 'Imagem da biblioteca';
+    b.setAttribute('aria-label', im.titulo ? 'Imagem de ' + im.titulo : 'Imagem da biblioteca');
+    const img = document.createElement('img');
+    img.alt = '';
+    img.decoding = 'async';
+    b.appendChild(img);
+    wallGaleriaEl.appendChild(b);
+    if (wallObs) wallObs.observe(b); else wallThumbCarregar(b);
+  }
+  wallMostradas = fim;
+  if (wallGaleriaMaisEl) wallGaleriaMaisEl.hidden = wallMostradas >= wallImagens.length;
+  wallMarcarEscolhida();
+}
+
+async function wallAbrirGaleria() {
+  wallVerGaleria = true;
+  animarAlturaDasSecoes(() => { if (wallGaleriaBoxEl) wallGaleriaBoxEl.hidden = false; });
+  if (!wallImagens) {
+    if (wallGaleriaNotaEl) wallGaleriaNotaEl.textContent = 'Procurando as imagens das músicas…';
+    let lista = [];
+    try { lista = await wallListarImagens(); } catch (_) { /* banco ilegível: lista vazia */ }
+    if (secaoAberta !== 'wall' || !wallVerGaleria) return;
+    wallImagens = lista;
+  }
+  animarAlturaDasSecoes(() => {
+    const n = wallImagens.length;
+    if (wallGaleriaNotaEl) {
+      wallGaleriaNotaEl.textContent = n
+        ? n + (n === 1 ? ' imagem' : ' imagens') + ' das músicas baixadas. Toque numa para usar.'
+        : 'Nenhuma imagem ainda: elas chegam junto com as músicas baixadas da biblioteca.';
+    }
+    if (!wallMostradas) wallMostrarMais();
+  });
+}
+
+function wallFecharGaleria() {
+  if (wallObs) { wallObs.disconnect(); wallObs = null; }
+  for (const btn of [...wallUrls.keys()]) wallThumbSoltar(btn);
+  if (wallGaleriaEl) wallGaleriaEl.textContent = '';
+  wallMostradas = 0;
+  wallImagens = null;
+}
+
+// ---- a composição ----
+// O SÍMBOLO E O GRADIENTE SAEM DO PRÓPRIO `wallpaper-padrao.svg` (a fonte
+// única): o `d` do símbolo vira um `Path2D` (sem imagem, sem canvas sujo) e as
+// paradas do `radialGradient` são lidas de lá.
+function wallDesenho() {
+  if (!wallDesenhoP) {
+    wallDesenhoP = fetch('../shared/wallpaper-padrao.svg').then((r) => r.text()).then((t) => {
+      const doc = new DOMParser().parseFromString(t, 'image/svg+xml');
+      const p = doc.querySelector('g path');
+      if (!p) throw new Error('símbolo ausente');
+      const paradas = [...doc.querySelectorAll('radialGradient stop')].map((s) => ({
+        em: parseFloat(s.getAttribute('offset')) / 100 || 0, cor: s.getAttribute('stop-color'),
+      }));
+      return { simbolo: new Path2D(p.getAttribute('d')), paradas };
+    });
+    wallDesenhoP.catch(() => { wallDesenhoP = null; });
+  }
+  return wallDesenhoP;
+}
+
+async function wallDecodificar(blob) {
+  if (typeof createImageBitmap === 'function') {
+    try { return await createImageBitmap(blob); } catch (_) { /* tenta pelo <img> */ }
+  }
+  const url = URL.createObjectURL(blob);
+  try {
+    return await new Promise((res, rej) => {
+      const im = new Image();
+      im.onload = () => res(im);
+      im.onerror = rej;
+      im.src = url;
+    });
+  } finally { URL.revokeObjectURL(url); }
+}
+
+// A BASE escolhida, como Blob — ou `null` quando é o padrão (ou ela sumiu).
+async function wallBase(cfg) {
+  try {
+    if (cfg.fonte === 'biblioteca' && cfg.imagem) return await AVDB.opfsGetFile(cfg.imagem);
+    if (cfg.fonte === 'foto') {
+      const b = await AVDB.getState(WALL_FOTO_KEY);
+      return b instanceof Blob ? b : null;
+    }
+  } catch (_) { /* sumiu: cai no padrão */ }
+  return null;
+}
+
+function wallFonteCabe(ctx, peso, px, texto, maxW) {
+  const familia = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+  ctx.font = peso + ' ' + px + 'px ' + familia;
+  const w = ctx.measureText(texto).width;
+  if (w <= maxW) return px;
+  const n = Math.max(14, Math.floor(px * maxW / w));
+  ctx.font = peso + ' ' + n + 'px ' + familia;
+  return n;
+}
+
+// O símbolo cabe em x 33..181 · y 55..178 da caixa original; o centro ÓPTICO é
+// (107, 116,5) — o mesmo do comentário do SVG.
+const WALL_SIMB_W = 148;
+const WALL_SIMB_H = 123;
+function wallPintarSimbolo(ctx, simbolo, cx, cy, altura) {
+  const s = altura / WALL_SIMB_H;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(s, s);
+  ctx.translate(-107, -116.5);
+  ctx.fillStyle = '#fff';
+  ctx.fill(simbolo);
+  ctx.restore();
+}
+
+async function wallCompor(cfg) {
+  const base = await wallBase(cfg);
+  if (!cfg.igreja) return base;   // sem identificação: a imagem como está (ou o padrão)
+  const d = await wallDesenho();
+  const cv = document.createElement('canvas');
+  cv.width = WALL_W;
+  cv.height = WALL_H;
+  const ctx = cv.getContext('2d');
+  let foto = false;
+  if (base) {
+    const im = await wallDecodificar(base).catch(() => null);
+    if (im) {
+      const w = im.width || im.naturalWidth;
+      const h = im.height || im.naturalHeight;
+      const s = Math.max(WALL_W / w, WALL_H / h);
+      ctx.drawImage(im, (WALL_W - w * s) / 2, (WALL_H - h * s) / 2, w * s, h * s);
+      if (typeof im.close === 'function') im.close();
+      foto = true;
+    }
+  }
+  if (!foto) {
+    // O GRADIENTE DO PADRÃO, em unidades da caixa (o `radialGradient` do SVG):
+    // centro (50%, 42%), raio 78% — elíptico, como lá.
+    ctx.save();
+    ctx.translate(WALL_W * 0.5, WALL_H * 0.42);
+    ctx.scale(WALL_W, WALL_H);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 0.78);
+    for (const p of d.paradas) g.addColorStop(Math.min(1, Math.max(0, p.em)), p.cor);
+    ctx.fillStyle = g;
+    ctx.fillRect(-1, -1, 3, 3);
+    ctx.restore();
+  }
+  const nome = (cfg.nome || '').trim();
+  const sombra = (on) => {
+    ctx.shadowColor = on ? 'rgba(0, 0, 0, .6)' : 'transparent';
+    ctx.shadowBlur = on ? 18 : 0;
+  };
+  ctx.textBaseline = 'top';
+  if (cfg.posicao === 'rodape') {
+    // EMBAIXO: o símbolo à esquerda, os dois nomes à direita, o bloco centrado na
+    // largura de 4:3 (uma TV 4:3 corta as laterais pelo `cover`).
+    if (foto) {
+      const v = ctx.createLinearGradient(0, WALL_H * 0.4, 0, WALL_H);
+      v.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      v.addColorStop(0.45, 'rgba(0, 0, 0, .22)');
+      v.addColorStop(1, 'rgba(0, 0, 0, .72)');
+      ctx.fillStyle = v;
+      ctx.fillRect(0, WALL_H * 0.4, WALL_W, WALL_H * 0.6);
+    }
+    const simbH = 150;
+    const simbW = simbH * WALL_SIMB_W / WALL_SIMB_H;
+    const vao = 40;
+    const maxTexto = 1360 - simbW - vao;
+    const t1 = wallFonteCabe(ctx, '600', 56, WALL_IASD, maxTexto);
+    const w1 = ctx.measureText(WALL_IASD).width;
+    let t2 = 0;
+    let w2 = 0;
+    if (nome) {
+      t2 = wallFonteCabe(ctx, '400', 46, nome, maxTexto);
+      w2 = ctx.measureText(nome).width;
+    }
+    const entre = nome ? 18 : 0;
+    const textoH = t1 * 1.15 + (nome ? entre + t2 * 1.15 : 0);
+    const blocoH = Math.max(simbH, textoH);
+    const blocoW = simbW + vao + Math.max(w1, w2);
+    const x0 = (WALL_W - blocoW) / 2;
+    const cy = WALL_H - 96 - blocoH / 2;
+    wallPintarSimbolo(ctx, d.simbolo, x0 + simbW / 2, cy, simbH);
+    sombra(foto);
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#fff';
+    const tx = x0 + simbW + vao;
+    let ty = cy - textoH / 2;
+    wallFonteCabe(ctx, '600', t1, WALL_IASD, Infinity);
+    ctx.fillText(WALL_IASD, tx, ty);
+    if (nome) {
+      ty += t1 * 1.15 + entre;
+      wallFonteCabe(ctx, '400', t2, nome, Infinity);
+      ctx.fillStyle = 'rgba(255, 255, 255, .88)';
+      ctx.fillText(nome, tx, ty);
+    }
+    sombra(false);
+  } else {
+    // NO CENTRO: o símbolo, o nome da IASD e, embaixo de um filete, o da igreja.
+    if (foto) {
+      const v = ctx.createRadialGradient(WALL_W / 2, WALL_H / 2, 0, WALL_W / 2, WALL_H / 2, WALL_W * 0.6);
+      v.addColorStop(0, 'rgba(0, 0, 0, .55)');
+      v.addColorStop(1, 'rgba(0, 0, 0, .2)');
+      ctx.fillStyle = v;
+      ctx.fillRect(0, 0, WALL_W, WALL_H);
+    }
+    const simbH = 250;
+    const maxTexto = 1360;
+    const t1 = wallFonteCabe(ctx, '600', 76, WALL_IASD, maxTexto);
+    let t2 = 0;
+    if (nome) t2 = wallFonteCabe(ctx, '400', 60, nome, maxTexto);
+    const vao = 56;
+    const filete = nome ? 30 + 3 + 30 : 0;
+    const altura = simbH + vao + t1 * 1.15 + (nome ? filete + t2 * 1.15 : 0);
+    let y = (WALL_H - altura) / 2;
+    sombra(foto);
+    wallPintarSimbolo(ctx, d.simbolo, WALL_W / 2, y + simbH / 2, simbH);
+    y += simbH + vao;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fff';
+    wallFonteCabe(ctx, '600', t1, WALL_IASD, Infinity);
+    ctx.fillText(WALL_IASD, WALL_W / 2, y);
+    y += t1 * 1.15;
+    if (nome) {
+      ctx.fillStyle = 'rgba(255, 255, 255, .6)';
+      ctx.fillRect(WALL_W / 2 - 90, y + 30, 180, 3);
+      y += filete;
+      wallFonteCabe(ctx, '400', t2, nome, Infinity);
+      ctx.fillStyle = 'rgba(255, 255, 255, .9)';
+      ctx.fillText(nome, WALL_W / 2, y);
+    }
+    sombra(false);
+  }
+  return await new Promise((res) => cv.toBlob(res, 'image/jpeg', 0.9));
+}
+
+// GRAVA a escolha e põe o resultado no ar. A composição mais nova vence: dois
+// toques seguidos não gravam o primeiro por cima do segundo.
+async function wallAplicar() {
+  const seq = ++wallSeq;
+  const cfg = wallCfgNormal(wallCfg);
+  try { await AVDB.setState(WALL_CFG_KEY, cfg); } catch (_) { /* a escolha não persiste */ }
+  wallStatus('Preparando o wallpaper…');
+  let blob = null;
+  try {
+    blob = await wallCompor(cfg);
+  } catch (e) {
+    if (seq === wallSeq) wallStatus('Não deu para montar o wallpaper: ' + ((e && e.message) || e));
+    return;
+  }
+  if (seq !== wallSeq) return;
+  if (!blob && cfg.fonte !== 'padrao') {
+    wallStatus('A imagem escolhida não está mais no aparelho: o telão ficou no padrão.');
+  } else {
+    wallStatus('');
+  }
+  await setWallpaper(blob);
+}
+
+async function wallEscolherFoto(file) {
+  wallStatus('Preparando a foto…');
+  const base = await fitWallpaperImage(file);
+  await AVDB.setState(WALL_FOTO_KEY, base);
+  if (!wallCfg) await wallLerCfg();
+  wallCfg = Object.assign({}, wallCfg, { fonte: 'foto' });
+  wallVerGaleria = false;
+  animarAlturaDasSecoes(wallPintar);
+  await wallAplicar();
+}
+
+function wallNomeAgora() {
+  if (wallNomeTimer) { clearTimeout(wallNomeTimer); wallNomeTimer = 0; }
+  if (!wallCfg || !wallIgrejaNomeEl) return;
+  const nome = wallIgrejaNomeEl.value.slice(0, WALL_NOME_MAX);
+  if (nome === wallCfg.nome) return;
+  wallCfg = Object.assign({}, wallCfg, { nome });
+  wallAplicar();
+}
+
+async function aoAbrirWall() {
+  await wallLerCfg();
+  if (secaoAberta !== 'wall') return;
+  wallVerGaleria = wallCfg.fonte === 'biblioteca';
+  wallStatus('');
+  animarAlturaDasSecoes(wallPintar);
+  if (wallPreviaEl) wallPreviaEl.style.backgroundImage = pvWallEl.style.backgroundImage;
+  if (wallVerGaleria) wallAbrirGaleria();
+}
+function aoRecolherWall() {
+  wallNomeAgora();
+  wallVerGaleria = false;
+  wallFecharGaleria();
+  if (wallGaleriaBoxEl) wallGaleriaBoxEl.hidden = true;
+}
+
+if (wallFonteSegEl) {
+  wallFonteSegEl.addEventListener('click', (e) => {
+    const b = e.target.closest('.fit-opt');
+    // A FOTO é o `<label>`: a ativação nativa dele abre o seletor, e o
+    // `change` do `#wallFile` é quem aplica.
+    if (!b || b.dataset.fonte === 'foto' || !wallCfg) return;
+    if (b.dataset.fonte === 'padrao') {
+      wallCfg = Object.assign({}, wallCfg, { fonte: 'padrao' });
+      wallVerGaleria = false;
+      animarAlturaDasSecoes(wallPintar);
+      wallAplicar();
+      return;
+    }
+    // BIBLIOTECA só MOSTRA o banco: o telão muda no toque numa imagem.
+    if (wallVerGaleria) {
+      wallVerGaleria = false;
+      animarAlturaDasSecoes(wallPintar);
+    } else {
+      wallAbrirGaleria();
+    }
+  });
+}
+if (wallGaleriaEl) {
+  wallGaleriaEl.addEventListener('click', (e) => {
+    const b = e.target.closest('.wall-thumb');
+    if (!b || !wallCfg) return;
+    wallCfg = Object.assign({}, wallCfg, { fonte: 'biblioteca', imagem: b.dataset.caminho });
+    wallPintar();
+    wallAplicar();
+  });
+}
+if (wallGaleriaMaisEl) {
+  wallGaleriaMaisEl.addEventListener('click', () => animarAlturaDasSecoes(wallMostrarMais));
+}
+if (wallIgrejaSegEl) {
+  wallIgrejaSegEl.addEventListener('click', (e) => {
+    const b = e.target.closest('.fit-opt');
+    if (!b || !wallCfg) return;
+    const on = b.dataset.igreja === 'on';
+    if (on === wallCfg.igreja) return;
+    wallCfg = Object.assign({}, wallCfg, { igreja: on });
+    wallPintar();
+    wallAplicar();
+  });
+}
+if (wallPosSegEl) {
+  wallPosSegEl.addEventListener('click', (e) => {
+    const b = e.target.closest('.fit-opt');
+    if (!b || b.disabled || !wallCfg || b.dataset.pos === wallCfg.posicao) return;
+    wallCfg = Object.assign({}, wallCfg, { posicao: b.dataset.pos === 'rodape' ? 'rodape' : 'centro' });
+    wallPintar();
+    wallAplicar();
+  });
+}
+if (wallIgrejaNomeEl) {
+  // O NOME vai ao telão quando o dedo PARA (ou no Enter / ao sair do campo) —
+  // compor a cada letra mandaria uma imagem nova ao telão por tecla.
+  wallIgrejaNomeEl.addEventListener('input', () => {
+    if (wallNomeTimer) clearTimeout(wallNomeTimer);
+    wallNomeTimer = setTimeout(wallNomeAgora, 900);
+  });
+  wallIgrejaNomeEl.addEventListener('change', wallNomeAgora);
+  wallIgrejaNomeEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); wallIgrejaNomeEl.blur(); wallNomeAgora(); }
+  });
 }
 
 // ===== trabalho pesado com o app minimizado =====
@@ -47223,21 +47800,13 @@ function renderFsCtl() {
 fitTileEl.addEventListener('click', () => { applyFit(mediaFit === 'cover' ? 'contain' : 'cover'); });
 // Girar: AVANÇA 90° por toque, dando a volta. Ver `applyRotate`.
 if (rotBtnEl) rotBtnEl.addEventListener('click', () => applyRotate(mediaRot + 90));
-// Wallpaper: escolher imagem / voltar ao padrão.
+// Wallpaper: o tile abre a seção (`#wallSecao`); a foto do aparelho chega pelo
+// `<label>` `#wallFoto` de lá — ver "O EDITOR DO WALLPAPER".
+wallTileEl.addEventListener('click', () => trocarSecao('wall'));
 wallFileEl.addEventListener('change', async () => {
   const file = (wallFileEl.files || [])[0];
   wallFileEl.value = '';
-  if (file) await setWallpaper(file);
-});
-// O TILE DO WALLPAPER É UM `<label>` sobre o `<input type="file">`, e é a
-// ATIVAÇÃO NATIVA dele que abre o seletor do aparelho (invariante 6). Com uma
-// imagem própria no ar o toque faz o contrário — volta ao padrão —, e para isso
-// a ativação do rótulo precisa ser CANCELADA: sem o `preventDefault()` o
-// seletor de arquivos abriria por cima do reset que acabou de acontecer.
-wallTileEl.addEventListener('click', (e) => {
-  if (!customWallpaper) return;   // padrão: deixa o rótulo abrir o seletor
-  e.preventDefault();
-  setWallpaper(null);
+  if (file) await wallEscolherFoto(file);
 });
 // O alvo de espelhamento deste aparelho, guardado como DADO para o Registro
 // (`cabecalhoDiag`). Vazio no navegador.

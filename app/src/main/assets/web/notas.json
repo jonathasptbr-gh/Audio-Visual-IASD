@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.15.0",
+    "itens": [
+      "Em Configurações, Tela, o botão Wallpaper agora abre uma seção própria.",
+      "Nela você escolhe o fundo do telão: o padrão, uma foto do celular ou uma imagem da biblioteca.",
+      "As imagens da biblioteca são as que vieram com as músicas baixadas; toque numa para usar.",
+      "Ligando a identificação, o telão mostra o símbolo da IASD e o nome da igreja.",
+      "Escreva o nome da sua igreja e escolha se o conjunto fica no centro ou embaixo.",
+      "Não precisa instalar nada: chega pela atualização automática."
+    ]
+  },
+  {
     "versao": "1.14.90",
     "itens": [
       "Quando a tela de espera termina, pelo horário ou pelo ajuste do atraso, o telão volta ao fundo.",

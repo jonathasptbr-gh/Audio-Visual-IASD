@@ -268,7 +268,7 @@ try {
     + 'três deixariam um órfão', JSON.stringify(gNativa.colunasDaJanela));
 
   // ===== QUEM MORA DENTRO DE QUEM =====
-  const SECOES = ['bootSecao', 'telaSecao', 'pacoteSecao', 'histSecao', 'testeSecao'];
+  const SECOES = ['bootSecao', 'telaSecao', 'wallSecao', 'pacoteSecao', 'histSecao', 'testeSecao'];
   const casas = await app.pg.evaluate((secoes) => {
     const dentro = (id, sec) => {
       const n = document.getElementById(id);
@@ -511,55 +511,68 @@ try {
   await quieto.close();
 
   // =========================================================================
-  // C · O WALLPAPER CONTINUA SENDO UM `<label>` — o invariante 6 do shell
+  // C · O WALLPAPER É UMA SEÇÃO, E A FOTO CONTINUA SENDO UM `<label>` (v1.15.0)
   // =========================================================================
+  // O tile da Tela abre `#wallSecao`; o seletor de arquivo mudou-se para lá
+  // (`#wallFoto`), e a regra do invariante 6 vai junto.
   const c = await aparelho({});
   await abrirConfiguracoes(c.pg);
   await abrirJanela(c.pg, '#telaTile', 'telaSecao');
-  const forma = await c.pg.evaluate(() => {
+  const tileForma = await c.pg.evaluate(() => {
     const w = document.getElementById('wallTile');
-    const i = document.getElementById('wallFile');
-    return { tag: w.tagName, filho: !!i && i.parentElement === w, tipo: i && i.type,
-      dentro: !!w.closest('#telaSecao') };
+    return { tag: w.tagName, dentro: !!w.closest('#telaSecao'), input: !!w.querySelector('input') };
   });
-  checar(forma.tag === 'LABEL' && forma.filho && forma.tipo === 'file' && forma.dentro,
-    'C · o Wallpaper é um <label> com o <input type=file> DENTRO dele, dentro da '
-    + 'seção: é a ativação nativa do rótulo que abre o `onShowFileChooser` do '
+  checar(tileForma.tag === 'BUTTON' && tileForma.dentro && !tileForma.input,
+    'C · o tile do Wallpaper é um BOTÃO dentro da Tela, sem seletor embrulhado',
+    JSON.stringify(tileForma));
+  await abrirJanela(c.pg, '#wallTile', 'wallSecao');
+  const forma = await c.pg.evaluate(() => {
+    const w = document.getElementById('wallFoto');
+    const i = document.getElementById('wallFile');
+    return { tag: w && w.tagName, filho: !!i && i.parentElement === w, tipo: i && i.type,
+      dentro: !!w && !!w.closest('#wallSecao'), secao: secaoAberta };
+  });
+  checar(forma.secao === 'wall' && forma.tag === 'LABEL' && forma.filho && forma.tipo === 'file' && forma.dentro,
+    'C · o toque no tile abre a seção, e a Foto é um <label> com o <input type=file> '
+    + 'DENTRO dele: é a ativação nativa do rótulo que abre o `onShowFileChooser` do '
     + 'WebView — um botão chamando `.click()` no input perderia o seletor',
     JSON.stringify(forma));
-  // SEM IMAGEM PRÓPRIA: o toque deixa o rótulo abrir o seletor. Esta é a metade
-  // que impede o conserto largo demais (cancelar SEMPRE).
   const [seletor] = await Promise.all([
     c.pg.waitForEvent('filechooser', { timeout: 10000 }).catch(() => null),
-    tocar(c.pg, '#wallTile'),
+    tocar(c.pg, '#wallFoto'),
   ]);
   checar(!!seletor,
-    'C · sem imagem própria o toque ABRE o seletor de arquivos — a ativação do '
-    + 'rótulo atravessa a seção', 'nenhum seletor abriu');
-  // COM IMAGEM PRÓPRIA: o toque VOLTA AO PADRÃO, e para isso o `preventDefault`
-  // cancela a ativação do rótulo (senão o seletor abriria por cima do reset).
-  const reset = await c.pg.evaluate(() => {
-    customWallpaper = true;
+    'C · o toque na Foto ABRE o seletor de arquivos — a ativação do rótulo '
+    + 'atravessa a seção', 'nenhum seletor abriu');
+  // O PADRÃO devolve o telão ao desenho padrão (`setWallpaper(null)`) e não abre
+  // seletor nenhum.
+  await c.pg.evaluate(() => {
+    wallCfg = Object.assign({}, wallCfg, { fonte: 'foto', igreja: false });
     window.__resets = 0;
     window.setWallpaper = (arg) => { window.__resets++; window.__resetArg = arg; };
-    window.__prevenido = null;
-    document.addEventListener('click', (e) => {
-      if (e.target.closest && e.target.closest('#wallTile')) window.__prevenido = e.defaultPrevented;
-    });
     return true;
   });
-  let abriuSeletorComImagem = false;
-  c.pg.once('filechooser', () => { abriuSeletorComImagem = true; });
-  await tocar(c.pg, '#wallTile');
-  const resetou = await esperar(c.pg, () => window.__resets >= 1 && window.__prevenido !== null, null, 10000);
+  let abriuSeletorNoPadrao = false;
+  c.pg.once('filechooser', () => { abriuSeletorNoPadrao = true; });
+  await tocar(c.pg, '#wallFonteSeg [data-fonte="padrao"]');
+  const resetou = await esperar(c.pg, () => window.__resets >= 1, null, 10000);
   const estado = await c.pg.evaluate(() => ({ resets: window.__resets, arg: window.__resetArg,
-    prevenido: window.__prevenido }));
-  checar(resetou === true && estado.resets === 1 && estado.arg === null,
-    'C · com imagem própria no ar o toque VOLTA AO PADRÃO (`setWallpaper(null)`), '
-    + 'uma vez', JSON.stringify([reset, estado]));
-  checar(estado.prevenido === true && !abriuSeletorComImagem,
-    'C · e a ativação do rótulo é CANCELADA (`preventDefault`): sem isso o seletor '
-    + 'abriria por cima do reset', JSON.stringify([estado, abriuSeletorComImagem]));
+    cfg: wallCfg && wallCfg.fonte }));
+  checar(resetou === true && estado.resets === 1 && estado.arg === null && estado.cfg === 'padrao'
+    && !abriuSeletorNoPadrao,
+    'C · o Padrão VOLTA AO DESENHO PADRÃO (`setWallpaper(null)`), uma vez, sem seletor',
+    JSON.stringify([estado, abriuSeletorNoPadrao]));
+  // A IDENTIFICAÇÃO COMPÕE UM 1920x1080 sobre o padrão — o canvas desenha o
+  // símbolo lido do próprio `wallpaper-padrao.svg`.
+  const composto = await c.pg.evaluate(async () => {
+    const b = await wallCompor(wallCfgNormal({ fonte: 'padrao', igreja: true, nome: 'Igreja Central', posicao: 'rodape' }));
+    if (!(b instanceof Blob)) return { blob: false };
+    const im = await createImageBitmap(b);
+    return { blob: true, tipo: b.type, w: im.width, h: im.height };
+  });
+  checar(composto.blob && composto.tipo === 'image/jpeg' && composto.w === 1920 && composto.h === 1080,
+    'C · com a identificação ligada o wallpaper é COMPOSTO em 1920x1080',
+    JSON.stringify(composto));
   await c.ctx.close();
 
   // =========================================================================

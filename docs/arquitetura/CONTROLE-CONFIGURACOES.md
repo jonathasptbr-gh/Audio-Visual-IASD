@@ -150,7 +150,7 @@ grade moram agora em `#telaSecao`, com os **mesmos ids e o mesmo markup**
 | tile | id | estado (`data-estado`) | ícone |
 |---|---|---|---|
 | Preenchimento | `#fitTile` | `contain` · `cover` (ver `stage.setFit()`) | `#icoAjustar` / `#icoPreencher` |
-| Wallpaper | `#wallTile` | `padrao` · `propria` | `#icoWallpaper` / `#icoWallpaperProprio` |
+| Wallpaper | `#wallTile` (um `<button>` que ABRE a seção `#wallSecao`, v1.15.0) | `padrao` · `propria` | `#icoWallpaper` / `#icoWallpaperProprio` |
 | Fundo da letra | `#lyricsBgTile` | `image` · `black` (ver "Fundo preto vs. imagens dos slides") | `#icoImagem` / `#icoImagemOff` |
 | Girar no telão | `#rotBtn` | `0` `90` `180` `270` | `#icoPaisagem`, GIRADO pelo `data-estado` |
 
@@ -703,9 +703,35 @@ lados — duas linhas com posições diferentes não são a mesma linha.
 ### Wallpaper personalizado
 
 A cortina do telão aceita uma **imagem escolhida pelo operador** no lugar do
-desenho padrão — em **Configurações** (a engrenagem do cabeçalho):
-*Padrão* / *Escolher imagem* (nessa ordem desde a v5.188: o estado de partida
-à esquerda, a ação à direita, como nos demais segmentados).
+desenho padrão — em **Configurações → Tela → Wallpaper**, a seção `#wallSecao`
+(v1.15.0; antes um tile que alternava seletor × padrão).
+
+**A SEÇÃO (v1.15.0)** — pedido do operador: as imagens que vêm com as músicas
+da biblioteca como wallpaper, e o símbolo da IASD + "Igreja Adventista do Sétimo
+Dia" + o nome da igreja local por cima.
+
+| peça | o quê |
+|---|---|
+| `#wallPrevia` | a imagem no ar (copiada do `.pv-wall` por `applyPvWallpaper`); vazia, o SVG padrão pela folha |
+| `#wallFonteSeg` | `padrao` · `biblioteca` · `foto`. **Biblioteca só MOSTRA o banco** (`#wallGaleria`); o telão muda no toque numa miniatura. **Foto** é o `<label>` `#wallFoto` sobre o `#wallFile` (invariante 6) |
+| o banco | `wallListarImagens`: os `imageOpfsPath` das estrofes de `AVDB.filesAll()`, sem repetição, relidos a cada abertura; páginas de `WALL_PAGINA`, miniatura só à vista (`IntersectionObserver`, solta a URL fora de vista) |
+| `#wallIgrejaSeg` · `#wallIgrejaNome` · `#wallPosSeg` | a identificação: ligada, o nome (≤ 60, aplicado 900 ms depois da última tecla, no Enter ou ao recolher) e `centro` · `rodape` |
+
+- **O RESULTADO É UM BLOB SÓ no state `wallpaper`** (`setWallpaper`, que só
+  GRAVA): Display, preview e telas da rede não mudaram de contrato. Sem
+  identificação, foto e imagem da biblioteca vão como estão; com ela,
+  `wallCompor` desenha 1920x1080 num canvas (JPEG 0,9). Padrão sem identificação
+  é `null`.
+- **O símbolo e o gradiente saem do próprio `shared/wallpaper-padrao.svg`**
+  (`wallDesenho`: o `d` vira `Path2D`, as paradas do `radialGradient` são lidas):
+  a fonte única continua única. O bloco do rodapé fica na largura de 4:3 (o
+  `cover` corta as laterais numa TV 4:3).
+- **A escolha mora em `wallpaperCfg`** e a foto reduzida em `wallpaperFoto`
+  (Blob; os dois viajam no pacote como as outras chaves). Um aparelho com foto de
+  antes da v1.15.0 e sem `wallpaperCfg` abre como `foto`, com o wallpaper atual
+  copiado para `wallpaperFoto` (`wallLerCfg`).
+- **A composição mais nova vence** (`wallSeq`); imagem da biblioteca que sumiu do
+  disco cai no padrão e a seção diz isso (`#wallStatus`).
 
 - **O PADRÃO é o símbolo oficial da IASD** (v5.188): branco, cor sólida única,
   centrado sobre um denim profundo quase-preto — as regras do

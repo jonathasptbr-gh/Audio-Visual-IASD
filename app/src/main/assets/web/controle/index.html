@@ -2068,7 +2068,7 @@
              NO PRÓPRIO HANDLER (só no app: quem abre o WhatsApp é a ponte), nunca no
              `renderVersionLabel`, que roda antes de o `const` do botão existir. -->
         <button id="versaoBtn" class="versao-txt" title="Ver o que mudou nas versões recentes" aria-label="Ver o que mudou nas versões recentes">
-          <span id="appVersion">v1.14.90</span>
+          <span id="appVersion">v1.15.0</span>
         </button>
         </span>
         <button id="contatoBtn" class="popup-acao popup-acao--rotulo" title="Pedir ajuda" aria-label="Pedir ajuda a quem mantém o app, pelo WhatsApp" hidden>
@@ -2521,31 +2521,19 @@
                 </svg>
                 <span class="qs-titulo">Preenchimento</span>
               </button>
-              <!-- WALLPAPER: a cortina que cobre o telão fora das mídias. Uma
-                   imagem própria substitui o gradiente padrão (e a marca).
+              <!-- WALLPAPER: a cortina que cobre o telão fora das mídias. Desde a
+                   v1.15.0 o tile ABRE A SEÇÃO `#wallSecao` (fundo + identificação
+                   da igreja); o `<label>` do seletor de arquivo mudou-se para lá
+                   (`#wallFoto`, invariante 6).
 
-                   ELE É UM `<label>`, e isso não é enfeite: o seletor de arquivo do
-                   WebView é aberto pela ATIVAÇÃO NATIVA do rótulo sobre o `<input
-                   type="file">` que ele embrulha (invariante 6 — sem o
-                   `onShowFileChooser` do `ControleChromeClient` o toque não faria
-                   nada, sem erro no console). Com a imagem própria no ar o toque
-                   VOLTA AO PADRÃO, e quem cancela a ativação do rótulo é um
-                   `preventDefault()` no ouvinte — ver `wallTileEl` em controle.js.
-                   Trocar uma imagem por outra são dois toques (voltar ao padrão,
-                   escolher de novo), e esse é o preço declarado de o wallpaper
-                   caber num tile como os outros.
-
-                   ELE GANHOU O PAR DE DESENHOS na v1.7.2, e ele só existe porque a
-                   palavra do estado saiu: com "Padrão"/"Própria" na tela, um rolo
-                   só bastava. Sem ela o rolo VAZIO e o rolo CHEIO são o estado
-                   inteiro — ver o `<symbol>` de cada um. -->
-              <label class="qs-tile" id="wallTile" title="Escolher a imagem que cobre o telão">
+                   O PAR DE DESENHOS (v1.7.2): o rolo VAZIO é o padrão, o CHEIO é
+                   um wallpaper próprio no ar — ver o `<symbol>` de cada um. -->
+              <button type="button" class="qs-tile" id="wallTile" title="Escolher o fundo do telão e a identificação da igreja">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <use class="ico-base" href="#icoWallpaper"/><use class="ico-alt" href="#icoWallpaperProprio"/>
                 </svg>
                 <span class="qs-titulo">Wallpaper</span>
-                <input id="wallFile" type="file" accept="image/*" hidden>
-              </label>
+              </button>
               <!-- IMAGENS DOS SLIDES DA MÚSICA: cada estrofe do hino traz uma
                    imagem de fundo baixada com ele. Removê-las deixa a letra sobre
                    preto.
@@ -2584,6 +2572,55 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoPaisagem"/></svg>
                 <span class="qs-titulo">Girar no telão</span>
               </button>
+            </div>
+          </section>
+          <!-- O WALLPAPER (v1.15.0): o FUNDO (o padrão, uma imagem do BANCO que
+               veio com as músicas da biblioteca, ou uma foto do aparelho) e a
+               IDENTIFICAÇÃO DA IGREJA (o símbolo, "Igreja Adventista do Sétimo
+               Dia" e o nome da igreja local). O resultado é COMPOSTO num canvas
+               1920x1080 e gravado no state `wallpaper` de sempre — o telão e as
+               telas da rede não mudam de contrato. A escolha mora em
+               `wallpaperCfg`; a foto de base, em `wallpaperFoto`.
+               `#wallFoto` é um `<label>` sobre o `<input type="file">`: a
+               ativação NATIVA do rótulo é que abre o seletor do WebView
+               (invariante 6). -->
+          <section id="wallSecao" class="cfg-sec" data-secao="wall" hidden>
+            <div class="cfg-sec-cab">
+              <svg class="cfg-sec-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoWallpaper"/></svg>
+              <span class="cfg-sec-titulo">Wallpaper</span>
+              <button type="button" class="cfg-sec-recolher" data-secao="wall" title="Recolher" aria-label="Recolher Wallpaper">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#icoExpandir"/></svg>
+              </button>
+            </div>
+            <div class="boot-corpo">
+              <div class="wall-previa" id="wallPrevia" role="img" aria-label="Como o wallpaper aparece no telão"></div>
+              <p class="boot-nota" id="wallStatus" aria-live="polite" hidden></p>
+              <div class="fade-row fade-row--fit">
+                <span class="boot-rot">Fundo</span>
+                <div class="fit-seg" id="wallFonteSeg" data-fonte="padrao">
+                  <button type="button" class="fit-opt" data-fonte="padrao">Padrão</button>
+                  <button type="button" class="fit-opt" data-fonte="biblioteca">Biblioteca</button>
+                  <label class="fit-opt" id="wallFoto" data-fonte="foto" title="Escolher uma foto do aparelho">Foto<input id="wallFile" type="file" accept="image/*" hidden></label>
+                </div>
+                <div id="wallGaleriaBox" hidden>
+                  <p class="boot-nota" id="wallGaleriaNota">Procurando as imagens das músicas…</p>
+                  <div class="wall-galeria" id="wallGaleria"></div>
+                  <button type="button" class="dialog-btn wall-mais" id="wallGaleriaMais" hidden>Mostrar mais</button>
+                </div>
+              </div>
+              <div class="fade-row fade-row--fit">
+                <span class="boot-rot">Identificação da igreja</span>
+                <div class="fit-seg" id="wallIgrejaSeg" data-estado="off">
+                  <button type="button" class="fit-opt" data-igreja="off">Desligada</button>
+                  <button type="button" class="fit-opt" data-igreja="on">Ligada</button>
+                </div>
+                <p class="boot-nota">O símbolo da IASD, "Igreja Adventista do Sétimo Dia" e, embaixo, o nome da sua igreja.</p>
+                <input type="text" id="wallIgrejaNome" class="wall-campo" maxlength="60" enterkeyhint="done" autocomplete="off" placeholder="Nome da igreja (ex.: Igreja Central)" aria-label="Nome da igreja local">
+                <div class="fit-seg" id="wallPosSeg" data-pos="centro">
+                  <button type="button" class="fit-opt" data-pos="centro">No centro</button>
+                  <button type="button" class="fit-opt" data-pos="rodape">Embaixo</button>
+                </div>
+              </div>
             </div>
           </section>
           <section id="pacoteSecao" class="cfg-sec" data-secao="pacote" hidden>
