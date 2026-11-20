@@ -837,7 +837,7 @@ apagada da que a criou.
 | o check | `<symbol id="icoCheck">` novo; cada miniatura leva `.wall-check` (círculo `--accent-fill`, traço `--on-accent`), visível só na `.escolhida` |
 | os níveis | `#wallIgrejaSeg` (liga-desliga) → `#wallNivelSeg` 2x2 (`WALL_NIVEIS`). `wallCfg.nivel` substitui `igreja` (`igreja: true` → `completa` em `wallCfgNormal`). `logo`: só o símbolo, 420 px no centro ou 220 px embaixo, véu radial mais leve sobre foto; `iasd`: o desenho de antes sem o nome; o campo do nome só vale na `completa`; a posição, em todos menos `nenhuma` |
 
-`configuracoes-janelas.test.mjs` C: os quatro níveis (`nenhuma` sobre o padrão = `null`, os outros três JPEG 1920x1080, `igreja: true` → `completa`, a ordem dos botões) e, com duas faixas reais no OPFS, a grade com `overflow-y: auto` e teto, e o check só na escolhida. Medido no Chromium do arnês com 21 imagens falsas.
+`configuracoes-janelas.test.mjs` C: os quatro níveis (`nenhuma` sobre o padrão = `null`, os outros três JPEG 1920x1080, `igreja: true` → `completa`, a ordem dos botões) e, com duas faixas reais no OPFS, a grade com `overflow-y: auto` e teto, e o check só na escolhida. Medido no Chromium do arnês com 21 imagens falsas. **O 1º `verificar` deste número reprovou** o `sombra-de-rolagem` A (o censo cobra a marca `.rola` em todo scroller vertical, e a grade nova não a tinha): `#wallGaleria` veste `rola sem-veu` (é GRADE — os pseudo-elementos da sombra virariam células); conserto no mesmo número.
 
 ## v1.15.1 — os fundos da tela de espera, em rodízio
 
