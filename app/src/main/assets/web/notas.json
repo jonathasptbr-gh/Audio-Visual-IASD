@@ -1,5 +1,17 @@
 [
   {
+    "versao": "1.15.6",
+    "itens": [
+      "O wallpaper padrão separa o fundo e a sombra do logotipo, evitando logos sobrepostos.",
+      "Selecionar o wallpaper padrão também liga o logotipo como camada separada.",
+      "Mídias editadas no Cronograma e nos Favoritos têm um atalho para voltar ao editor.",
+      "Cada mídia no Cronograma e nos Favoritos pode ser compartilhada individualmente.",
+      "O envio gera um pacote para abrir no Áudio Visual IASD, preservando as edições; não gera MP3 ou MP4.",
+      "A prévia do Modo avançado recolhe e expande com uma transição mais suave dos botões.",
+      "Disponível nas atualizações de teste; não precisa instalar um APK novo."
+    ]
+  },
+  {
     "versao": "1.15.5",
     "itens": [
       "Nova opção em Configurações → Inicialização: \"Receber atualizações de teste\".",

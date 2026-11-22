@@ -498,7 +498,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.15.5';
+const WEB_VERSION = '1.15.6';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -3111,10 +3111,17 @@ function medirPrevia() {
       l: r.left - pr.left, xr: pr.right - r.right, cx: r.left + r.width / 2 - pr.left,
       t: r.top - pr.top, yb: pr.bottom - r.bottom, baixo: r.top + r.height / 2 > pr.top + pr.height / 2,
       fundo: bs.backgroundColor, cor: bs.color,
+      caixa: { width: r.width + 'px', height: r.height + 'px', flexBasis: (b.closest('.pv-fabs--topo, .pv-fabs--base') ? r.width : r.height) + 'px', padding: bs.padding, borderRadius: bs.borderRadius },
     });
   });
+  const camadas = new Map();
+  previewEl.querySelectorAll('.pv-layer, .pv-wall').forEach((c) => {
+    const s = getComputedStyle(c);
+    camadas.set(c, { altura: parseFloat(s.height) || pr.height,
+      opacidade: s.visibility === 'hidden' ? 0 : parseFloat(s.opacity) });
+  });
   return {
-    w: pr.width, h: pr.height, fabs,
+    w: pr.width, h: pr.height, fabs, camadas,
     caixa: { backgroundColor: cs.backgroundColor, boxShadow: cs.boxShadow, borderRadius: cs.borderRadius },
   };
 }
@@ -3138,7 +3145,12 @@ function animarRecolhimentoDaPrevia(antes) {
     { height: depois.h + 'px', ...depois.caixa },
   ], opts)];
   previewEl.querySelectorAll('.pv-layer, .pv-wall').forEach((c) => {
-    anims.push(c.animate(recolhendo ? [{ opacity: 1 }, { opacity: 0 }] : [{ opacity: 0 }, { opacity: 1 }], opts));
+    // Preserva também a caixa e o alfa em curso quando o toque inverte o movimento.
+    const o = antes.camadas.get(c), n = depois.camadas.get(c);
+    const height = Math.max(antes.h, depois.h, o.altura, n.altura) + 'px';
+    anims.push(c.animate([
+      { opacity: o.opacidade, height }, { opacity: recolhendo ? 0 : 1, height },
+    ], opts));
   });
   const aberta = recolhendo ? antes : depois;
   const linha = recolhendo ? depois : antes;
@@ -3150,8 +3162,8 @@ function animarRecolhimentoDaPrevia(antes) {
     const dx = lado < -1 ? o.l - n.l : lado > 1 ? n.xr - o.xr : o.cx - n.cx;
     const dy = ab.baixo ? n.yb - o.yb : o.t - n.t;
     anims.push(b.animate([
-      { transform: 'translate(' + dx + 'px, ' + dy + 'px)', backgroundColor: o.fundo, color: o.cor },
-      { transform: 'translate(0, 0)', backgroundColor: n.fundo, color: n.cor },
+      { transform: 'translate(' + dx + 'px, ' + dy + 'px)', backgroundColor: o.fundo, color: o.cor, ...o.caixa },
+      { transform: 'translate(0, 0)', backgroundColor: n.fundo, color: n.cor, ...n.caixa },
     ], opts));
   });
   pvAnimacoes = anims;
@@ -10980,9 +10992,9 @@ function abrirFerramenta(id, opcoes) {
   if (!ferramentasAbertas()) {
     abrirFerramentas();
     desenhar();
-    // O EDITOR LÊ O RASCUNHO AO ABRIR, inclusive nesta porta: sem isto ele abriria
+    // O editor carrega o item indicado ou o rascunho: sem isto abriria
     // com o desenho da última vez e o cabeçalho dizendo "Ferramentas".
-    if (f.tool === 'edicao') aoAbrirEdicao();
+    if (f.tool === 'edicao') aoAbrirEdicao(opcoes && opcoes.edicaoItem);
     return;
   }
   // O EDITOR entra e sai SEM a camada da troca: a animação move os filhos do
@@ -10991,7 +11003,7 @@ function abrirFerramenta(id, opcoes) {
   if (f.tool === 'edicao' || miscTool === 'edicao') {
     if (ferrTrocaAnim) ferrTrocaAnim.fim();
     desenhar();
-    if (f.tool === 'edicao') aoAbrirEdicao();
+    if (f.tool === 'edicao') aoAbrirEdicao(opcoes && opcoes.edicaoItem);
     return;
   }
   trocarVistaDasFerramentas(desenhar, 'entra', opcoes);
@@ -11585,9 +11597,10 @@ function renderLibraryCorpo() {
         // o nome vem do arquivo, e um nome só no registro seria desfeito na
         // varredura seguinte.
         botaoRenomearDaLinha(item, () => load()),
-        // A ENGRENAGEM (Pacote 21): só nos cues que têm ferramenta editável —
+        // A ENGRENAGEM: cues com ferramenta e mídias já editadas —
         // `botaoEngrenagemDaLinha` devolve null nos outros.
         botaoEngrenagemDaLinha(item),
+        botaoCompartilharDaLinha(item),
         addBtn,
         star,
         // O "baixar o vídeo" de uma linha de LINK não está na ordem pedida — ele
@@ -12693,7 +12706,7 @@ const CUE_FERRAMENTA = { message: 'msg', draw: 'draw', chrono: 'clock' };
 let cueEmEdicao = null;
 
 function botaoEngrenagemDaLinha(item) {
-  if (!isCue(item) || !CUE_FERRAMENTA[item.cue]) return null;
+  if (!item.edicao && (!isCue(item) || !CUE_FERRAMENTA[item.cue])) return null;
   const b = document.createElement('button');
   b.type = 'button';
   b.className = 'row-btn row-engrenagem';
@@ -12707,7 +12720,8 @@ function botaoEngrenagemDaLinha(item) {
     // do painel. `calma` fecha na hora, mesmo logo depois de uma escolha; docada
     // (Modo Fácil) ela É a tela e o `closeHymnSearch` a mantém.
     if (hymnSearchPopupEl && hymnSearchPopupEl.classList.contains('open')) closeHymnSearch({ calma: true });
-    abrirFerramentaComCue(item);
+    if (item.edicao) abrirFerramenta('edicao', { edicaoItem: item });
+    else abrirFerramentaComCue(item);
   });
   return b;
 }
@@ -12754,6 +12768,30 @@ function finalizarCueDoPainel() {
   }).catch((e) => {
     diagC('a engrenagem não conseguiu gravar o item (' + ((e && e.message) || e) + ')');
   });
+}
+
+// Sem canal de pacote no navegador: não oferecer envio que não existe.
+function botaoCompartilharDaLinha(item) {
+  if (isCue(item) || !pacoteCanal()) return null;
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'row-btn row-compartilhar';
+  b.title = 'Compartilhar esta mídia';
+  b.setAttribute('aria-label', b.title);
+  b.innerHTML = icoSprite('icoCompartilhar');
+  b.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (pacoteEmCurso) return;
+    if (!(await appConfirm({ title: 'Compartilhar esta mídia',
+      message: 'Enviar esta mídia em um arquivo .avpkg para abrir no Áudio Visual IASD. '
+        + (item.edicao ? 'O arquivo original completo também vai junto, com os cortes e fades salvos. ' : '')
+        + 'Não é um MP3 ou MP4 renderizado.',
+      okText: 'Compartilhar' }))) return;
+    b.disabled = true;
+    try { await exportarCulto('', item); }
+    finally { b.disabled = false; }
+  });
+  return b;
 }
 
 function montarAcoesDaLinha(li, botoes, chave) {
@@ -15115,6 +15153,7 @@ function linhaDeItem(item, opts) {
     // A MESMA ENGRENAGEM do Cronograma (Pacote 21) — a faixa dos Favoritos é a
     // mesma função desde a v1.13.68, e uma segunda anatomia divergiria dela.
     botaoEngrenagemDaLinha(item),
+    botaoCompartilharDaLinha(item),
   ], lista + ':' + item.id) : []));
   li.appendChild(row);
   // O ARRASTO só existe onde há ordem a mudar: uma linha sozinha não tem para onde ir.
@@ -32948,6 +32987,7 @@ const TESTES = [
         ['controle/louvorja.js', 'a fonte das músicas'], ['controle/bible.js', 'a Bíblia'],
         ['espelho/tela.js', 'a tela pela rede'], ['display/display.js', 'o telão'],
         ['shared/wallpaper-padrao.svg', 'o fundo padrão'],
+        ['shared/iasd-simbolo.svg', 'o símbolo da identificação'],
       ];
       const faltando = [];
       await Promise.all(partes.map(async ([p, nome]) => {
@@ -37438,7 +37478,7 @@ function cultoAvisar(texto, fracao) {
   if (li) li.style.setProperty('--pct', Math.round(cultoEtapa.fracao * 100) + '%');
 }
 
-async function exportarCulto(id) {
+async function exportarCulto(id, midia) {
   const c = pacoteCanal();
   if (!c || pacoteEmCurso) return;
   // O SHELL 90 GUARDA O CULTO À PARTE (`pacoteCultoProprio`): o pronto do acervo fica. Num APK
@@ -37448,8 +37488,8 @@ async function exportarCulto(id) {
   if (pacotePronto && !proprio && !(await appConfirm({
     title: 'Descartar o pacote pronto',
     message: 'Há um pacote do acervo pronto para enviar (' + fmtBytes(pacotePronto.bytes)
-      + '). Enviar este culto o apaga.',
-    okText: 'Enviar o culto',
+      + (midia ? '). Enviar esta mídia o apaga.' : '). Enviar este culto o apaga.'),
+    okText: midia ? 'Enviar a mídia' : 'Enviar o culto',
     perigo: true,
   }))) return;
   if (pacoteEmCurso) return;
@@ -37468,19 +37508,32 @@ async function exportarCulto(id) {
   let cancelou = false;
   let capasAoLado = 0;
   try {
-    const culto = await cultoDoCronograma(id);
+    // O recipiente novo retém só o alvo na importação; o original da edição viaja
+    // junto pelo caminho que o plano já conhece (base oculta ou arquivo do catálogo).
+    const culto = midia ? { nome: midia.name || 'Mídia', ids: [midia.id] } : await cultoDoCronograma(id);
     if (!culto || !culto.ids.length) throw new Error('Este cronograma está vazio.');
     // UM ID NOVO POR ARQUIVO: do outro lado ele vira um guardado NOVO, nunca o ativo de lá
     // (`cronoImportar` funde num cronograma de mesmo id — e no ATIVO, se for ele); importar
     // o MESMO arquivo duas vezes continua não duplicando. Sem `ativo` no valor.
     const novoId = 'cr-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
     const cronogramas = { itens: [{ id: novoId, nome: culto.nome, ids: culto.ids, usado: 0 }] };
+    const idsDoPlano = culto.ids.slice();
+    if (midia && midia.edicao && !idsDoPlano.includes(midia.edicao.origem)) {
+      let origemEhArquivo = null;
+      try { origemEhArquivo = await AVDB.fileGet(midia.edicao.origem); } catch (_) { origemEhArquivo = null; }
+      if (origemEhArquivo) idsDoPlano.push(midia.edicao.origem);
+    }
     const plano = await pacotePlano(null, {
-      ids: culto.ids, cronogramas, grupo: 'culto', rotulo: culto.nome,
+      ids: idsDoPlano, cronogramas, grupo: 'culto', rotulo: culto.nome,
     });
     const sel = new Set(plano.grupos.map((g) => g.chave));
     let bases = [];
-    try { bases = await pacoteBases(plano, sel); } catch (_) { bases = []; }
+    try { bases = await pacoteBases(plano, sel); } catch (e) { if (midia) throw e; bases = []; }
+    if (midia && midia.edicao) {
+      const naBase = bases.some((b) => b.rec.id === midia.edicao.origem && b.corpo);
+      const noArquivo = plano.escopo.arquivos.some((a) => a.id === midia.edicao.origem);
+      if (!naBase && !noArquivo) throw new Error('O original desta mídia editada não está disponível para enviar.');
+    }
     const total = Math.max(pacoteBytesDe(plano, sel) + bases.reduce((t, b) => t + b.tamanho, 0), 1);
     cultoAvisar('Desenhando as capas…', 0.08);
     const capas = await cultoCapas(culto.nome, culto.ids);
@@ -37495,7 +37548,7 @@ async function exportarCulto(id) {
     // Num APK velho o pronto que havia foi levado pela porta do shell.
     if (cabeLocal && !proprio) pacotePronto = null;
     await withBgWork(async () => {
-      const tarefa = bgTaskStart('Enviando o culto', 1, 'enviar');
+      const tarefa = bgTaskStart(midia ? 'Enviando a mídia' : 'Enviando o culto', 1, 'enviar');
       bgItemOnly(tarefa, culto.nome);
       let feitos = 0;
       // As CAPAS passam pelo escritor (e contam em `feitos`) mas não estão em `total`: sem elas
@@ -37535,7 +37588,7 @@ async function exportarCulto(id) {
   } catch (e) {
     // PARAR NÃO É FALHAR: o toque no próprio botão (`pacoteCancelar`) desfaz o parcial calado.
     cancelou = pacoteCancelar;
-    erro = cancelou ? '' : ((e && e.message) || 'O envio do culto falhou.');
+    erro = cancelou ? '' : ((e && e.message) || (midia ? 'O envio da mídia falhou.' : 'O envio do culto falhou.'));
     if (cancelou && criado) { try { AVNative.pacoteCancelar(); } catch (_) { /* ponte */ } }
   } finally {
     if (erro && criado) { try { AVNative.pacoteCancelar(); } catch (_) { /* ponte */ } }
@@ -37548,15 +37601,15 @@ async function exportarCulto(id) {
   }
   if (cancelou) { pacoteAnotar('preparou', 'culto: cancelado pelo operador'); return; }
   if (erro) {
-    await openAppDialog({ title: 'Não deu para enviar o culto', message: erro, okText: 'Entendi', cancelText: null });
+    await openAppDialog({ title: midia ? 'Não deu para enviar a mídia' : 'Não deu para enviar o culto', message: erro, okText: 'Entendi', cancelText: null });
     return;
   }
   if (!criado) return;
   pacoteAnotar('preparou', 'culto, ' + fmtBytes(gravados) + ' ("' + nome + '")');
-  bgConcluido('Culto pronto', fmtBytes(gravados));
+  bgConcluido(midia ? 'Mídia pronta' : 'Culto pronto', fmtBytes(gravados));
   if (!cabeLocal) {
     // NO SAF o arquivo já é do operador: o que falta é ACHÁ-LO, e o nome é o que importa.
-    await openAppDialog({ title: 'Culto salvo', message: 'Salvo como “' + nome + '” na pasta escolhida.',
+    await openAppDialog({ title: midia ? 'Mídia salva' : 'Culto salvo', message: 'Salvo como “' + nome + '” na pasta escolhida.',
       okText: 'OK', cancelText: null });
     return;
   }
@@ -37565,8 +37618,8 @@ async function exportarCulto(id) {
   pacoteAnotar('enviou', enviados < 0 ? 'culto: o shell recusou o envio (-1)'
     : 'culto: seletor aberto com ' + fmtBytes(enviados) + (proprio ? ' e ' + capasAoLado + ' capa(s) ao lado' : ''));
   if (enviados < 0) {
-    await openAppDialog({ title: 'Não deu para enviar o culto',
-      message: 'O arquivo do culto não pôde ser compartilhado. Toque em enviar de novo.',
+    await openAppDialog({ title: midia ? 'Não deu para enviar a mídia' : 'Não deu para enviar o culto',
+      message: midia ? 'O arquivo da mídia não pôde ser compartilhado. Toque em compartilhar de novo.' : 'O arquivo do culto não pôde ser compartilhado. Toque em enviar de novo.',
       okText: 'Entendi', cancelText: null });
   }
 }
@@ -42054,8 +42107,8 @@ async function setWallpaper(blob) {
 // Display, a preview e as telas da rede não aprendem nada novo. Sem
 // identificação, foto e imagem da biblioteca vão COMO ESTÃO (o mesmo de antes da
 // v1.15.0); com ela, o canvas compõe 1920x1080. Padrão sem identificação é
-// `null` — o desenho de `shared/wallpaper-padrao.svg`, que é também a FONTE do
-// símbolo e do gradiente desenhados aqui (`wallDesenho`).
+// `null` — o fundo de `shared/wallpaper-padrao.svg`; o símbolo separado mora em
+// `shared/iasd-simbolo.svg` (`wallDesenho`).
 //
 // O BANCO DE IMAGENS é o conjunto dos `imageOpfsPath` das estrofes do catálogo,
 // sem repetição (`wallListarImagens`), lido a cada abertura da seção — a
@@ -42286,14 +42339,15 @@ function wallFecharGaleria() {
 }
 
 // ---- a composição ----
-// O SÍMBOLO E O GRADIENTE SAEM DO PRÓPRIO `wallpaper-padrao.svg` (a fonte
-// única): o `d` do símbolo vira um `Path2D` (sem imagem, sem canvas sujo) e as
-// paradas do `radialGradient` são lidas de lá.
+// Fundo e identificação têm fontes separadas: gradiente do wallpaper e Path2D do símbolo.
 function wallDesenho() {
   if (!wallDesenhoP) {
-    wallDesenhoP = fetch('../shared/wallpaper-padrao.svg').then((r) => r.text()).then((t) => {
-      const doc = new DOMParser().parseFromString(t, 'image/svg+xml');
-      const p = doc.querySelector('g path');
+    wallDesenhoP = Promise.all(['wallpaper-padrao.svg', 'iasd-simbolo.svg'].map((nome) =>
+      fetch('../shared/' + nome).then((r) => { if (!r.ok) throw new Error('desenho indisponível'); return r.text(); })
+    )).then(([fundo, simbolo]) => {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(fundo, 'image/svg+xml');
+      const p = parser.parseFromString(simbolo, 'image/svg+xml').querySelector('path');
       if (!p) throw new Error('símbolo ausente');
       const paradas = [...doc.querySelectorAll('radialGradient stop')].map((s) => ({
         em: parseFloat(s.getAttribute('offset')) / 100 || 0, cor: s.getAttribute('stop-color'),
@@ -42559,7 +42613,7 @@ if (wallFonteSegEl) {
     // `change` do `#wallFile` é quem aplica.
     if (!b || b.dataset.fonte === 'foto' || !wallCfg) return;
     if (b.dataset.fonte === 'padrao') {
-      wallCfg = Object.assign({}, wallCfg, { fonte: 'padrao' });
+      wallCfg = Object.assign({}, wallCfg, { fonte: 'padrao', nivel: 'logo' });
       wallVerGaleria = false;
       animarAlturaDasSecoes(wallPintar);
       wallAplicar();
@@ -44962,7 +45016,13 @@ async function edicaoEscolherItem(it) {
 // (`edicaoAlturaLista`) e o formulário que está na memória aparece primeiro; o resto chega
 // depois, animado. É o mesmo contrato de quando ele era seção (v1.12.48), agora dentro do
 // painel de altura fixa da folha de Ferramentas (v1.14.7).
-async function aoAbrirEdicao() {
+async function aoAbrirEdicao(item) {
+  // A porta da linha escolhe o registro gravado, nunca o último rascunho.
+  if (item) {
+    clearTimeout(edicaoSalvarTimer); edicaoSalvarTimer = null;
+    await edicaoEscolherItem({ id: item.id, editado: true });
+    return;
+  }
   if (edicaoOrigem) { edicaoVista = 'form'; edicaoRender(); }
   else { edicaoVista = 'escolha'; edicaoBuscaEl.value = ''; edicaoCarregando = true; edicaoRender(); }
   let carregou = false;

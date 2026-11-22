@@ -45,6 +45,8 @@ medição em aparelho não é fino.**
 
 | quando · lote | onde | o que ficou | dono | por que não foi agora |
 |---|---|---|---|---|
+| 2026-11-22 · v1.15.6 | `app/build.gradle.kts` (o comentário do `noCompress`) | ele ainda chama `shared/wallpaper-padrao.svg` de "o único vetor" em assets; agora há também `shared/iasd-simbolo.svg` | higienização | comentário mora no shell: editar `build.gradle.kts` exige `shellTag` e Release, desproporcional a um lote só de web — fecha no próximo lote que tocar o APK |
+| 2026-11-22 · v1.15.6 | preview avançada, wallpaper e compartilhamento unitário | fluidez no WebView/HDMI e envio/importação de mídia entre dois aparelhos não foram medidos aqui; envio é `.avpkg` com edição virtual, não MP3/MP4 renderizado, e importa como cronograma unitário ativo | medição | testes locais usam Chromium/ponte simulada; conferir no aparelho no canal de teste |
 | 2026-11-20 · v1.15.5 | `web-ota` de dois canais (`apk.yml`), `pages.yml`, a chave do canal | a troca de canal só o aparelho prova (o primeiro run, o do disparo com `para_todos`, publicou os dois canais com o sha conferido) | medição | o aparelho não existe aqui; conferir o Registro ("canal teste ·") depois de ligar a chave |
 | 2026-11-20 · v1.15.4 | `.itin-hora` animada, `desenharItinerario` sem reinserir | nenhum resíduo novo; o ritmo da animação no telão HDMI e o destaque "Agora" agora com transição de cor só foram vistos no Chromium | medição | conferir no telão alternando os horários |
 | 2026-11-20 · v1.15.3 | `ITIN_JANELA` | nenhum resíduo novo; a altura do bloco com quatro linhas no telão HDMI só foi vista no Chromium | medição | conferir no telão |

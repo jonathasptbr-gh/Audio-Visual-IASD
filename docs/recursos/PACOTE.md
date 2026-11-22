@@ -841,6 +841,25 @@ pacote INTEIRO diante de um `t` desconhecido (`cabecalhoDeBytes`) e de `VERSAO >
 - **`pacoteLerCapa(fonte)` → `{ info, capas: Blob[] }`** lê só o `info` e as páginas logo depois
   (até 1 + 6 registros) e nunca lança: é a pergunta da PRÉVIA.
 
+### Compartilhar uma mídia das listas (v1.15.6)
+
+As opções do Cronograma e dos Favoritos reutilizam `exportarCulto('', item)`:
+o cronograma do destinatário tem `ids: [item.id]`, com o nome da mídia e um id
+novo, e o plano acrescenta o ORIGINAL da edição: `pacoteBases` quando ele é
+registro de `media`, e `idsDoPlano` o inclui quando é arquivo de catálogo
+(`fileGet`), para os bytes viajarem pelo grupo `arquivo` como num culto. Não
+cria nem troca cronograma no remetente, nem inclui outros itens, grupos ou
+itinerário do culto ativo. Sem o original disponível, o envio para com um aviso
+em vez de gerar um editado que não toca no destino.
+
+A confirmação explica que o `.avpkg` abre no Áudio Visual IASD: corte, fades e
+"Só o áudio" viajam como edição virtual, **não** como MP3/MP4 renderizado.
+Para mídia editada, avisa explicitamente que o **original completo também vai
+junto**: o destinatário recebe os bytes originais, não apenas o trecho marcado.
+Não há botão sem `pacoteCanal` no navegador. No destino o pacote mantém o
+formato `escopo: 'culto'`: passa pela prévia/consentimento e a importação cria
+um cronograma com uma mídia e o torna ativo, preservando o anterior guardado.
+
 ### Só o link, a folha viva e o culto ativo (v1.14.77)
 
 - **Só o link** (decisão do operador, 18/11): o que se baixa de novo pelo id vai SEM bytes — `media` com `youtubeId` ou `kind: 'semana'` (`bytes: 0`) e a faixa de coleção só como `arquivo` (com o `opfsPath`, sem os `opfs`). `pacotePlanoDoCulto` → `escopo.soLink`; o `info` leva `baixarDepois: [ids]`. Mídia própria e editados continuam com os bytes. No destino, o aviso do cronograma (`faltaParaTocarSemRede`, que confere o DISCO da faixa de coleção) acusa e baixa.

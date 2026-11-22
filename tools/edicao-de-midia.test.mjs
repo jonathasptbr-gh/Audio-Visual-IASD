@@ -697,6 +697,33 @@ const idEditado = await app.evaluate(async () => {
   await window.AVDB.listAdd('favs', it.id);                    // o mesmo item no Cronograma E nos Favoritos
   return it.id;
 });
+// C5a · a engrenagem das duas listas abre o alvo, não o rascunho de outra mídia.
+for (const lista of ['imports', 'favs']) {
+  const porta = await app.evaluate(async ({ id, lista, outro }) => {
+    await edicaoEscolherItem({ id: outro });
+    if (lista === 'imports') await load();
+    const item = await AVDB.getMedia(id);
+    const li = lista === 'favs' ? linhaDeItem(item, { lista, total: 1 })
+      : [...document.querySelectorAll('.lib-item')].find((l) => l.dataset.id === id);
+    if (!li) return false;
+    const b = li.querySelector('.row-engrenagem');
+    if (!b) return false;
+    b.click();
+    return true;
+  }, { id: idEditado, lista, outro: ids.rec });
+  const abriuAlvo = await esperar(app, (id) => edicaoEditandoId === id && edicaoVista === 'form'
+    && miscTool === 'edicao' && !edicaoSecaoEl.hidden, idEditado, 10000);
+  const valores = await estado(app);
+  checar(porta && abriuAlvo === true && valores.ini === '2' && valores.fim === '5'
+    && valores.fo === true && valores.nome === 'Hino Cinco sem a introdução',
+  'C · engrenagem em ' + lista + ' preserva nome, corte e fade do alvo', JSON.stringify(valores));
+}
+const webPortas = await app.evaluate(async (id) => {
+  const original = await AVDB.getMedia(id);
+  return { engrenagem: !!botaoEngrenagemDaLinha(original), compartilhar: !!botaoCompartilharDaLinha(original) };
+}, ids.rec);
+checar(!webPortas.engrenagem && !webPortas.compartilhar,
+  'C · original não oferece editor no lugar e navegador não oferece envio nativo indisponível', JSON.stringify(webPortas));
 await app.click('#edicaoLista .pacote-linha .song-menu-btn');   // o card: troca de mídia
 await esperar(app, () => document.getElementById('toolsTitle').textContent === 'Escolher a mídia', null, 10000);
 const c5a = await escolher('lst:imports', 'Hino Cinco sem a introdução');

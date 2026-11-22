@@ -1770,6 +1770,8 @@ body.mode-simple .vol-pill.na-previa .vol-pill-trilho { max-height: 12rem; }
 .preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)).pv-animando { overflow: hidden; }
 .preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)).pv-animando .pv-fab { align-self: start; }
 .preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)).pv-animando :is(#muteToggle, #pvFullBtn) { align-self: end; }
+.preview.pv-recolhida.pv-animando :is(#pvCastBtn, #pvFullBtn) { justify-self: end; }
+.preview.pv-recolhida.pv-animando #pvRecolherBtn { justify-self: center; }
 .preview.pv-recolhida:not(:fullscreen):not(:-webkit-full-screen):not(.pv-inteira):not(:has(.pv-busy.on)).pv-animando :is(.pv-layer, .pv-wall) { visibility: visible; }
 /* EXPANDINDO (a classe `pv-recolhida` já saiu e o movimento ainda corre) a prévia nasce com a
    altura de um botão do deck, e as duas colunas de botões — cortina+mudo e cast+tela cheia,

@@ -90,12 +90,13 @@ html, body {
   align-items: center;
   justify-content: center;
   background: var(--wallpaper);
-  /* O DESENHO padrão (v5.188): o símbolo oficial da IASD — fonte única em
+  /* O FUNDO padrão (cor e sombra, sem marca) — fonte única em
      `shared/wallpaper-padrao.svg`, mesmo caminho relativo que o `.pv-wall`
      do Controle usa (a URL não pode ir para o token — ver tokens.css).
      Wallpaper personalizado (imagem escolhida pelo operador) entra como
      background-image INLINE por cima desta declaração — e removê-lo (inline
-     vazio) devolve o desenho padrão sozinho. */
+     vazio) devolve o fundo padrão sozinho. O símbolo da identificação é
+     composto à parte por `wallCompor`, com `shared/iasd-simbolo.svg`. */
   background-image: url('../shared/wallpaper-padrao.svg');
   background-size: cover;
   background-position: center;

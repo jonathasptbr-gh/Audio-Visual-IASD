@@ -544,8 +544,7 @@ try {
   checar(!!seletor,
     'C · o toque na Foto ABRE o seletor de arquivos — a ativação do rótulo '
     + 'atravessa a seção', 'nenhum seletor abriu');
-  // O PADRÃO devolve o telão ao desenho padrão (`setWallpaper(null)`) e não abre
-  // seletor nenhum.
+  // Padrão seleciona o fundo limpo e liga a identificação pela opção existente.
   await c.pg.evaluate(() => {
     wallCfg = Object.assign({}, wallCfg, { fonte: 'foto', nivel: 'nenhuma' });
     window.__resets = 0;
@@ -556,14 +555,14 @@ try {
   c.pg.once('filechooser', () => { abriuSeletorNoPadrao = true; });
   await tocar(c.pg, '#wallFonteSeg [data-fonte="padrao"]');
   const resetou = await esperar(c.pg, () => window.__resets >= 1, null, 10000);
-  const estado = await c.pg.evaluate(() => ({ resets: window.__resets, arg: window.__resetArg,
-    cfg: wallCfg && wallCfg.fonte }));
-  checar(resetou === true && estado.resets === 1 && estado.arg === null && estado.cfg === 'padrao'
-    && !abriuSeletorNoPadrao,
-    'C · o Padrão VOLTA AO DESENHO PADRÃO (`setWallpaper(null)`), uma vez, sem seletor',
+  const estado = await c.pg.evaluate(async () => ({ resets: window.__resets, blob: window.__resetArg instanceof Blob,
+    cfg: wallCfg && wallCfg.fonte, nivel: wallCfg && wallCfg.nivel,
+    fundoLimpo: !/<(?:path|image|use)\b/.test(await (await fetch('../shared/wallpaper-padrao.svg')).text()) }));
+  checar(resetou === true && estado.resets === 1 && estado.blob && estado.cfg === 'padrao'
+    && estado.nivel === 'logo' && estado.fundoLimpo && !abriuSeletorNoPadrao,
+    'C · o Padrão usa fundo SEM logo embutido e ativa Logo separado, uma vez, sem seletor',
     JSON.stringify([estado, abriuSeletorNoPadrao]));
-  // A IDENTIFICAÇÃO COMPÕE UM 1920x1080 sobre o padrão — o canvas desenha o
-  // símbolo lido do próprio `wallpaper-padrao.svg`.
+  // A identificação compõe 1920x1080 com o símbolo do SVG separado.
   // OS QUATRO NÍVEIS (v1.15.2): `nenhuma` sobre o padrão é o padrão (`null`); os
   // outros três compõem; e o `igreja: true` da v1.15.0 é lido como `completa`.
   const composto = await c.pg.evaluate(async () => {

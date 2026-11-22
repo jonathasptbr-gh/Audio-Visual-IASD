@@ -16,7 +16,8 @@ app/src/main/
 │   ├── notas.json               #   A LINHA DO TEMPO: o que cada versão mudou.
 │   │                            #   Viaja NO bundle de propósito (ver o OTA)
 │   ├── shared/tokens.css        #   PALETA — fonte única, carregada pelos dois apps
-│   ├── shared/wallpaper-padrao.svg  # o WALLPAPER padrão: símbolo oficial IASD
+│   ├── shared/wallpaper-padrao.svg  # o FUNDO padrão: cor e sombra, sem marca
+│   ├── shared/iasd-simbolo.svg  # o símbolo oficial IASD (camada de identificação)
 │   ├── shared/native.js         #   ponte AVNative + watchdog do OTA (NÃO existe no PWA)
 │   ├── shared/db.js             #   + relay nativo no canal de comandos
 │   ├── shared/stage.js          #   motor de mídia (compartilhado Controle/Display)

@@ -189,7 +189,8 @@ app/src/main/assets/web/
 │   ├── native.js               # ponte AVNative (só existe no app; no-op no navegador)
 │   ├── db.js                   # Camada comum: IndexedDB + OPFS + BroadcastChannel (+ relay nativo)
 │   ├── stage.js                # Motor de renderização compartilhado
-│   ├── wallpaper-padrao.svg    # O wallpaper padrão: o símbolo oficial IASD
+│   ├── wallpaper-padrao.svg    # Fundo padrão: cor e sombra, sem marca embutida
+│   ├── iasd-simbolo.svg        # Símbolo oficial IASD: camada de identificação do wallpaper
 │   ├── material-symbols.css    # Font-face da fonte de ícones (subset offline; só o Controle usa)
 │   └── fonts/
 │       └── material-symbols.woff2  # 2.220 B — subset de 31 codepoints, dos

@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.15.6** — wallpaper padrão sem símbolo embutido, com logo avulso ao selecionar; editor e envio `.avpkg` individual nas opções de Cronograma/Favoritos; caixas dos botões e camadas da prévia estabilizadas durante recolher/expandir (só web).
 - **v1.15.5** — dois canais de OTA: `web-teste` recebe todo lote, `web-latest` (o público) só `X.Y.0` ou o disparo `para_todos`; a chave "Receber atualizações de teste" na Inicialização (shell 91: `otaCanal`/`otaCanalDefinir`, Release v1.15.5).
 - **v1.15.4** — mostrar/ocultar os horários do itinerário é ANIMADO (`max-width`/`margin-right`/`opacity` da `.itin-hora`, sem `display: none`) e `desenharItinerario` só move a linha fora do lugar — o `appendChild` de toda linha a cada desenho cancelava as transições (só web).
 - **v1.15.3** — o itinerário no telão mostra QUATRO momentos (`ITIN_JANELA` 6 → 4) e a janela para cheia perto do fim (só web).
@@ -829,6 +830,38 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.15.6 — wallpaper sem marca embutida, mídia individual e prévia recolhida
+
+**O PEDIDO** (20–21/11, autorizado em 22/11): selecionar o wallpaper padrão com
+fundo e sombra, ativando o logotipo avulso em vez de duplicar o símbolo embutido;
+abrir uma mídia editada pelo Cronograma/Favoritos; compartilhar uma mídia dessas
+listas; corrigir a transformação travada dos botões ao recolher a prévia avançada.
+
+Só web (CORREÇÃO; sem `shellTag`, APK v1.15.5 já publicado). O lote segue para
+`web-teste`, sem forçar o público (`para_todos`).
+
+| área | mudança |
+|---|---|
+| Wallpaper | `wallpaper-padrao.svg` fica só com gradiente/cor; o path oficial passa para `iasd-simbolo.svg`. `wallDesenho` lê as fontes separadas. Padrão define `fonte: 'padrao', nivel: 'logo'`; escolher Nenhuma depois limpa a marca, sem símbolo residual no fundo |
+| Editor | `botaoEngrenagemDaLinha` aceita `item.edicao` nas duas listas; `abrirFerramenta` encaminha o item a `aoAbrirEdicao`, que usa o registro gravado, não o último rascunho. `edicaoEscolherItem` preserva o id e os parâmetros; salvar segue atualizando o mesmo registro |
+| Compartilhar | `botaoCompartilharDaLinha` oferece envio nativo individual, com confirmação explícita de `.avpkg` para abrir neste app e de que o original completo viaja. `exportarCulto('', item)` escopa o plano a um id e às dependências — `pacoteBases` para um original de `media`, `idsDoPlano` para um original de catálogo (`fileGet`) —, não ao culto ativo; sem o original disponível, o envio falha com aviso em vez de mandar um editado oco. O formato permanece o de culto: no destinatário a importação cria um cronograma unitário e o torna ativo; no remetente nenhuma lista é trocada. Não é renderização/exportação de MP3/MP4 |
+| Prévia | `medirPrevia` captura largura, altura, padding e raio dos botões; `animarRecolhimentoDaPrevia` interpola também essas caixas, mantendo as âncoras direita/centro. As camadas de mídia e wallpaper mantêm a altura expandida durante o recorte/fade, em vez de reescalar em cada quadro |
+
+**A inversão também é contínua:** a revisão com o relógio WAAPI pausado flagrou
+que inverter no meio reiniciava a opacidade das camadas e perdia sua altura
+expandida. `medirPrevia` agora captura a altura/alfa atuais antes de cancelar as
+animações; o novo movimento começa neles, com `flexBasis` no eixo de cada grupo
+para manter as caixas dos botões. O D2 mede ambos os sentidos, inclusive
+x/y/largura/altura dos cinco botões que permanecem na linha e o término limpo.
+
+**Regressões cobertas nos oráculos existentes:** `previa-animacao` ganha a
+largura do primeiro quadro (reprovou no código anterior); `configuracoes-janelas`
+trava o fundo sem path/image/use e o Padrão com logo composto; `edicao-de-midia`
+e `pacote-culto` cobrem a porta do editor e o escopo de mídia individual. Sem
+oráculo novo nem mudança de workflow. Fluidez e compartilhamento Android real
+continuam pedindo conferência no aparelho; não se mediu FPS nem uma entrega
+entre dois aparelhos nesta máquina.
 
 ## v1.15.5 — o canal de teste e o canal público
 

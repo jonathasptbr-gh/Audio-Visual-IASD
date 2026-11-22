@@ -579,6 +579,49 @@ try {
     && iDepois.etapas.findIndex((t) => /^Gravando/.test(t)) > iDepois.etapas.indexOf('Desenhando as capas…'),
   'I · as etapas anotadas são só as do envio, e "Gravando…" vem depois de "Desenhando as capas…"',
   JSON.stringify(iDepois.etapas));
+  // Envio individual nativo: originais de media E files, sem o culto ativo.
+  await A.pg.evaluate(async () => {
+    await AVDB.mediaAdd({ id: 'cat-edit', name: 'Hino do catálogo editado', kind: 'audio', type: 'audio/mp4',
+      edicao: { origem: 'arq-hino', inicio: 1, fim: 5, fadeEntrada: true } });
+    await AVDB.listAdd('imports', 'cat-edit');
+  });
+  for (const alvo of ['mid-edit', 'mid-a', 'cat-edit']) {
+    const botoes = await A.pg.evaluate(async (id) => {
+      window.__saida = []; window.__chamadas = [];
+      const item = await AVDB.getMedia(id);
+      await AVDB.listAdd('favs', id);
+      await load();
+      const crono = [...document.querySelectorAll('.lib-item')].find((li) => li.dataset.id === id);
+      const fav = linhaDeItem(item, { lista: 'favs', total: 1 });
+      const a = crono && crono.querySelector('.row-compartilhar');
+      const b = fav.querySelector('.row-compartilhar');
+      if (b) b.click();
+      return { crono: !!a, fav: !!b };
+    }, alvo);
+    await dialogoAberto(A.pg);
+    const mensagem = await A.pg.locator('#appDialogMsg').textContent();
+    await A.pg.click('#appDialogOk');
+    const enviou = await esperar(A.pg, () => window.__chamadas.includes('compartilharCulto') && !pacoteEmCurso, null, 60000);
+    const unico = registros(await saidaDe(A.pg));
+    const medias = unico.filter((r) => r.cab.t === 'media');
+    const estado = unico.filter((r) => r.cab.t === 'state');
+    const arqs = unico.filter((r) => r.cab.t === 'arquivo').map((r) => r.cab.rec.id);
+    const recipiente = estado.length === 1 ? JSON.parse(txt(estado[0].corpo)) : null;
+    const edit = medias.find((r) => r.cab.rec.id === 'mid-edit');
+    const cat = medias.find((r) => r.cab.rec.id === 'cat-edit');
+    checar(botoes.crono && botoes.fav && enviou === true && /avpkg/.test(mensagem)
+      && recipiente && recipiente.itens.length === 1 && recipiente.itens[0].ids.join() === alvo
+      && medias.length === (alvo === 'mid-edit' ? 2 : 1)
+      && medias.some((r) => r.cab.rec.id === alvo)
+      && (alvo !== 'mid-edit' || (edit && edit.cab.rec.edicao.origem === 'mid-orig'
+        && edit.cab.rec.edicao.inicio === 0 && edit.cab.rec.edicao.fim === 5
+        && medias.some((r) => r.cab.rec.id === 'mid-orig' && r.cab.base && r.corpo.length === 2500)))
+      && (alvo !== 'cat-edit' || (cat && cat.cab.rec.edicao.origem === 'arq-hino'
+        && cat.cab.rec.edicao.inicio === 1 && cat.cab.rec.edicao.fim === 5
+        && arqs.includes('arq-hino') && !medias.some((r) => r.cab.rec.id === 'arq-hino'))),
+    'Q · compartilhar ' + alvo + ' nas opções leva somente o alvo e suas dependências, sem o culto atual',
+    JSON.stringify({ botoes, enviou, ids: medias.map((r) => r.cab.rec.id), arqs, recipiente }));
+  }
   await A.ctx.close();
 
   // ===== E · pacoteLerCapa =====

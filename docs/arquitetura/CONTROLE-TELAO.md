@@ -685,7 +685,10 @@ que ela ganhou GEOMETRIA.
   chamam `acertarEconomiaDaPreview` direto e assentam no ato). O estado final vale
   no primeiro quadro; WAAPI desenha o caminho: `height`, `background-color`,
   `box-shadow` e `border-radius` da prévia do medido antes ao medido depois (do
-  palco ao transparente), e em cada botão o fundo, a cor e o deslocamento — **contado
+  palco ao transparente). As camadas mantêm a altura expandida fixa e só recortam/desvanecem;
+  uma inversão preserva também a altura e o alfa em curso. Cada botão anima tamanho, padding,
+  raio, fundo, cor e deslocamento; `flex-basis` acompanha o eixo do grupo (coluna ou linha),
+  para não sobrepor a altura/largura animada. O deslocamento é **contado
   da ÂNCORA do botão**: no Y a do aberto (topo ou base), no X a da linha (borda
   esquerda, direita ou centro). Contado de outra ponta, a largura que muda (34 →
   47,7) jogava o canto para fora da caixa no primeiro quadro. `pv-animando` estica

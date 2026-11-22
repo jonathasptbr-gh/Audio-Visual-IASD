@@ -722,10 +722,12 @@ Dia" + o nome da igreja local por cima.
   identificação (`nenhuma`), foto e imagem da biblioteca vão como estão; com ela,
   `wallCompor` desenha 1920x1080 num canvas (JPEG 0,9). Padrão sem identificação
   é `null`.
-- **O símbolo e o gradiente saem do próprio `shared/wallpaper-padrao.svg`**
-  (`wallDesenho`: o `d` vira `Path2D`, as paradas do `radialGradient` são lidas):
-  a fonte única continua única. O bloco do rodapé fica na largura de 4:3 (o
-  `cover` corta as laterais numa TV 4:3).
+- **Fundo e identificação são fontes separadas:** `shared/wallpaper-padrao.svg`
+  contém só cor e sombra; `shared/iasd-simbolo.svg` fornece o símbolo oficial.
+  `wallDesenho` lê as paradas do `radialGradient` do fundo e o `d` do símbolo
+  como `Path2D`. Selecionar **Padrão** também ativa o nível `logo`; depois é
+  possível escolher **Nenhuma**, sem marca residual na imagem. O bloco do rodapé
+  fica na largura de 4:3 (o `cover` corta as laterais numa TV 4:3).
 - **A escolha mora em `wallpaperCfg`** e a foto reduzida em `wallpaperFoto`
   (Blob; os dois viajam no pacote como as outras chaves). Um aparelho com foto de
   antes da v1.15.0 e sem `wallpaperCfg` abre como `foto`, com o wallpaper atual
@@ -733,23 +735,17 @@ Dia" + o nome da igreja local por cima.
 - **A composição mais nova vence** (`wallSeq`); imagem da biblioteca que sumiu do
   disco cai no padrão e a seção diz isso (`#wallStatus`).
 
-- **O PADRÃO é o símbolo oficial da IASD** (v5.188): branco, cor sólida única,
-  centrado sobre um denim profundo quase-preto — as regras do
-  identity.adventist.org (uma cor só, fundo contrastante, espaço livre maior
-  que a altura do símbolo). O desenho inteiro mora em
-  **`shared/wallpaper-padrao.svg`**, fonte ÚNICA usada pelo `.wallpaper` do
-  Display, pelo `.pv-wall` da preview e pelas telas da rede (o bundle servido
-  inclui `shared/`). A URL do SVG fica **nas duas folhas consumidoras**, com o
-  mesmo caminho relativo — não no token `--wallpaper`, porque um `url()`
-  substituído por `var()` resolve contra a PÁGINA, não contra a folha, e cada
-  página o quebraria para um caminho diferente (foi o primeiro defeito da
-  própria v5.188). O token guarda só a cor de base que aparece enquanto o SVG
-  carrega. A marca de TEXTO "Audio Visual IASD"
-  (`.wallpaper-brand`/`.pv-brand`) saiu com o gradiente verde: o símbolo é a
-  identidade, e um texto por cima só competiria. (E a lição que o SVG carrega
-  no próprio comentário: comentário de XML não aceita hífen duplo — um
-  `--token` citado ali dentro invalida o arquivo INTEIRO, sem erro em lugar
-  nenhum, só um fundo liso.)
+- **O FUNDO PADRÃO é o denim profundo quase-preto com sombra radial, sem logo
+  embutido** (`shared/wallpaper-padrao.svg`). A identificação usa o símbolo
+  oficial branco de `shared/iasd-simbolo.svg`, em cor sólida única, sobre fundo
+  contrastante e com espaço livre — identity.adventist.org. O `.wallpaper` do
+  Display, o `.pv-wall` da preview e as telas da rede usam o mesmo fundo (o
+  bundle servido inclui `shared/`); a camada de identificação entra apenas na
+  composição `wallCompor`. A URL do fundo fica **nas duas folhas consumidoras**,
+  com o mesmo caminho relativo — não no token `--wallpaper`: `url()` via `var()`
+  resolve contra a PÁGINA, não contra a folha. O token guarda só a cor de base
+  durante a carga. Comentário XML não aceita hífen duplo: um `--token` citado
+  nele invalida o SVG inteiro, deixando apenas o fundo liso.
 - O blob mora no **state `wallpaper`**, que Controle e Display compartilham,
   então o comando `wallpaper` **não carrega payload**: só avisa que mudou, e
   cada lado relê do IDB. (Mandar a imagem pelo canal seria copiar megabytes a

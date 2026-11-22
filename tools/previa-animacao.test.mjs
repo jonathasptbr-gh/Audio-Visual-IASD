@@ -102,7 +102,7 @@ const AMOSTRAR = ({ ids, ms, segundoToqueEm }) => new Promise((resolve) => {
       if (!b || b.hidden) return;
       const r = b.getBoundingClientRect();
       if (!r.width) return;
-      o[id] = { x: r.left - P.left, xr: P.right - r.right, y: r.top - P.top, yb: P.bottom - r.bottom, alt: r.height };
+      o[id] = { x: r.left - P.left, xr: P.right - r.right, y: r.top - P.top, yb: P.bottom - r.bottom, alt: r.height, largura: r.width };
     });
     return o;
   };
@@ -164,7 +164,10 @@ try {
     checar(!!(exp0.pvCamadaBtn && exp0.pvGiroBtn),
       'PREMISSA: expandida, o selo e o giro estão à vista (eles saem só na linha recolhida)', Object.keys(exp0));
 
+    const largurasAntes = await pg.evaluate((ids) => Object.fromEntries(ids.map((id) => [id, document.getElementById(id).getBoundingClientRect().width])), IDS);
     const rec = await pg.evaluate(AMOSTRAR, { ids: IDS, ms: 800 });
+    checar(['muteToggle', 'viewToggle', 'pvFullBtn'].every((id) => perto(rec[0][id].largura, largurasAntes[id], 1.5)),
+      'B7 · a largura das teclas começa na medida anterior, sem salto na transformação', { antes: largurasAntes, primeiro: rec[0] });
     await assentar(pg);
     const rec1 = await medirFinal(pg);
     const H0 = exp0.h, H1 = rec1.h;
@@ -302,6 +305,52 @@ try {
       'D1 · e a cortina e o cast partem de onde estavam (sem salto de posição)', { antes: a && a.viewToggle.x, depois: d && d.viewToggle.x });
     checar(fimMeio.recolhida === false && perto(fimMeio.h, H0, 1) && fimMeio.animacoes === 0 && fimMeio.animando === false,
       'D1 · e assenta no estado do SEGUNDO toque, limpo', fimMeio);
+    await ctx.close();
+  }
+
+  // D2 · Relógio WAAPI pausado: compara o mesmo instante nos dois sentidos da inversão.
+  {
+    const { ctx, pg } = await abrir();
+    const inversoes = await pg.evaluate(() => {
+      const pv = document.getElementById('preview');
+      const btn = document.getElementById('pvRecolherBtn');
+      const ler = () => ({
+        camadas: [...pv.querySelectorAll('.pv-layer, .pv-wall')].map((c) => {
+          const s = getComputedStyle(c);
+          return { h: parseFloat(s.height), op: parseFloat(s.opacity) };
+        }),
+        botoes: [...pv.querySelectorAll('.pv-fabs .pv-fab')].filter((b) => !b.hidden && b.getBoundingClientRect().width).map((b) => {
+          const p = pv.getBoundingClientRect(), r = b.getBoundingClientRect();
+          return { id: b.id, x: r.left - p.left, y: r.top - p.top, w: r.width, h: r.height };
+        }),
+      });
+      const meio = () => pv.getAnimations({ subtree: true }).forEach((a) => {
+        a.pause(); a.currentTime = a.effect.getTiming().duration * .45;
+      });
+      const pares = [];
+      btn.click();
+      for (let i = 0; i < 2; i++) {
+        const inicio = ler();
+        meio(); const antes = ler();
+        btn.click(); const depois = ler();
+        pares.push({ inicio, antes, depois });
+      }
+      return pares;
+    });
+    checar(inversoes.every(({ inicio, antes, depois }) => antes.camadas.every((c, i) =>
+      perto(c.h, inicio.camadas[i].h, 0.6) && perto(c.h, depois.camadas[i].h, 0.6)
+      && perto(c.op, depois.camadas[i].op, .01))),
+    'D2 · as camadas mantêm altura fixa e o alfa atual ao inverter nos DOIS sentidos', inversoes);
+    checar(inversoes.every(({ antes, depois }) => antes.botoes.filter((b) =>
+      b.id !== 'pvCamadaBtn' && b.id !== 'pvGiroBtn').every((b) => {
+      const d = depois.botoes.find((n) => n.id === b.id);
+      return d && ['x', 'y', 'w', 'h'].every((k) => perto(b[k], d[k], .6));
+    })),
+    'D2 · nenhum botão salta de posição ou tamanho ao inverter nos DOIS sentidos', inversoes);
+    await assentar(pg);
+    const fim = await medirFinal(pg);
+    checar(fim.recolhida && !fim.animando && fim.animacoes === 0 && fim.fora.length === 0,
+      'D2 · a última inversão termina recolhida e sem resíduo', fim);
     await ctx.close();
   }
 
