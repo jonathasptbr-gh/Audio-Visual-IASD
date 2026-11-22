@@ -22,6 +22,9 @@
 //   I · a ETAPA do envio na linha (`cultoAvisar`): com o canal segurado, antes do fim, a conta
 //       vira a etapa, a linha tem `.enviando` e "Gravando… N%" com `--pct` acima do início;
 //       no fim volta a "N itens". Foto a 360×640 em ~/tmp/enviando-360.png.
+//   Q · o envio de UMA mídia e a chegada dela: sem capa (`capas: 0`, nenhum `info` de capa) e
+//       `info.midiaUnica { id, nome }`; no destino, a folha de importação de uma mídia comum
+//       (Tocar agora · Cronograma · Playlist · Favoritos), SEM cronograma novo nem ativação.
 //
 //   node tools/pacote-culto.test.mjs
 // ============================================================================
@@ -585,6 +588,7 @@ try {
       edicao: { origem: 'arq-hino', inicio: 1, fim: 5, fadeEntrada: true } });
     await AVDB.listAdd('imports', 'cat-edit');
   });
+  let pacoteMidiaEdit = null;
   for (const alvo of ['mid-edit', 'mid-a', 'cat-edit']) {
     const botoes = await A.pg.evaluate(async (id) => {
       window.__saida = []; window.__chamadas = [];
@@ -602,13 +606,27 @@ try {
     const mensagem = await A.pg.locator('#appDialogMsg').textContent();
     await A.pg.click('#appDialogOk');
     const enviou = await esperar(A.pg, () => window.__chamadas.includes('compartilharCulto') && !pacoteEmCurso, null, 60000);
-    const unico = registros(await saidaDe(A.pg));
+    const unicoBytes = await saidaDe(A.pg);
+    const unico = registros(unicoBytes);
+    if (alvo === 'mid-edit') pacoteMidiaEdit = unicoBytes;
     const medias = unico.filter((r) => r.cab.t === 'media');
     const estado = unico.filter((r) => r.cab.t === 'state');
     const arqs = unico.filter((r) => r.cab.t === 'arquivo').map((r) => r.cab.rec.id);
     const recipiente = estado.length === 1 ? JSON.parse(txt(estado[0].corpo)) : null;
+    const infoUnico = JSON.parse(txt(unico[0].corpo));
+    const capaInfos = unico.filter((r) => r.cab.t === 'info' && r.cab.capa);
+    const chamUnico = await A.pg.evaluate(() => window.__chamadas.slice());
     const edit = medias.find((r) => r.cab.rec.id === 'mid-edit');
     const cat = medias.find((r) => r.cab.rec.id === 'cat-edit');
+    checar(unico[0].cab.t === 'info' && !unico[0].cab.capa && infoUnico.capas === 0
+      && capaInfos.length === 0 && !chamUnico.some((c) => /^capa:/.test(c))
+      && infoUnico.midiaUnica && infoUnico.midiaUnica.id === alvo
+      && typeof infoUnico.midiaUnica.nome === 'string' && infoUnico.midiaUnica.nome.length > 0
+      && chamUnico.includes('compartilharCulto') && !chamUnico.includes('compartilhar'),
+    'Q1 · a mídia sozinha sai SEM capa nenhuma (`capas: 0`, nenhum `info` de capa, nenhum '
+    + 'pacoteCapa) e o `info` a identifica em `midiaUnica { id, nome }` — o culto inteiro continua com capa',
+    JSON.stringify({ info: { capas: infoUnico.capas, midiaUnica: infoUnico.midiaUnica },
+      capaInfos: capaInfos.length, cham: chamUnico }));
     checar(botoes.crono && botoes.fav && enviou === true && /avpkg/.test(mensagem)
       && recipiente && recipiente.itens.length === 1 && recipiente.itens[0].ids.join() === alvo
       && medias.length === (alvo === 'mid-edit' ? 2 : 1)
@@ -618,11 +636,75 @@ try {
         && medias.some((r) => r.cab.rec.id === 'mid-orig' && r.cab.base && r.corpo.length === 2500)))
       && (alvo !== 'cat-edit' || (cat && cat.cab.rec.edicao.origem === 'arq-hino'
         && cat.cab.rec.edicao.inicio === 1 && cat.cab.rec.edicao.fim === 5
+        && cat.cab.rec.edicao.fadeEntrada === true
         && arqs.includes('arq-hino') && !medias.some((r) => r.cab.rec.id === 'arq-hino'))),
     'Q · compartilhar ' + alvo + ' nas opções leva somente o alvo e suas dependências, sem o culto atual',
     JSON.stringify({ botoes, enviou, ids: medias.map((r) => r.cab.rec.id), arqs, recipiente }));
   }
   await A.ctx.close();
+
+  // ===== Q2 · UMA MÍDIA RECEBIDA: SEM CRONOGRAMA, NA TELA DE DESTINO DA MÍDIA COMUM =====
+  // O MESMO `.avpkg` do envio individual (o do editado, que traz o original em `base`). O destino
+  // não pode criar cronograma nem ativá-lo: a folha é a da importação de uma mídia comum.
+  const U = await aparelho(pacoteMidiaEdit);
+  pacoteServido = pacoteMidiaEdit;
+  await U.pg.evaluate(() => { window.__fim = importarPacote(); });
+  const apareceu = await esperar(U.pg, () => {
+    const m = document.getElementById('songMenuPopup');
+    const d = document.getElementById('appDialog');
+    return (!!m && m.classList.contains('open')) || (!!d && d.classList.contains('open'));
+  }, null, 60000);
+  const veioDestino = apareceu && await U.pg.evaluate(
+    () => document.getElementById('songMenuPopup').classList.contains('open'));
+  const antesDestino = await U.pg.evaluate(async () => {
+    const raw = await AVDB.getMediaCru('mid-edit');
+    return {
+      dialogo: document.getElementById('appDialog').classList.contains('open'),
+      titulo: document.getElementById('songMenuTitle').textContent,
+      destinos: [...document.querySelectorAll('#songMenuPopup .dest-btn')].map((b) => b.dataset.dest),
+      cronos: await AVDB.getState('cronogramas'),
+      lido: await AVDB.cronoLer(),
+      midia: raw && { name: raw.name, edicao: raw.edicao },
+      base: !!(await AVDB.getMediaCru('mid-orig')),
+      imports: await AVDB.listIds('imports'),
+    };
+  });
+  checar(veioDestino === true && !antesDestino.dialogo && antesDestino.titulo === 'Importar'
+    && JSON.stringify(antesDestino.destinos) === '["tocar","cronograma","playlist","favoritos"]'
+    && !antesDestino.cronos && antesDestino.lido.ativo === 'cr-atual'
+    && !antesDestino.lido.itens.some((x) => x.nome === 'Trecho editado')
+    && antesDestino.imports.length === 0 && antesDestino.midia
+    && antesDestino.midia.name === 'Trecho editado' && antesDestino.midia.edicao
+    && antesDestino.midia.edicao.origem === 'mid-orig' && antesDestino.midia.edicao.inicio === 0
+    && antesDestino.midia.edicao.fim === 5 && antesDestino.base,
+  'Q2 · o pacote de UMA mídia não cria nem ativa cronograma: ele abre a MESMA folha da mídia '
+  + 'comum (Tocar agora · Cronograma · Playlist · Favoritos), com o item já gravado, o nome e a '
+  + 'edição (e o original base) preservados', JSON.stringify(antesDestino));
+  const escolheu = veioDestino ? await U.pg.evaluate(() => {
+    const b = document.querySelector('#songMenuPopup .dest-btn[data-dest="cronograma"]');
+    if (!b) return false;
+    b.click();
+    return true;
+  }) : false;
+  if (veioDestino) await U.pg.evaluate(() => window.__fim).catch(() => {});
+  const depoisDestino = await U.pg.evaluate(async () => ({
+    fechou: !document.getElementById('songMenuPopup').classList.contains('open'),
+    cronos: await AVDB.getState('cronogramas'),
+    lido: await AVDB.cronoLer(),
+    imports: await AVDB.listIds('imports'),
+    midia: await AVDB.getMediaCru('mid-edit').then((r) => r && { name: r.name, edicao: r.edicao }, () => null),
+    cham: window.__chamadas.slice(),
+  }));
+  checar(escolheu && depoisDestino.fechou && !depoisDestino.cronos
+    && depoisDestino.lido.ativo === 'cr-atual'
+    && !depoisDestino.lido.itens.some((x) => x.nome === 'Trecho editado')
+    && JSON.stringify(depoisDestino.imports) === '["mid-edit"]'
+    && depoisDestino.cham.includes('consumir') && depoisDestino.midia
+    && depoisDestino.midia.name === 'Trecho editado'
+    && depoisDestino.midia.edicao.origem === 'mid-orig' && depoisDestino.midia.edicao.fim === 5,
+  'Q2 · escolhido o Cronograma, o item entra na lista pelo id que veio no pacote, SEM cronograma '
+  + 'novo, e o arquivo do pacote é consumido', JSON.stringify(depoisDestino));
+  await U.ctx.close();
 
   // ===== E · pacoteLerCapa =====
   const B = await aparelho(comCapa);

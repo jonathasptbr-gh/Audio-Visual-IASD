@@ -953,11 +953,14 @@ Hoje é uma FERRAMENTA (`FERRAMENTAS`, id `edicao`) — o corpo fixo `#edicaoSec
   e nos Favoritos oferecem a engrenagem **Editar mídia**, abrindo diretamente
   o item no formulário com os valores gravados, sem trocar seu id. O editor
   continua salvando no lugar; não altera o original nem cria outra cópia.
-- **Compartilhar uma mídia (v1.15.6):** no app nativo, as opções dessas duas
-  listas oferecem o envio de um `.avpkg` para abrir no Áudio Visual IASD.
-  O pacote leva só a mídia escolhida e suas dependências de edição; não leva
-  o culto ativo inteiro. Cortes e fades seguem como metadados, sem renderizar
-  outro MP3/MP4. A importação usa o mesmo fluxo de pacote de culto.
+- **Compartilhar uma mídia (v1.15.6 → v1.15.7):** no app nativo, as opções
+  dessas duas listas oferecem o envio de um `.avpkg` para abrir no Áudio Visual
+  IASD. O pacote leva só a mídia escolhida e suas dependências de edição; não
+  leva o culto ativo inteiro. Cortes e fades seguem como metadados, sem
+  renderizar outro MP3/MP4. Desde a v1.15.7 vai **sem capa** (só o arquivo) e,
+  no destino, cai na **mesma tela de importação de uma mídia comum** (Tocar
+  agora · Cronograma · Playlist · Favoritos), sem criar nem ativar cronograma;
+  o culto inteiro mantém a prévia e o cronograma.
 - **Item virtual:** registro `media` com `edicao {origem, inicio, fim, fadeEntrada, fadeSaida, soAudio}`; `getMedia` o devolve RESOLVIDO (bytes do original, duração do trecho, letra deslocada), `getMediaCru` devolve o registro. O original é segurado por `lerDetentores` (também pelo rascunho `edicaoRascunho`); o do catálogo `files` é adotado para `media` por `adotarBases` antes de `purgeCatalogRecords` apagar os bytes. A origem nunca encadeia.
 - **O original adotado guarda `opfsPath`, nunca o `File` do OPFS (v1.12.22):** o Chromium grava no IndexedDB um `File` vindo do OPFS POR REFERÊNCIA — apagada a pasta, `size` continua certo e `arrayBuffer()` lança `NotFoundError` (o item editado seguia na lista e não tocava, e o pacote exportava o blob morto). `adotarBases` copia os bytes EM FLUXO (`stream().pipeTo`) para `bases/<id>` (`caminhoDeBase`) antes de voltar — isto é, antes do `opfsDeleteDir` — e grava o registro `media` com `opfsPath` e `blob: null`. Quem apaga o arquivo é o `gcOrfaos`, que no fim chama `varrerBases`: tira de `bases/` o que nenhum registro aponta, pulando o arquivo do último minuto (adoção em curso). `bases/` não é "arquivo sem coleção" no pacote (`AVDB.ehCaminhoDeBase`): o original adotado só viaja pelo `pacoteBases`. Oráculo: D1 do `edicao-de-midia` (LÊ os bytes depois do `opfsDeleteDir`; coleta com o relógio adiantado).
 - **Um fim só no corte (v1.12.22):** `marcarFimNatural` espera o fade de saída do palco antes de marcar `ended`, e nesse meio-tempo o `<video>` segue tocando; sem guarda, cada `timeupdate` achava `resta < 0` e o `vigiarCorte` despachava outro `ended` sintético (MEDIDO: ~17 `onEnded` até o fim do arquivo, com o `FADE` fixo do app e um item sem "Fade de saída"). `fimEmCurso` nasce no INÍCIO do fim (antes do `await`), é checada em `vigiarCorte`/`encerrarNoCorte`/`marcarFimNatural` e morre onde uma reprodução recomeça (`ended = false` em `play`/`load`/`clear`/`fadeOutToBlack`, e no `seek`). Oráculo: B5 do `edicao-de-midia`.

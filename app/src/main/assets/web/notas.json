@@ -1,5 +1,15 @@
 [
   {
+    "versao": "1.15.7",
+    "itens": [
+      "O compartilhamento de uma mídia agora vai só com o arquivo, sem a capa do culto.",
+      "Quem recebe vê a mesma tela de importação de uma mídia comum.",
+      "Nela você escolhe Tocar agora, Cronograma, Playlist ou Favoritos.",
+      "As edições continuam preservadas; o arquivo não vira MP3 ou MP4.",
+      "Disponível nas atualizações de teste; não precisa instalar um APK novo."
+    ]
+  },
+  {
     "versao": "1.15.6",
     "itens": [
       "O wallpaper padrão separa o fundo e a sombra do logotipo, evitando logos sobrepostos.",

@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.15.7** — a mídia compartilhada vai SEM capa e, no destino, entra pela MESMA tela de importação de uma mídia comum (`info.midiaUnica`; sem criar/ativar cronograma) (só web).
 - **v1.15.6** — wallpaper padrão sem símbolo embutido, com logo avulso ao selecionar; editor e envio `.avpkg` individual nas opções de Cronograma/Favoritos; caixas dos botões e camadas da prévia estabilizadas durante recolher/expandir (só web).
 - **v1.15.5** — dois canais de OTA: `web-teste` recebe todo lote, `web-latest` (o público) só `X.Y.0` ou o disparo `para_todos`; a chave "Receber atualizações de teste" na Inicialização (shell 91: `otaCanal`/`otaCanalDefinir`, Release v1.15.5).
 - **v1.15.4** — mostrar/ocultar os horários do itinerário é ANIMADO (`max-width`/`margin-right`/`opacity` da `.itin-hora`, sem `display: none`) e `desenharItinerario` só move a linha fora do lugar — o `appendChild` de toda linha a cada desenho cancelava as transições (só web).
@@ -830,6 +831,21 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.15.7 — a mídia compartilhada entra pela porta da mídia comum, e sem capa
+
+**O PEDIDO** (operador, 22/11): *"O compartilhamento de mídia deve entrar no sistema de importação, que permite escolher para onde vai o arquivo. A importação é diferente porque é via .avpkg, mas a tela de entrada é a mesma de uma mídia comum."* Na mesma mensagem: *"no compartilhamento, não mande a capa de cronograma que se manda normalmente, mande apenas o arquivo."*
+
+Só web (CORREÇÃO; sem `shellTag`, APK v1.15.5). Segue para `web-teste`.
+
+| parte | o que mudou |
+|---|---|
+| Envio | `exportarCulto(id, midia)` só desenha capas quando NÃO é mídia única: `capas: 0`, nenhum `info` de capa, nenhum `AVNative.pacoteCapa`, nenhuma imagem ao lado. O culto inteiro mantém `cultoCapas` e as páginas. O arquivo continua saindo por `pacoteCompartilharCulto` (é o `pacoteCultoPronto`; sem capas, o shell manda UM arquivo) e o APK velho segue `pacoteCriarLocal` + `pacoteCompartilhar` |
+| Distinção | `info.midiaUnica: { id, nome }` — CAMPO dentro do `info` de sempre, nunca `t` novo nem `VERSAO` maior. App velho ignora `info` e trata como culto: cria e ativa um cronograma, o desfecho aceito |
+| Destino | `importarPacote` reconhece `escopo:'culto' + midiaUnica`, pula `cultoPrevia` e aplica o registro/original. `pacoteAplicarFluxo` não chama `cronoImportar` quando `contagem.midiaUnica` (não cria nem ativa cronograma). Depois, `midiaUnicaImportada` abre a MESMA folha da mídia comum — `escolherImportacao('Importar', …)`, com Tocar agora · Cronograma · Playlist · Favoritos — e grava por `adicionarNasListas`/`fixarAvulso`; no Modo Fácil vai à prateleira avulsa e ao telão. Sem UI nova |
+| Id e repetição | o id é o do pacote (o registro viaja já gravado e é a chave das listas e de `edicao.origem`); `mediaAdd` conta repetido se ele já existia, e nada duplica. Desistir da folha não grava lista e não consome o arquivo; o registro sem lista fica para o coletor |
+
+**Oráculos:** `pacote-culto` ganhou Q1 (envio individual: `info.capas === 0`, nenhum `info` de capa, `midiaUnica` presente, nenhum `pacoteCapa`) e Q2 (importação: a folha de destino da mídia comum aparece, o cronograma NÃO é criado nem ativado, e a edição — corte, `fadeEntrada`, original `base` ou catálogo — chega). A reversão foi provada contra a fonte de 8255ab92: 5 falhas (3 em Q1, 2 em Q2). B/G/L do culto inteiro continuam verdes, assim como a capa. **Não provado aqui:** a folha no aparelho, o compartilhar entre dois aparelhos e o comportamento de um APK antigo recebendo o pacote — só Chromium com ponte simulada.
 
 ## v1.15.6 — wallpaper sem marca embutida, mídia individual e prévia recolhida
 

@@ -841,7 +841,7 @@ pacote INTEIRO diante de um `t` desconhecido (`cabecalhoDeBytes`) e de `VERSAO >
 - **`pacoteLerCapa(fonte)` → `{ info, capas: Blob[] }`** lê só o `info` e as páginas logo depois
   (até 1 + 6 registros) e nunca lança: é a pergunta da PRÉVIA.
 
-### Compartilhar uma mídia das listas (v1.15.6)
+### Compartilhar uma mídia das listas (v1.15.6 → v1.15.7)
 
 As opções do Cronograma e dos Favoritos reutilizam `exportarCulto('', item)`:
 o cronograma do destinatário tem `ids: [item.id]`, com o nome da mídia e um id
@@ -852,13 +852,30 @@ cria nem troca cronograma no remetente, nem inclui outros itens, grupos ou
 itinerário do culto ativo. Sem o original disponível, o envio para com um aviso
 em vez de gerar um editado que não toca no destino.
 
+**SEM CAPA (v1.15.7, decisão do operador):** a capa é do CULTO. No envio de uma
+mídia só, `capas` fica `0`, nenhum `info` de capa é escrito e nenhum PNG vai ao
+lado; o compartilhar leva **apenas o arquivo**. O culto inteiro continua com as
+páginas de capa.
+
 A confirmação explica que o `.avpkg` abre no Áudio Visual IASD: corte, fades e
 "Só o áudio" viajam como edição virtual, **não** como MP3/MP4 renderizado.
 Para mídia editada, avisa explicitamente que o **original completo também vai
 junto**: o destinatário recebe os bytes originais, não apenas o trecho marcado.
-Não há botão sem `pacoteCanal` no navegador. No destino o pacote mantém o
-formato `escopo: 'culto'`: passa pela prévia/consentimento e a importação cria
-um cronograma com uma mídia e o torna ativo, preservando o anterior guardado.
+Não há botão sem `pacoteCanal` no navegador.
+
+**NO DESTINO, A PORTA É A DA MÍDIA COMUM (v1.15.7):** o `info` leva
+`midiaUnica: { id, nome }` — CAMPO novo, nunca um `t` novo nem outra `VERSAO`.
+O `importarPacote` lê o campo, pula `cultoPrevia`, aplica o registro e o
+original e **não** chama `cronoImportar` (`pacoteAplicarFluxo` respeita
+`contagem.midiaUnica`). Aí `midiaUnicaImportada` abre a MESMA folha do
+`importShare` (`escolherImportacao`: Tocar agora · Cronograma · Playlist ·
+Favoritos) e grava por `adicionarNasListas`; no Modo Fácil vai à prateleira
+avulsa e ao telão, como qualquer arquivo. O id é o do pacote (o registro viaja
+já gravado), então reimportar não duplica. Desistir da folha não grava lista e
+não consome o arquivo; o registro sem lista fica para o coletor. O CULTO
+INTEIRO mantém a prévia e a criação/ativação do cronograma. Um app velho ignora
+`info` e trata a mídia única como culto — o desfecho aceito enquanto houver
+app antigo na frota.
 
 ### Só o link, a folha viva e o culto ativo (v1.14.77)
 

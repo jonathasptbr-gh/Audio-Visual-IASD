@@ -498,7 +498,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.15.6';
+const WEB_VERSION = '1.15.7';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -37367,6 +37367,10 @@ async function exportarPacote() {
 // CAPA, direto para o compartilhar. O FORMATO É O DE SEMPRE (ver `AVPacote.TIPOS`): o
 // `info` diz `escopo: 'culto'` e a capa é um segundo `info`. Do outro lado ele entra pelo
 // Importar de hoje e vira um cronograma GUARDADO novo (`AVDB.cronoImportar`).
+//
+// UMA MÍDIA SÓ (22/11) é o MESMO `escopo`, com `info.midiaUnica: { id, nome }`: sem capa
+// (nem desenho, nem `info` de capa, nem imagem ao lado) e, no destino, sem cronograma —
+// ele abre a tela de importação de uma mídia comum e entra nas listas que ela escolher.
 
 // O id do cronograma sendo enviado agora ('' = nenhum): é o que a gaveta pinta.
 let cultoEnviando = '';
@@ -37535,8 +37539,13 @@ async function exportarCulto(id, midia) {
       if (!naBase && !noArquivo) throw new Error('O original desta mídia editada não está disponível para enviar.');
     }
     const total = Math.max(pacoteBytesDe(plano, sel) + bases.reduce((t, b) => t + b.tamanho, 0), 1);
-    cultoAvisar('Desenhando as capas…', 0.08);
-    const capas = await cultoCapas(culto.nome, culto.ids);
+    // UMA MÍDIA SÓ NÃO LEVA CAPA (decisão do operador, 22/11): nem o desenho, nem os `info` de capa,
+    // nem as imagens ao lado — só o arquivo. A capa é do CULTO, e o culto inteiro continua com ela.
+    let capas = [];
+    if (!midia) {
+      cultoAvisar('Desenhando as capas…', 0.08);
+      capas = await cultoCapas(culto.nome, culto.ids);
+    }
     cultoAvisar('Preparando o arquivo…', 0.12);
     const espaco = await AVNative.pacoteEspaco();
     cabeLocal = espaco > 0 && espaco - total > PACOTE_FOLGA_BYTES;
@@ -37562,8 +37571,12 @@ async function exportarCulto(id, midia) {
       }, () => pacoteCancelar);
       try {
         await pacoteEscreverRegistros(esc, plano, sel, bases, total, tarefa, {
+          // `midiaUnica` é CAMPO NOVO no `info` (nunca um `t` novo): o destino o lê para abrir a
+          // tela de importação de uma mídia comum em vez do fluxo de culto. Um app velho ignora
+          // `info` e trata como culto — o desfecho aceito.
           info: { escopo: 'culto', culto: { id: novoId, nome: culto.nome }, grupos: [culto.nome],
-            capas: capas.length, baixarDepois: [...plano.escopo.soLink] },
+            capas: capas.length, baixarDepois: [...plano.escopo.soLink],
+            ...(midia ? { midiaUnica: { id: midia.id, nome: culto.nome } } : {}) },
           capas,
         });
         await esc.descarregar();
@@ -37575,8 +37588,9 @@ async function exportarCulto(id, midia) {
     gravados = await AVNative.pacoteFechar();
     if (gravados < 0) erro = 'O arquivo não pôde ser fechado — pode ter faltado espaço.';
     // AS CAPAS VÃO AO LADO, para a conversa mostrar a imagem (shell 90): o PNG cru, em base64.
-    // Uma página que não grava não derruba o envio — o pacote já leva a capa dentro.
-    else if (cabeLocal && proprio) {
+    // Uma página que não grava não derruba o envio — o pacote já leva a capa dentro. Numa MÍDIA SÓ
+    // não há capa nenhuma para ir ao lado.
+    else if (!midia && cabeLocal && proprio) {
       cultoAvisar('Abrindo o compartilhar…', 0.95);
       for (let i = 0; i < capas.length; i++) {
         let n = -1;
@@ -38417,7 +38431,7 @@ async function pacoteAplicarFluxo(cursor, contagem, aoAndar, filtro) {
   // seriam gravadas — e o desfecho seria mudo, porque a importação termina
   // anunciando sucesso.
   await escoarEstado();
-  if (cronosDoPacote && !pacoteCancelarImport) {
+  if (cronosDoPacote && !pacoteCancelarImport && !contagem.midiaUnica) {
     try {
       const r = await AVDB.cronoImportar(cronosDoPacote, filtro && filtro.admitidos ? filtro.admitidos : null);
       if (r.mudou) contagem.chaves += 1;
@@ -38937,6 +38951,66 @@ async function lerPacotePronto() {
   pacoteRenderTiles();
 }
 
+/**
+ * A MÍDIA ÚNICA QUE CHEGOU NUM `.avpkg` — a MESMA tela de destino de uma mídia comum.
+ *
+ * O pacote já foi aplicado (os bytes, o registro e o original do editado), então o que falta é
+ * a pergunta que toda mídia comum faz: **onde ela fica?** A folha é a `escolherImportacao` (a
+ * mesma do `importShare`, com as mesmas opções), e o item vai às listas por `adicionarNasListas`.
+ * No Modo Fácil não há lista: ele vai à prateleira avulsa e ao telão, como qualquer arquivo.
+ *
+ * O ID É O DO PACOTE (o registro viaja com o id, e as listas já o usam): a mídia entra na tela JÁ
+ * GRAVADA, sem uma segunda cópia. Se ele já estava no aparelho, o `mediaAdd` o contou como
+ * repetido e a lista aponta para o que já existe — importar de novo não duplica.
+ *
+ * DESISTIR NÃO GRAVA LISTA e não consome o arquivo (a tentativa seguinte começa do mesmo ponto);
+ * o registro que já entrou sem lista é recolhido pelo coletor na próxima abertura.
+ */
+async function midiaUnicaImportada(unica, alvo, daPorta) {
+  const id = unica && unica.id ? String(unica.id) : '';
+  let rec = null;
+  try { rec = id ? await AVDB.getMediaCru(id) : null; } catch (_) { rec = null; }
+  if (!rec) {
+    pacotePulsar(pacoteImportarTileEl, 'erro');
+    await openAppDialog({ title: 'A mídia não entrou',
+      message: 'O pacote chegou, mas o item não foi gravado. O arquivo continua no aparelho.',
+      okText: 'Entendi', cancelText: null });
+    return;
+  }
+  await reidratarDepoisDaImportacao();
+  // NO MODO FÁCIL NÃO HÁ PERGUNTA (nem Cronograma, nem playlist): o destino é o de sempre, a
+  // prateleira avulsa e o telão — o mesmo desfecho de um arquivo compartilhado ali.
+  let chaves;
+  if (simplificado()) {
+    chaves = ['tocar'];
+  } else {
+    chaves = await escolherImportacao('Importar', [{
+      name: rec.name || unica.nome || 'Mídia', type: rec.type || '',
+      size: (rec.blob && rec.blob.size) || Number(rec.size) || 0,
+    }], null);
+    if (!chaves || !chaves.length) return;   // desistiu: nada em lista, arquivo intacto
+  }
+  const tocar = chaves.includes('tocar');
+  const listas = listasDosDestinos(chaves.filter((c) => c !== 'tocar'));
+  if (tocar) await fixarAvulso([id]);
+  if (listas.length) await adicionarNasListas(listas, id, null);
+  // O ARQUIVO DA IMPORTAÇÃO: pela porta ele é da conversa (o provedor de lá não deixa apagar, e
+  // é pequeno) — a mesma ressalva do culto inteiro. Pelo seletor, ele já cumpriu o papel.
+  let consumo = '';
+  if (!daPorta) {
+    try {
+      const motivo = await AVNative.pacoteConsumirOrigem(alvo.url);
+      consumo = motivo ? 'O arquivo do pacote continua no aparelho: ' + motivo + '.' : '';
+    } catch (_) { consumo = 'O arquivo do pacote continua no aparelho.'; }
+  }
+  pacotePulsar(pacoteImportarTileEl, 'ok');
+  bgConcluido('Mídia importada', consumo || 'Ela está no aparelho.');
+  await focarImportado(id, tocar || simplificado());
+  if (listas.length > 1 || (listas.length === 1 && listas[0] !== 'imports')) {
+    notaNoItem(id, 'foi ' + ondeDe(listas, 'para'), 'ok');
+  }
+}
+
 // `entrada` = a fonte que CHEGOU DE FORA — o toque num `.avpkg` (`pacoteDaPorta`, shell 90), na
 // forma do `pickDoc` (`{ url, size, name }`). Sem ela, o seletor de sempre. Pela porta não há
 // tile tocado: o pronto do acervo não barra, as marcas da janela não filtram, e o arquivo (que é
@@ -38996,7 +39070,18 @@ async function importarPacote(entrada) {
     // UM PACOTE DE CULTO ENTRA INTEIRO: as marcas da janela escolhem grupos do ACERVO, e
     // um culto não tem grupo — filtrado, ele perderia mídias e o cronograma ficaria oco.
     const sobre = await pacoteLerCapa(fonte);
-    if (sobre.info && sobre.info.escopo === 'culto') {
+    // UMA MÍDIA SÓ (`info.midiaUnica`, do envio individual): o pacote já É a mídia. Nada de
+    // prévia de culto e nada de cronograma — o item entra no acervo e a tela de DESTINO de uma
+    // mídia comum pergunta onde ele fica (ver `midiaUnicaImportada`). O `escopo: 'culto'` continua
+    // no arquivo, e um app velho o trata como culto — o desfecho aceito.
+    const unica = (sobre.info && sobre.info.escopo === 'culto' && sobre.info.midiaUnica
+      && typeof sobre.info.midiaUnica === 'object')
+      ? { id: String(sobre.info.midiaUnica.id || ''), nome: String(sobre.info.midiaUnica.nome || '') }
+      : null;
+    if (unica) {
+      filtro = null;
+      contagem.midiaUnica = unica;
+    } else if (sobre.info && sobre.info.escopo === 'culto') {
       filtro = null;
       contagem.culto = (sobre.info.culto && String(sobre.info.culto.nome || '')) || 'Culto';
       // A PRÉVIA, ANTES DE QUALQUER GRAVAÇÃO: a capa, o nome, a conta — e só o Importar segue.
@@ -39106,6 +39191,13 @@ async function importarPacote(entrada) {
   if (erro) {
     pacotePulsar(pacoteImportarTileEl, 'erro');
     await openAppDialog({ title: 'Não deu para importar', message: erro, okText: 'Entendi', cancelText: null });
+    return;
+  }
+  // UMA MÍDIA SÓ SAI POR AQUI, e a tela de destino é a de uma mídia comum — ela recebe o item
+  // JÁ GRAVADO (o id que veio no `info.midiaUnica`, que é o mesmo do registro e das listas) e
+  // grava nas listas escolhidas por `adicionarNasListas`, como o `importShare` faz.
+  if (contagem.midiaUnica) {
+    await midiaUnicaImportada(contagem.midiaUnica, alvo, daPorta);
     return;
   }
   // ===== O ARQUIVO É CONSUMIDO (decisão do operador) =====
