@@ -77,7 +77,10 @@ try {
     await AVDB.addMedia(new Blob([bytes], { type: 'image/png' }),
       { name: 'Foto do telão', kind: 'image', list: 'favs' });
     await AVDB.addMedia(new Blob([new Uint8Array(8)], { type: 'video/mp4' }),
-      { name: 'Vídeo do YouTube', kind: 'video', height: 1080, seconds: 312, canal: 'Canal do culto', youtubeId: 'abc123', list: 'favs' });
+      { name: 'Vídeo do YouTube', kind: 'video', height: 1080, seconds: 312, canal: 'Canal do culto', youtubeId: 'abc123', list: 'favs',
+        // A miniatura é um Blob de verdade: é o que o card do relato de 22/11
+        // tinha de mostrar ("thumbnail … nada disso está vindo").
+        thumb: new Blob([bytes], { type: 'image/png' }) });
     await recarregarFavoritos();
     if (!hymnSearchPopupEl.classList.contains('open')) openHymnSearch(false);
     favAberto = true;
@@ -213,10 +216,22 @@ try {
   const cv = await pg.evaluate((linhas) => {
     const li = document.querySelectorAll(linhas)[3];
     const card = li.querySelector(':scope > .hymn-gaveta > .item-detalhe');
-    return [...card.querySelectorAll('.item-detalhe-linha')].filter((e) => !e.hidden).map((e) => e.textContent);
+    const im = card && card.querySelector(':scope > .item-detalhe-thumb');
+    return {
+      linhas: [...card.querySelectorAll('.item-detalhe-linha')].filter((e) => !e.hidden).map((e) => e.textContent),
+      thumb: !!im,
+      thumbSrc: im ? String(im.src) : '',
+    };
   }, linhas);
-  checar(cv.includes('Canal do culto') && cv.includes('Baixado do YouTube'),
+  checar(cv.linhas.includes('Canal do culto') && cv.linhas.includes('Baixado do YouTube'),
     'C · o vídeo do YouTube traz o canal e a origem', cv);
+  // O relato do operador de 22/11: o card de uma mídia recebida por
+  // compartilhamento não dizia a QUALIDADE nem a DURAÇÃO, e não mostrava a
+  // miniatura. Os três campos já estavam no registro — faltava o card lê-los.
+  checar(cv.linhas.includes('1080p') && cv.linhas.includes('5:12'),
+    'C · o vídeo traz a qualidade (1080p) e a duração (5:12) no card', cv.linhas);
+  checar(cv.thumb && cv.thumbSrc.startsWith('blob:'),
+    'C · e a miniatura do registro aparece no card de detalhes', cv);
 
   // ── D. A FAIXA COM A GAVETA ABERTA VESTE O TOM DO CARD ───────────────────
   // A gaveta do vídeo está aberta (o item 4). Abre a faixa do `⋮` dele.

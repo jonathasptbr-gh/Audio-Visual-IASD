@@ -170,10 +170,66 @@ try {
       'A · com a OFERTA do arquivo, como a do link: a capa é a própria foto, o nome sem extensão e "Foto · tamanho"', JSON.stringify(f));
     checar([/Tocar agora/, /Cronograma/, /playlist/i, /Favorit/].every((t) => f.botoes.some((b) => t.test(b))),
       'A · e as opções COMPLETAS da fileira: Tocar agora, Cronograma, Playlist e Favoritos', JSON.stringify(f.botoes));
+
+    // A ANATOMIA NOVA (22/11): a folha deixou de ser gaveta e virou JANELA
+    // central, com o cartão em destaque e os destinos numa grade de duas
+    // colunas. A medida espera a transição ASSENTAR — o fato é a matriz
+    // identidade do `transform`, e não a opacidade: ela nasce em 1 no elemento
+    // fechado e não anima, então mediria o `translateY` da gaveta no meio do
+    // caminho (foi assim que esta asserção reprovou a primeira vez).
+    const assentou = await esperar(a.pg, () => {
+      const sh = document.querySelector('#songMenuPopup .popup-sheet');
+      return !!sh && getComputedStyle(sh).transform === 'matrix(1, 0, 0, 1, 0, 0)';
+    }, null, 5000);
+    const caixa = await a.pg.evaluate(() => {
+      const pop = document.getElementById('songMenuPopup');
+      const sh = pop.querySelector('.popup-sheet');
+      const r = sh.getBoundingClientRect();
+      const grade = pop.querySelector('.import-grade');
+      const gb = grade.getBoundingClientRect();
+      const b = [...grade.querySelectorAll('.dest-btn')].map((x) => x.getBoundingClientRect());
+      return {
+        classe: pop.className,
+        janela: {
+          w: Math.round(r.width), h: Math.round(r.height),
+          meio: Math.round(r.top + r.height / 2), tela: Math.round(innerHeight / 2),
+          teto: Math.round(innerHeight * .9), raio: getComputedStyle(sh).borderRadius,
+        },
+        grade: {
+          w: Math.round(gb.width), x: Math.round(gb.x),
+          colunas: new Set(b.map((x) => Math.round(x.left))).size,
+          primeiraLinha: new Set(b.slice(0, 2).map((x) => Math.round(x.top))).size === 1,
+          segundaLinha: b.length === 4 && b[2].top > b[0].bottom - .5,
+          larguras: b.map((x) => Math.round(x.width)),
+          transbordo: b.some((x) => x.right > r.right + .5 || x.left < r.left - .5),
+          rotulos: [...grade.querySelectorAll('.dest-rotulo-txt')].map((x) => x.textContent),
+        },
+      };
+    });
+    checar(assentou === true && /\bimport-popup\b/.test(caixa.classe)
+      && caixa.janela.w > 300 && caixa.janela.w <= 34 * 16 + 1
+      && Math.abs(caixa.janela.meio - caixa.janela.tela) <= 1
+      && caixa.janela.h <= caixa.janela.teto && /^18px/.test(caixa.janela.raio),
+      'A · o Importar é uma JANELA CENTRAL, não a gaveta da base: largura de leitura, centrada na '
+      + 'tela e com teto de 90vh', porque(assentou) + ' ' + JSON.stringify(caixa));
+    checar(caixa.grade.colunas === 2 && caixa.grade.primeiraLinha && caixa.grade.segundaLinha
+      && caixa.grade.larguras.every((w) => w > 140) && !caixa.grade.transbordo
+      && JSON.stringify(caixa.grade.rotulos)
+        === JSON.stringify(['Tocar agora', 'Cronograma', 'Playlist', 'Favoritos']),
+      'A · e os quatro destinos numa GRADE de duas colunas, com botão largo e RÓTULO, ocupando a '
+      + 'largura do popup (a 390px cada um mede ~170px)', JSON.stringify(caixa.grade));
     await tocarNaFolha(a.pg, /Cronograma/);
     const entrou = await esperarDb(a.pg, async () => (await AVDB.listIds('imports')).length === 1
       && !document.getElementById('songMenuPopup').classList.contains('open'), null, 15000);
     checar(entrou === true, 'A · "Cronograma" o põe no Cronograma', porque(entrou));
+    // E A CLASSE DA JANELA NÃO FICA NO ELEMENTO: `#songMenuPopup` é
+    // compartilhado com o YouTube e com a pergunta de destinos, e a próxima
+    // folha tem de voltar a ser a gaveta de baixo.
+    const semJanela = await a.pg.evaluate(() => !document.getElementById('songMenuPopup')
+      .classList.contains('import-popup'));
+    checar(semJanela === true,
+      'A · escolhido o destino, a janela fecha E a classe sai: a próxima folha do mesmo elemento '
+      + 'volta a ser gaveta', String(semJanela));
 
     await a.pg.evaluate(() => openHymnSearch(false));
     await semTour(a.pg);

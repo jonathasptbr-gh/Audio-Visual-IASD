@@ -10335,6 +10335,137 @@ body.mode-simple .popup-backdrop--lib:not(.open) .popup-sheet--lib {
 .yt-oferta-thumb--ico > svg { width: var(--icon-lg); height: var(--icon-lg); }
 .import-oferta-mais { padding: 0 var(--sp-2) var(--sp-1) calc(96px + var(--sp-2) * 2); }
 
+/* ===== O IMPORTAR É UMA JANELA CENTRAL (pedido de 22/11) =====
+   Relato do operador: a folha do Importar estava *"muito crua. Não está
+   preenchendo a tela horizontalmente com os botões e nem parece ter informações
+   suficientes"* — e ele autorizou popup no meio da tela. O desenho anterior era
+   uma GAVETA colada na base: um cartão de mídia de 96px à esquerda e quatro
+   quadrados MUDOS numa tira no centro, com o resto da largura sobrando.
+
+   AQUI ela vira uma JANELA: centrada no scrim, largura de leitura de no máximo
+   34rem (`min(34rem, 100%)`; com os 12px de respiro do backdrop dá 406px a 430
+   e 336px a 360), teto de 90vh com rolagem no miolo e o mesmo raio da folha nos
+   QUATRO cantos. No celular o respiro do backdrop é 12px, e o `env()` só o
+   aumenta em aparelho com área segura.
+
+   O ESCOPO É `#songMenuPopup.import-popup`, classe posta pelo
+   `escolherImportacao` e tirada por `fecharDestPrompt`, `closeSongMenu`,
+   `escolherDestinos` e `openYtMenu`. As outras folhas do mesmo elemento (o
+   oferecimento do link, a pergunta de destinos, a gaveta da música) continuam
+   exatamente o que eram: gaveta de baixo, fileira de quadrados.
+
+   A ENTRADA É A DA FOLHA, e não há uma segunda: a classe entra no MESMO tique
+   do `open`, então o estado de partida é o `translateY(100%)` do `.popup-sheet`
+   — o cartão sobe da base e para no CENTRO, no tempo de sempre. Quem escurece é
+   a opacidade do backdrop, como em toda folha. */
+#songMenuPopup.import-popup {
+  align-items: center; justify-content: center;
+  padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+}
+#songMenuPopup.import-popup .popup-sheet {
+  /* `dvh` depois de `vh`: no aparelho a barra de endereço/gesto não pode comer
+     o rodapé do popup, e o `vh` fica como piso de quem não conhece a unidade. */
+  max-height: 90vh;
+  max-height: min(90vh, 90dvh);
+  width: min(34rem, 100%);
+  border-radius: var(--radius-sheet);
+  box-shadow: 0 6px 22px var(--shadow-card);
+  overflow: hidden;
+  padding-bottom: 0;
+}
+#songMenuPopup.import-popup .popup-header { padding: .9rem 1rem .7rem; }
+#songMenuPopup.import-popup .popup-list {
+  padding: var(--sp-4) var(--sp-5) var(--sp-5);
+  gap: var(--sp-3);
+}
+
+/* ---------- O CARTÃO DA MÍDIA EM DESTAQUE ----------
+   A capa vem do Blob `thumb` (160×160, quadrado, já recortado pelo `drawThumb`),
+   então a caixa também é quadrada: `object-fit: cover` recorta sem esticar, e a
+   miniatura de um vídeo, de uma foto e da capa de um áudio lê como a MESMA peça.
+   A foto do card é o que responde "é este mesmo?" antes da primeira linha. */
+#songMenuPopup.import-popup .import-oferta {
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+#songMenuPopup.import-popup .import-oferta .yt-oferta-thumb {
+  width: 104px;
+  aspect-ratio: 1 / 1;
+}
+#songMenuPopup.import-popup .import-oferta-txt { gap: var(--sp-1); }
+#songMenuPopup.import-popup .yt-oferta-titulo {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-forte);
+  line-height: 1.3;
+}
+#songMenuPopup.import-popup .yt-oferta-meta {
+  font-size: var(--fs-sm);
+  line-height: 1.35;
+}
+/* A linha "tipo · qualidade · duração · tamanho" é a informação nova do card:
+   ela cabe em duas linhas a 360px (o vão de 104px da capa deixa ~190px de
+   texto) e NUNCA corta — quebra. */
+#songMenuPopup.import-popup .import-oferta-mais { padding: 0; }
+
+/* ---------- A PERGUNTA, E A GRADE QUE A RESPONDE ----------
+   A pergunta é uma SEÇÃO, não um resto de rodapé: o cabeçalho diz "Importar" e
+   esta linha diz o que falta decidir. A grade é de DUAS colunas e ocupa a
+   largura toda — a razão do pedido. Cada botão mantém o `.dest-btn` (o
+   `data-dest`, o `aria-label` e o `title` que os oráculos leem) e ganha o
+   rótulo ao lado do ícone: `Tocar agora`, `Cronograma`, `Playlist`,
+   `Favoritos` — os nomes do LUGAR, não a frase da ação, que é longa demais para
+   um botão de meia largura (ela continua no `aria-label`).
+   A 360px cada botão mede ~156px; a 430px, ~191px (medido na prévia). O de
+   baixo, quando a contagem é ímpar (um destino a mais no futuro), ocupa a linha
+   inteira. */
+#songMenuPopup.import-popup .import-pergunta {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-forte);
+  color: var(--text);
+  padding: var(--sp-1) 0 0;
+}
+#songMenuPopup.import-popup .import-grade {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-3);
+  padding-top: 0;
+}
+#songMenuPopup.import-popup .import-grade > .dest-btn {
+  width: 100%;
+  height: auto;
+  min-height: calc(var(--quad-faixa) + var(--sp-2));
+  padding: var(--sp-3) var(--sp-4);
+  display: flex; align-items: center; justify-content: flex-start;
+  gap: var(--sp-3);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+}
+#songMenuPopup.import-popup .import-grade > .dest-btn:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+/* O ícone é o do destino (o mesmo do transporte e das abas) e herda o degrau do
+   `.dest-btn .msym`; o rótulo é quem quebra, se um dia o nome do lugar crescer
+   — por isso `min-width: 0` e a quebra por palavra, nunca `nowrap`. */
+#songMenuPopup.import-popup .dest-rotulo-ico {
+  flex: none; display: flex; align-items: center; justify-content: center;
+  color: var(--accent);
+}
+#songMenuPopup.import-popup .dest-rotulo-txt {
+  min-width: 0;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-medio);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+/* O APAGADO diz por quê no `title`/`aria-label` e aqui perde o relevo, como os
+   outros botões de destino. */
+#songMenuPopup.import-popup .import-grade > .dest-btn:disabled {
+  opacity: var(--op-inativo);
+}
+
 /* ---------- MAIS DE UM DESTINO NA MESMA FOLHA (v5.141) ---------- */
 /* A caixa de marcação vive DENTRO do botão da linha e à direita dele: o corpo
    da linha continua sendo a ação de um toque (é o caminho de sempre), e a caixa

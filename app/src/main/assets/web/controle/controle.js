@@ -498,7 +498,7 @@ let cronos = { ativo: '', itens: [{ id: '', nome: 'Cronograma', qtd: 0, usado: 0
 // instalando um APK —, e por isso o Registro os mostra à parte: "web v1.0.7 ·
 // shell v1.0.3" diz na hora que o OTA chegou e o APK não. Manter `WEB_VERSION` igual ao
 // `version` do version.json: é ele que dispara (ou não) a atualização.
-const WEB_VERSION = '1.15.7';
+const WEB_VERSION = '1.15.8';
 
 // O ESTADO DA ATUALIZAÇÃO NASCE AQUI, NO TOPO, e isso não é organização:
 // **estado lido por qualquer caminho de render nasce junto do resto do estado
@@ -15450,6 +15450,23 @@ function montarDetalhesDoItem(item, alvo) {
   if (!item || !alvo || alvo.dataset.montado === '1') return;
   alvo.dataset.montado = '1';
   alvo.innerHTML = '';
+  // A MINIATURA É PARTE DO CARD. Ela é a única coisa aqui que responde "é este
+  // mesmo?" antes de o operador ler a primeira linha, e é o que a linha da lista
+  // já mostra — o card de uma mídia recebida por compartilhamento ficava só
+  // texto. SÓ BLOB: uma `thumb` string é URL de fora (YouTube) e o card não
+  // busca nada na rede (ver o comentário do `montarDetalhe`). A object URL morre
+  // no `load` — decodificada, a imagem já está na tela — e no `error`, junto com
+  // o retângulo quebrado.
+  let capa = null;
+  if (item.thumb instanceof Blob) {
+    const url = URL.createObjectURL(item.thumb);
+    capa = document.createElement('img');
+    capa.className = 'item-detalhe-thumb';
+    capa.alt = ''; capa.loading = 'lazy';
+    capa.addEventListener('load', () => URL.revokeObjectURL(url), { once: true });
+    capa.addEventListener('error', () => { URL.revokeObjectURL(url); capa.remove(); }, { once: true });
+    capa.src = url;
+  }
   const txt = document.createElement('div');
   txt.className = 'item-detalhe-txt';
   const reservar = (classe) => {
@@ -15479,6 +15496,14 @@ function montarDetalhesDoItem(item, alvo) {
   const tipo = tipoDoItem(item);
   const jaDito = subtituloItem(item).split(' · ')[0];
   if (tipo && tipo !== jaDito) linha(tipo, 'item-detalhe-titulo');
+  // A QUALIDADE e a DURAÇÃO vêm logo depois do tipo, na ordem das perguntas
+  // (*o que é isto? em que qualidade? quanto dura?*). O registro já as tem: o
+  // vídeo grava `height` e `seconds` na importação (ver `prepararMidia`) e o
+  // editado traz a duração do TRECHO (ver `resolverEdicao`). SEM BITRATE: o app
+  // nunca mediu um, e um número inventado num card que alguém lê é pior que a
+  // linha ausente.
+  if (item.kind === 'video' && Number(item.height) > 0) linha(item.height + 'p');
+  if (Number(item.seconds) > 0) linha(fmtTime(item.seconds));
   // O CANAL não está no subtítulo, e é a metade da identidade de um vídeo do
   // YouTube — por isso ele vem logo depois do tipo, antes do "de onde veio", e
   // SEM prefixo: é assim que o card da gaveta de um vídeo já o escreve, e
@@ -15510,6 +15535,7 @@ function montarDetalhesDoItem(item, alvo) {
     }).catch(() => { dim.remove(); });
   }
   if (item.createdAt) linha('Criado em ' + new Date(item.createdAt).toLocaleDateString('pt-BR'));
+  if (capa) alvo.appendChild(capa);
   alvo.appendChild(txt);
 }
 
@@ -22690,6 +22716,27 @@ function guessMediaType(filename) {
   return MEDIA_MIME[ext] || 'application/octet-stream';
 }
 
+// O MIME DE UM ARQUIVO QUE CHEGA DE FORA: a extensão manda quando ela é
+// conhecida, e o MIME DECLARADO assume quando ela não diz nada.
+//
+// `guessMediaType` NÃO serve de fallback com `||`: ela devolve
+// `'application/octet-stream'` para extensão desconhecida, que é TRUTHY e
+// derrota o `|| blob.type`. Um nome SEM EXTENSÃO (o `ShareIntake` entrega o
+// `DISPLAY_NAME` cru) caía ali mesmo com o shell mandando `type: video/mp4`:
+// virava `kind:'other'`, e sem `kind` não há miniatura, altura nem duração. A
+// ordem de `declarados` é a da confiança — o que o shell mediu, depois o que o
+// blob carrega.
+const MIME_GENERICO = 'application/octet-stream';
+function tipoDaMidia(nome, ...declarados) {
+  const daExtensao = guessMediaType(String(nome || ''));
+  if (daExtensao !== MIME_GENERICO) return daExtensao;
+  for (const t of declarados) {
+    const s = String(t || '').trim();
+    if (s && s !== MIME_GENERICO) return s;
+  }
+  return daExtensao;
+}
+
 // ===== Coleções de mídia (LouvorJA) — sincronização e download =====
 // ===== A FAXINA DA COLETÂNEA REMOVIDA (v1.8.98) =====
 //
@@ -27242,6 +27289,11 @@ function ytSegRow(opcoes, atual, onPick, inativos) {
 // toque baixava direto e pronto: o operador não escolhia nada e o vídeo caía no
 // Cronograma quisesse ele ou não.
 function openYtMenu(r, alvoDado) {
+  // A JANELA CENTRAL É SÓ DO IMPORTAR: esta folha reusa o MESMO
+  // `#songMenuPopup`, e a classe fica no ELEMENTO, não no render. Tirá-la aqui
+  // é o que garante que o oferecimento do link (e a gaveta do episódio) volte a
+  // ser a folha de baixo mesmo depois de um Importar aberto e fechado.
+  songMenuPopupEl.classList.remove('import-popup');
   // A qualidade nasce na PREFERÊNCIA do operador (`ytAlturaPadrao`, v1.7.7); a
   // forma nasce em "Vídeo" a cada item, como a variante das músicas.
   if (!songMenuFor || songMenuFor.yt !== r) {
@@ -28658,6 +28710,7 @@ function closeSongMenu() {
   if (destPromptResolve) { fecharDestPrompt(null); return; }
   destLimpar();
   songMenuFor = null;
+  songMenuPopupEl.classList.remove('import-popup');
   songMenuPopupEl.classList.remove('open');
 }
 
@@ -28852,12 +28905,18 @@ function destConfirmRow() {
 // O VÍDEO DO YOUTUBE NÃO BAIXA DUAS VEZES com dois toques seguidos: quem baixa é
 // o `ytArquivo`, e ele divide o download em curso (`ytArquivoEmVoo`).
 //
-// Cada botão: `{ chave, rotulo, icone (HTML), acao(btn), disabled, motivo, on }`,
-// ou, no LARGO, `texto` (a frase do botão, a MESMA nos dois estados) no lugar do
-// ícone.
-function destBotoesRow(botoes) {
+// Cada botão: `{ chave, rotulo, icone (HTML), curto (opcional), acao(btn),
+// disabled, motivo, on }`, ou, no LARGO, `texto` (a frase do botão, a MESMA nos
+// dois estados) no lugar do ícone.
+//
+// `opcoes.rotulo` desenha o botão COM RÓTULO (ícone + `curto`) em vez do quadrado
+// mudo — é o que a grade do Importar usa (ver `renderImportPrompt`). O
+// `aria-label`/`title` continuam sendo o `rotulo` por extenso ("Adicionar ao
+// Cronograma"), que é o nome do LUGAR numa frase, não o do botão.
+function destBotoesRow(botoes, opcoes) {
+  const comRotulo = !!(opcoes && opcoes.rotulo);
   const li = document.createElement('li');
-  li.className = 'dest-botoes';
+  li.className = 'dest-botoes' + (comRotulo ? ' dest-botoes--rotulo' : '');
   botoes.filter(Boolean).forEach((b) => {
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -28875,6 +28934,16 @@ function destBotoesRow(botoes) {
       cx.className = 'song-menu-label';
       cx.textContent = b.texto;
       btn.appendChild(cx);
+    } else if (comRotulo) {
+      // O ícone e o rótulo são NÓS SEPARADOS: o CSS da grade mede os dois e o
+      // ponto de quebra fica entre eles (ver `#songMenuPopup.import-popup`).
+      const ico = document.createElement('span');
+      ico.className = 'dest-rotulo-ico';
+      ico.innerHTML = b.icone;
+      const rot = document.createElement('span');
+      rot.className = 'dest-rotulo-txt';
+      rot.textContent = b.curto || b.rotulo;
+      btn.append(ico, rot);
     } else btn.innerHTML = b.icone;
     btn.disabled = !!b.disabled;
     btn.addEventListener('click', () => { if (!btn.disabled) b.acao(btn); });
@@ -28887,9 +28956,13 @@ const destIco = (code) => msym(code).outerHTML;
 // executa UM destino (`'tocar'` incluso).
 function destBotoesPadrao(quais, fazer) {
   return [
-    { chave: 'tocar', rotulo: 'Tocar agora', icone: destIco(ICON.play), acao: (btn) => fazer('tocar', btn) },
+    { chave: 'tocar', rotulo: 'Tocar agora', curto: 'Tocar agora',
+      icone: destIco(ICON.play), acao: (btn) => fazer('tocar', btn) },
     ...destinosNaOrdem(quais).map((d) => ({
-      chave: d.chave, rotulo: d.acao, icone: destIco(ICON[d.ico]), acao: (btn) => fazer(d.chave, btn),
+      // `curto` é o nome do LUGAR (o da aba), para o botão com rótulo da grade;
+      // `rotulo` continua sendo a ação escrita por extenso, que é o `aria-label`.
+      chave: d.chave, rotulo: d.acao, curto: d.rotulo, icone: destIco(ICON[d.ico]),
+      acao: (btn) => fazer(d.chave, btn),
     })),
   ];
 }
@@ -28986,6 +29059,10 @@ function fecharDestPrompt(valor) {
   destPromptResolve = null;
   destLimpar();
   songMenuFor = null;
+  // A JANELA CENTRAL É DO IMPORTAR, NÃO DO ELEMENTO: a classe sai SEMPRE ao
+  // fechar. Sem esta linha, a próxima folha que reusasse `#songMenuPopup` (o
+  // link do YouTube, a pergunta de destinos) nascia popup no meio da tela.
+  songMenuPopupEl.classList.remove('import-popup');
   songMenuPopupEl.classList.remove('open');
   if (r) r(valor);
 }
@@ -29001,22 +29078,33 @@ function escolherDestinos(titulo) {
     destLimpar();
     songMenuFor = { destPrompt: true };
     songMenuTitleEl.textContent = titulo;
+    // A MESMA FOLHA, OUTRO DESENHO: esta pergunta tem TRÊS destinos e nenhuma
+    // mídia, então continua gaveta de baixo (o desenho dela desde a v1.15.0); a
+    // classe que a viraria janela central sai antes de abrir.
+    songMenuPopupEl.classList.remove('import-popup');
     renderDestPrompt();
     songMenuPopupEl.classList.add('open');
   });
 }
 
-// ===== A FOLHA DO IMPORTAR É A DO LINK DO YOUTUBE (v1.14.42) =====
+// ===== A FOLHA DO IMPORTAR É UMA JANELA CENTRAL (pedido de 22/11) =====
 //
-// Pedido do operador: *"ele está bem diferente do design do seletor do que se recebe por
-// compartilhamento … detalhes como thumbnail, título, duração ou tipo de arquivo. E as opções de
-// play … completas"*. A régua é a folha do link (`openYtMenu` com `oferecendo`): no alto, a
-// OFERTA de cada arquivo (`ofertaDoArquivo`, as mesmas classes `.yt-oferta*`), e embaixo a
-// fileira de sempre — `destBotoesPadrao`: Tocar agora · Cronograma · Playlist · Favoritos. Um
-// toque, uma ação; o ✕ (ou o fundo, ou o voltar) resolve `null` e nada é importado.
+// Pedido do operador: *"muito crua. Não está preenchendo a tela horizontalmente
+// com os botões e nem parece ter informações suficientes"* — ele autorizou
+// popup no meio da tela se ficasse melhor. O desenho é: o cartão da mídia em
+// destaque (capa, nome em duas linhas, "tipo · qualidade · duração · tamanho"),
+// a pergunta "Onde você quer colocar?" e os quatro destinos numa GRADE de duas
+// colunas com o rótulo de cada um, ocupando a largura. Um toque, uma ação; o ✕
+// (ou o fundo, ou o voltar) resolve `null` e nada é importado.
 //
-// Serve ao seletor da Biblioteca e ao compartilhamento de arquivo, que chegam juntos ao
-// `importShare`. "Tocar agora" é `shareAvulso`: a prateleira avulsa e a cena.
+// A CLASSE `import-popup` no backdrop é o que liga esse desenho no CSS. Ela
+// entra AQUI e sai em `fecharDestPrompt`, `closeSongMenu`, `escolherDestinos` e
+// `openYtMenu`: `#songMenuPopup` é compartilhado com outras folhas, e sem essa
+// disciplina o link do YouTube e a pergunta de destinos viravam popup central.
+//
+// Serve ao seletor da Biblioteca e ao compartilhamento de arquivo, que chegam
+// juntos ao `importShare`. "Tocar agora" é `shareAvulso`: a prateleira avulsa e
+// a cena.
 const IMPORT_OFERTA_MAX = 4;
 function escolherImportacao(titulo, files, link) {
   if (simplificado()) return Promise.resolve(null);
@@ -29026,6 +29114,7 @@ function escolherImportacao(titulo, files, link) {
     destLimpar();
     songMenuFor = { destPrompt: true };
     songMenuTitleEl.textContent = titulo;
+    songMenuPopupEl.classList.add('import-popup');
     renderImportPrompt(files || [], link, urls);
     songMenuPopupEl.classList.add('open');
   });
@@ -29043,8 +29132,18 @@ function renderImportPrompt(files, link, urls) {
     songMenuListEl.appendChild(mais);
   }
   if (link && link.url) songMenuListEl.appendChild(ofertaDoArquivo({ name: link.title || link.url, url: link.url, link: true }, urls));
-  songMenuListEl.appendChild(destBotoesRow(
-    destBotoesPadrao(DESTINOS.map((d) => d.chave), (chave) => fecharDestPrompt([chave]))));
+  // A PERGUNTA É UMA SEÇÃO, e não um pedaço do rodapé: ela nomeia o que a grade
+  // abaixo responde. O título do cabeçalho diz "Importar"; esta linha diz o que
+  // falta decidir.
+  const pergunta = document.createElement('li');
+  pergunta.className = 'import-pergunta';
+  pergunta.textContent = 'Onde você quer colocar?';
+  songMenuListEl.appendChild(pergunta);
+  const grade = destBotoesRow(
+    destBotoesPadrao(DESTINOS.map((d) => d.chave), (chave) => fecharDestPrompt([chave])),
+    { rotulo: true });
+  grade.classList.add('import-grade');
+  songMenuListEl.appendChild(grade);
 }
 // A OFERTA DE UM ARQUIVO: a capa (a própria imagem, um quadro do vídeo, ou o ícone do tipo), o nome
 // e "tipo · duração · tamanho". A duração e o quadro vêm dos metadados do próprio arquivo, lidos pela
@@ -29052,20 +29151,31 @@ function renderImportPrompt(files, link, urls) {
 // da escolha.
 function ofertaDoArquivo(item, urls) {
   const nome = (item && item.name) || 'Arquivo';
-  const type = guessMediaType(nome) || (item && item.type) || '';
+  const type = tipoDaMidia(nome, item && item.type);
   const pdf = ehPdf(item), pptx = ehPptx(item);
   const kind = (pdf || pptx || item.link) ? 'doc' : AVDB.kindFromType(type);
-  let src = item && item.url;
-  if (!src && typeof Blob !== 'undefined' && item instanceof Blob) {
-    src = URL.createObjectURL(item);
-    urls.push(src);
-  }
+  const novoUrl = (b) => { const u = URL.createObjectURL(b); urls.push(u); return u; };
+  // A MINIATURA GRAVADA é a capa quando ela existe (`midiaUnicaImportada` já
+  // recebe o registro pronto: o arquivo foi gravado antes da pergunta). Para o
+  // áudio é a arte que houver; para o vídeo, o quadro que a importação salvou.
+  const temThumb = !!(item && item.thumb instanceof Blob);
+  const temDuracao = Number(item && item.seconds) > 0;
+  let src = (item && item.url) || '';
+  if (!src && typeof Blob !== 'undefined' && item instanceof Blob) src = novoUrl(item);
+  // O ARQUIVO DO REGISTRO só vira URL quando é a ÚNICA fonte do que a oferta
+  // mostra: a miniatura e a duração gravadas dispensam decodificar o arquivo
+  // inteiro para redescobrir as duas. Ele entra para a capa de uma imagem ou o
+  // quadro de um vídeo sem miniatura — e para o áudio antigo, sem `seconds`.
+  const precisaDoArquivo = !src && !temThumb
+    && (kind === 'video' || kind === 'image' || (kind === 'audio' && !temDuracao));
+  if (!src && precisaDoArquivo && item && item.blob instanceof Blob) src = novoUrl(item.blob);
+  const capaUrl = temThumb ? novoUrl(item.thumb) : src;
   const cx = document.createElement('div');
   cx.className = 'yt-oferta import-oferta';
   let capa;
-  if (kind === 'image' && src) {
+  if (capaUrl && (temThumb || kind === 'image')) {
     capa = document.createElement('img');
-    capa.alt = ''; capa.decoding = 'async'; capa.src = src;
+    capa.alt = ''; capa.decoding = 'async'; capa.src = capaUrl;
   } else if (kind === 'video' && src) {
     capa = document.createElement('video');
     capa.muted = true; capa.playsInline = true; capa.preload = 'metadata';
@@ -29088,19 +29198,39 @@ function ofertaDoArquivo(item, urls) {
   meta.className = 'yt-oferta-meta';
   const tipo = item.link ? 'Link' : pdf ? 'PDF' : pptx ? 'PowerPoint'
     : ({ image: 'Foto', video: 'Vídeo', audio: 'Música' })[kind] || 'Arquivo';
-  const bytes = Number(item && item.size) || 0;
-  let duracao = '';
+  // A QUALIDADE entra entre o tipo e a duração: "Vídeo · 1080p · 0:12 · 3 MB".
+  // Só o vídeo tem altura gravada — para os outros `height` é `null`, e a
+  // posição vazia some com o mesmo `.filter(Boolean)` de sempre.
+  let qualidade = kind === 'video' && Number(item && item.height) > 0 ? item.height + 'p' : '';
+  const bytes = Number(item && item.size) || (item && item.blob && item.blob.size) || 0;
+  let duracao = temDuracao ? fmtTime(item.seconds) : '';
   const escrever = () => {
-    meta.textContent = [tipo, duracao, bytes > 0 ? fmtBytes(bytes) : ''].filter(Boolean).join(' · ');
+    meta.textContent = [tipo, qualidade, duracao, bytes > 0 ? fmtBytes(bytes) : ''].filter(Boolean).join(' · ');
   };
   escrever();
   txt.append(titulo, meta);
   cx.appendChild(txt);
-  if ((kind === 'video' || kind === 'audio') && src) {
-    const m = kind === 'video' ? capa : new Audio();
-    if (kind === 'audio') { m.preload = 'metadata'; m.src = src; }
-    m.addEventListener('loadedmetadata', () => {
-      if (isFinite(m.duration) && m.duration > 0) { duracao = fmtTime(m.duration); escrever(); }
+  // A medida do `<video>`/`<audio>` é o RECURSO para o arquivo sem metadado
+  // gravado (o caminho do `importShare`, que ainda não tem registro). Com
+  // `seconds` no item ela não é feita: a fonte é o registro resolvido, e a
+  // duração do editado é a do TRECHO, não a do original.
+  let elemento = null;
+  if (kind === 'video' && capa.tagName === 'VIDEO') elemento = capa;
+  else if (kind === 'video' || kind === 'audio') elemento = new Audio();
+  if (elemento && src && (!duracao || (kind === 'video' && !qualidade))) {
+    if (elemento !== capa) { elemento.preload = 'metadata'; elemento.src = src; }
+    elemento.addEventListener('loadedmetadata', () => {
+      // A ALTURA vem do MESMO decode que mede a duração (é o caminho do share,
+      // em que o registro ainda não existe e ninguém mediu a resolução): sem
+      // ela a oferta de um vídeo compartilhado nunca diria a qualidade.
+      if (!qualidade && kind === 'video' && Number(elemento.videoHeight) > 0) {
+        qualidade = elemento.videoHeight + 'p';
+        escrever();
+      }
+      if (!duracao && isFinite(elemento.duration) && elemento.duration > 0) {
+        duracao = fmtTime(elemento.duration);
+        escrever();
+      }
     }, { once: true });
   }
   return cx;
@@ -38969,7 +39099,16 @@ async function lerPacotePronto() {
 async function midiaUnicaImportada(unica, alvo, daPorta) {
   const id = unica && unica.id ? String(unica.id) : '';
   let rec = null;
-  try { rec = id ? await AVDB.getMediaCru(id) : null; } catch (_) { rec = null; }
+  // O REGISTRO RESOLVIDO: quem pergunta "onde esta mídia fica?" tem de ver o
+  // MESMO card de uma mídia comum — tipo, qualidade, duração do TRECHO, tamanho
+  // e miniatura. `getMediaCru` só tem o que foi gravado no pacote; o editado
+  // resolve o original por `getMedia` (blob, thumb e `seconds` do trecho). O
+  // registro cru fica como segunda tentativa: uma edição cujo original não
+  // viajou não deixa de existir por isso.
+  try { rec = id ? await AVDB.getMedia(id) : null; } catch (_) { rec = null; }
+  if (!rec) {
+    try { rec = id ? await AVDB.getMediaCru(id) : null; } catch (_) { rec = null; }
+  }
   if (!rec) {
     pacotePulsar(pacoteImportarTileEl, 'erro');
     await openAppDialog({ title: 'A mídia não entrou',
@@ -38984,9 +39123,20 @@ async function midiaUnicaImportada(unica, alvo, daPorta) {
   if (simplificado()) {
     chaves = ['tocar'];
   } else {
+    // O ITEM DA OFERTA É O REGISTRO INTEIRO, e não três campos dele. A folha lê
+    // `type` para o rótulo, `thumb` para a capa, `height` para a qualidade,
+    // `seconds` para a duração e `blob` (pela URL de objeto que a folha cria e
+    // revoga no fechamento) para o quadro de um vídeo ou a imagem sem capa.
+    // Passar só `{ name, type, size }` fazia a oferta deste pacote ser a única
+    // do app sem miniatura, sem duração e sem qualidade.
     chaves = await escolherImportacao('Importar', [{
-      name: rec.name || unica.nome || 'Mídia', type: rec.type || '',
-      size: (rec.blob && rec.blob.size) || Number(rec.size) || 0,
+      name: rec.name || unica.nome || 'Mídia',
+      type: rec.type || '',
+      size: (rec.blob && rec.blob.size) || 0,
+      blob: rec.blob || null,
+      thumb: rec.thumb || null,
+      height: rec.height || null,
+      seconds: rec.seconds || null,
     }], null);
     if (!chaves || !chaves.length) return;   // desistiu: nada em lista, arquivo intacto
   }
@@ -41680,10 +41830,21 @@ async function importShare(pending) {
       // caso — sem ele, cancelar no instante entre a leitura e o `addMedia`
       // criaria o item que o operador acabou de dispensar.
       if (alca.cancelado()) continue;
-      // O tipo vem da extensão (mesma fonte usada na sincronização de pastas):
-      // provedores do Android costumam devolver MIME genérico.
-      const type = guessMediaType(name) || blob.type;
+      // O tipo vem da extensão quando ela é conhecida, e do MIME DECLARADO
+      // quando não é (ver `tipoDaMidia`): provedores do Android costumam
+      // devolver MIME genérico, mas o `ShareIntake` consulta o
+      // `ContentResolver` e manda o certo — e é ele que salva o arquivo cujo
+      // nome não tem extensão nenhuma.
+      const type = tipoDaMidia(name, item && item.type, blob.type);
       const kind = AVDB.kindFromType(type);
+      // O BLOB PASSA A CARREGAR O MIME RESOLVIDO. O `res.blob()` de um
+      // `/saf/` herda o `Content-Type` do provedor, que é genérico com
+      // frequência — e é o tipo do blob que o `<video>` de `prepararMidia`
+      // consulta antes de decodificar. Sem esta linha o tipo certo valia para
+      // o registro e não para o decode, e a miniatura/altura/duração sumiam.
+      if (type && blob.type !== type) {
+        try { blob = blob.slice(0, blob.size, type); } catch (_) {}
+      }
       const { thumb, height, seconds } = await prepararMidia(blob, kind);
       const rec = await AVDB.addMedia(blob, {
         name: name.replace(/\.[^.]+$/, ''), type, kind, thumb, height, seconds,

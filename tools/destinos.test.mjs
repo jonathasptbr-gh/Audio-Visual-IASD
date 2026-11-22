@@ -447,8 +447,28 @@ try {
   // "Tocar agora" (a pergunta é só ONDE guardar), sem caixa de marcar e sem
   // Confirmar em rodapé — a fileira é a única coisa na folha.
   const perg = await pg.evaluate(async () => {
+    // A JANELA CENTRAL É SÓ DO IMPORTAR (22/11). `#songMenuPopup` é UM elemento
+    // com dois desenhos, e a classe que vira popup central não pode ficar nele:
+    // abre e fecha uma importação de verdade ANTES de perguntar os destinos, e
+    // o que se mede é que esta folha continua a gaveta de baixo.
+    const c = document.createElement('canvas'); c.width = 40; c.height = 40;
+    const thumb = await new Promise((ok) => c.toBlob(ok, 'image/png'));
+    window.__impSonda = escolherImportacao('Importar',
+      [{ name: 'sonda.mp4', type: 'video/mp4', size: 10, seconds: 3, thumb }], null);
+    await new Promise((r) => setTimeout(r, 80));
+    const janelaAntes = document.getElementById('songMenuPopup').classList.contains('import-popup');
+    closeSongMenu();
+    await new Promise((r) => setTimeout(r, 40));
     const p = escolherDestinos('Importar');
     await new Promise((r) => setTimeout(r, 50));
+    const pop = document.getElementById('songMenuPopup');
+    const sh = pop.querySelector('.popup-sheet');
+    // A transição da folha (translateY) tem de assentar antes da medida: o fato
+    // é a matriz identidade, não um prazo.
+    for (let i = 0; i < 40 && getComputedStyle(sh).transform !== 'matrix(1, 0, 0, 1, 0, 0)'; i++) {
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    const rb = sh.getBoundingClientRect();
     const fileira = document.querySelector('#songMenuList .dest-botoes');
     const out = {
       fileira: !!fileira,
@@ -457,6 +477,10 @@ try {
       semCaixa: !document.querySelector('#songMenuList .song-menu-check'),
       semGo: !document.querySelector('#songMenuPopup .song-menu-go'),
       aberta: document.getElementById('songMenuPopup').classList.contains('open'),
+      janelaAntes,
+      semJanela: !pop.classList.contains('import-popup'),
+      largura: Math.round(rb.width),
+      encostada: Math.abs(rb.bottom - innerHeight) <= 1,
     };
     // O TOQUE NUM QUADRADO RESOLVE A PERGUNTA NA HORA: é o que o importador
     // espera do outro lado, e é a prova de que não há passo de confirmar.
@@ -472,6 +496,9 @@ try {
     + 'tabela — sem "Tocar agora", porque a pergunta é só onde guardar', JSON.stringify(perg));
   checar(perg.semCaixa && perg.semGo && perg.aberta,
     'sem caixa de marcar e sem Confirmar em rodapé: nada de marcar antes', JSON.stringify(perg));
+  checar(perg.janelaAntes && perg.semJanela && perg.encostada && perg.largura === 430,
+    'a JANELA central é SÓ do Importar: aberta e fechada uma importação, a pergunta de destinos '
+    + 'continua a GAVETA de baixo (a classe sai do elemento compartilhado)', JSON.stringify(perg));
   checar(JSON.stringify(perg.valor) === JSON.stringify(['favoritos']) && perg.fechou,
     'e TOCAR num quadrado resolve a pergunta com o destino DELE e fecha a folha — importa '
     + 'direto, sem confirmar', JSON.stringify(perg));

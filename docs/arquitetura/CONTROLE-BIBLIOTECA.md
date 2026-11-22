@@ -696,20 +696,32 @@ lista"*. Até a v1.14.39 era um ícone da trilha 1 da barra do topo do Cronogram
 
 Oráculo: `importar-na-biblioteca.test.mjs`.
 
-#### A folha do importar é a do link (v1.14.42)
+#### A folha do importar é a do link (v1.14.42) — e virou popup central (v1.15.8)
 
 O operador: *"ele está bem diferente do design do seletor do que se recebe por
 compartilhamento … detalhes como thumbnail, título, duração ou tipo de arquivo. E as
 opções de play … completas"*. `importShare` chama `escolherImportacao(titulo, files,
 link)`, e não mais `escolherDestinos`; a folha é a MESMA anatomia do link
 compartilhado (`openYtMenu` com `oferecendo`), com as mesmas classes `.yt-oferta*`.
+Na v1.15.8 ela ganhou `#songMenuPopup.import-popup`: **popup central** (backdrop,
+`width: min(34rem, 100%)`, `max-height: 90vh`, rolagem no `.popup-list`), com a
+grade de destinos de duas colunas preenchendo a largura. A classe é posta só em
+`escolherImportacao` e sai em `fecharDestPrompt`, `closeSongMenu`,
+`escolherDestinos` e `openYtMenu` — as outras folhas continuam gaveta.
 
 | a peça | símbolo | o que mostra |
 |---|---|---|
-| a oferta | `ofertaDoArquivo(item, urls)` + `renderImportPrompt` | até `IMPORT_OFERTA_MAX` (4) ofertas: a CAPA (a própria foto no `<img>`; um quadro do vídeo no `<video preload=metadata>`; ou o ícone do tipo em `.yt-oferta-thumb--ico` — `icoSom` música, `icoTexto` PDF, `icoTela` PowerPoint, `icoExterno` link), o NOME sem extensão e a meta "tipo · duração · tamanho" (duração do `loadedmetadata`, tamanho de `fmtBytes(size)`). Acima do teto, "e mais N arquivos" (`.import-oferta-mais`) |
-| a fileira | `destBotoesPadrao` | **Tocar agora** · Cronograma · Playlist · Favoritos — um toque, uma ação; o ✕, o fundo e o voltar resolvem `null` e nada é importado |
-| os `blob:` | `escolherImportacao` | as URLs criadas para os `File` do navegador são revogadas quando a folha resolve |
+| a oferta | `ofertaDoArquivo(item, urls)` + `renderImportPrompt` | até `IMPORT_OFERTA_MAX` (4) ofertas: a CAPA (a própria foto no `<img>`; um quadro do vídeo no `<video preload=metadata>`; a miniatura `thumb` em `<img>`; ou o ícone do tipo em `.yt-oferta-thumb--ico` — `icoSom` música, `icoTexto` PDF, `icoTela` PowerPoint, `icoExterno` link), o NOME sem extensão e a meta **"tipo · qualidade · duração · tamanho"** (`height` quando o vídeo sabe, `seconds` do registro ou do `loadedmetadata`, `fmtBytes(size)`). Acima do teto, "e mais N arquivos" (`.import-oferta-mais`) |
+| o tipo | `tipoDaMidia(nome, …declarados)` | a extensão conhecida manda; senão o MIME DECLARADO (shell/`File`) e por fim `blob.type` — `guessMediaType` não devolve mais `application/octet-stream` truthy que impedia o fallback. O blob é re-tipado antes de `prepararMidia`, para o `<video>`/`<audio>` decodificar |
+| a fileira | `destBotoesPadrao` + `rotulo` | **Tocar agora** · Cronograma · Playlist · Favoritos em grade de 2 colunas, botão largo com ícone e rótulo; um toque, uma ação; o ✕, o fundo e o voltar resolvem `null` e nada é importado |
+| os `blob:` | `escolherImportacao` | as URLs criadas para os `File`/`thumb` são revogadas quando a folha resolve |
 | o "Tocar agora" | `shareAvulso()` | `simplificado() \|\| shareDestinos === ['tocar']`: o lote vai à prateleira avulsa (`fixarAvulso`) e o primeiro item à cena (`focarImportado(id, tocar)`), sem entrar em lista nenhuma. Substitui `simplificado()` em `destinoDoShare`, `espalharShare`, `guardarShare` e no `importShare` |
+| `.avpkg` de uma mídia | `midiaUnicaImportada` | usa o registro RESOLVIDO (`getMedia`) — blob, `thumb`, `height`, `seconds` do TRECHO — e chama a MESMA folha, com a duração do trecho e o original preservado |
+
+O card de **Detalhes** de um item já importado (`montarDetalhesDoItem`) passou a
+mostrar a qualidade (`height` do vídeo), a duração (`fmtTime`) e a miniatura
+(`item-detalhe-thumb`, Blob do próprio registro, sem rede); a regra v1.14.45
+continua: mídia COM letra alterna para "Ver a letra", sem letra tem "Detalhes".
 
 Vale para as DUAS portas: o seletor da Biblioteca e o compartilhamento de arquivo
 caem no mesmo `importShare`. No navegador o `change` do `#file` passou a entregar

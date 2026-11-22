@@ -1,5 +1,16 @@
 [
   {
+    "versao": "1.15.8",
+    "itens": [
+      "A tela de Importar virou um popup no centro, com a mídia em destaque.",
+      "Os quatro destinos ocupam a largura, em botões largos e legíveis.",
+      "O cartão mostra miniatura, tipo, qualidade, duração e tamanho.",
+      "Mídias recebidas por compartilhamento chegam com essas informações.",
+      "O card de Detalhes do item também ficou completo.",
+      "Disponível nas atualizações de teste; não precisa instalar um APK novo."
+    ]
+  },
+  {
     "versao": "1.15.7",
     "itens": [
       "O compartilhamento de uma mídia agora vai só com o arquivo, sem a capa do culto.",

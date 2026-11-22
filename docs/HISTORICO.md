@@ -30,6 +30,7 @@ apagada da que a criou.
 
 ## Índice
 
+- **v1.15.8** — o Importar vira POPUP central, com a mídia (miniatura, tipo, qualidade, duração, tamanho) e os destinos em grade; todo share recupera tipo/qualidade/miniatura e o card de Detalhes (só web).
 - **v1.15.7** — a mídia compartilhada vai SEM capa e, no destino, entra pela MESMA tela de importação de uma mídia comum (`info.midiaUnica`; sem criar/ativar cronograma) (só web).
 - **v1.15.6** — wallpaper padrão sem símbolo embutido, com logo avulso ao selecionar; editor e envio `.avpkg` individual nas opções de Cronograma/Favoritos; caixas dos botões e camadas da prévia estabilizadas durante recolher/expandir (só web).
 - **v1.15.5** — dois canais de OTA: `web-teste` recebe todo lote, `web-latest` (o público) só `X.Y.0` ou o disparo `para_todos`; a chave "Receber atualizações de teste" na Inicialização (shell 91: `otaCanal`/`otaCanalDefinir`, Release v1.15.5).
@@ -831,6 +832,22 @@ apagada da que a criou.
 - **v5.156** — é METADE OTA e METADE APK, de novo.
 
 ---
+
+## v1.15.8 — o Importar vira popup central, e o share recupera tipo, qualidade e miniatura
+
+**O PEDIDO** (operador, 22/11): *"Tipo de arquivo, qualidade, thumbnail. Botão de detalhes... Nada disso está vindo com a mídia compartilhada"* e *"isso vale para todas as mídias recebidas por compartilhamento, não só o avpkg"*. Depois: *"a tela de recebimento/importação de mídia está muito crua. Não está preenchendo a tela horizontalmente com os botões e nem parece ter informações suficientes"* — e autorizou popup no meio da tela. **Aprovação da prévia visual** (430×900, 360×640 e áudio com capa) antes de publicar.
+
+Só web (CORREÇÃO; sem `shellTag`, APK v1.15.5). Segue para `web-teste`.
+
+| parte | o que mudou |
+|---|---|
+| Tipo | `tipoDaMidia(nome, …declarados)`: a extensão conhecida manda; senão o MIME DECLARADO (shell/`File`) e por fim `blob.type`. `guessMediaType` deixou de devolver `application/octet-stream` truthy, que derrotava o fallback; `importShare` passou a usar `item.type` e re-tipa o blob para o `<video>`/`<audio>` decodificar |
+| Oferta | `ofertaDoArquivo` aceita `thumb` (Blob, capa), `height` (qualidade), `seconds` (duração) e o blob do registro quando é a única fonte; a meta vira **tipo · qualidade · duração · tamanho**, e o decode do vídeo passou a ler `videoHeight`; as URLs de objeto entram em `urls` e são revogadas ao fechar |
+| Popup | `#songMenuPopup.import-popup`: backdrop, `width:min(34rem,100%)` (406 px a 430, 336 px a 360), `max-height:90vh` com rolagem no `.popup-list`, raio nos quatro cantos e `--shadow-card`. Cabeçalho "Importar", pergunta "Onde você quer colocar?" e grade de 2 colunas com botões largos (ícone + rótulo, `destBotoesPadrao` com `rotulo`). A classe é posta só em `escolherImportacao` e sai em `fecharDestPrompt`/`closeSongMenu`/`escolherDestinos`/`openYtMenu` — as outras folhas seguem gaveta |
+| Detalhes | `montarDetalhesDoItem` lê `height` (linha "1080p"), `seconds` (`fmtTime`) e a miniatura `thumb` num `<img class="item-detalhe-thumb">` (Blob do próprio registro, sem rede; object URL revogada no load/error). A regra v1.14.45 continua: COM letra alterna "Ver a letra", sem letra tem "Detalhes" |
+| `.avpkg` de uma mídia | `midiaUnicaImportada` usa o registro RESOLVIDO (`getMedia`: blob, `thumb`, `height`, `seconds` do TRECHO) e chama a MESMA folha; o original/edição seguem preservados |
+
+**Oráculos:** `aviso-de-importacao` (share sem extensão com `type` do shell: kind, altura, duração, thumb, meta da oferta e linha da lista), `favoritos-detalhes` (qualidade/duração/thumb no card), `pacote-culto` (Q2: oferta do `.avpkg` com duração do trecho e capa), `destinos` (a classe `import-popup` sai ao escolher destino; a folha volta a ser gaveta) e `importar-na-biblioteca` (centro, teto de 90vh, raio, grade de duas colunas com larguras >140 e rótulos). A regressão foi provada contra `bc74da75`: 6 falhas no `aviso`, 2 no `favoritos`, 1 no `pacote`; na fonte corrigida, todos verdes (16/15/67). **Não provado aqui:** tema claro do popup (só o escuro), o aparelho e o caso de áudio sem arte — só Chromium do arnês, com a ponte simulada.
 
 ## v1.15.7 — a mídia compartilhada entra pela porta da mídia comum, e sem capa
 

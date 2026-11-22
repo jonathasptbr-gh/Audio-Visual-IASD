@@ -869,8 +869,9 @@ O `importarPacote` lê o campo, pula `cultoPrevia`, aplica o registro e o
 original e **não** chama `cronoImportar` (`pacoteAplicarFluxo` respeita
 `contagem.midiaUnica`). Aí `midiaUnicaImportada` abre a MESMA folha do
 `importShare` (`escolherImportacao`: Tocar agora · Cronograma · Playlist ·
-Favoritos) e grava por `adicionarNasListas`; no Modo Fácil vai à prateleira
-avulsa e ao telão, como qualquer arquivo. O id é o do pacote (o registro viaja
+Favoritos) — o **popup central do Importar (v1.15.8)** — e grava por
+`adicionarNasListas`; no Modo Fácil vai à prateleira avulsa e ao telão, como
+qualquer arquivo. O id é o do pacote (o registro viaja
 já gravado), então reimportar não duplica. Desistir da folha não grava lista e
 não consome o arquivo; o registro sem lista fica para o coletor. O CULTO
 INTEIRO mantém a prévia e a criação/ativação do cronograma. Um app velho ignora

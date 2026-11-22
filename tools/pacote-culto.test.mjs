@@ -667,6 +667,17 @@ try {
       midia: raw && { name: raw.name, edicao: raw.edicao },
       base: !!(await AVDB.getMediaCru('mid-orig')),
       imports: await AVDB.listIds('imports'),
+      oferta: (() => {
+        const cx = document.querySelector('#songMenuPopup .yt-oferta');
+        if (!cx) return null;
+        const meta = cx.querySelector('.yt-oferta-meta');
+        const capa = cx.querySelector('.yt-oferta-thumb');
+        return {
+          meta: meta ? meta.textContent : '',
+          capa: capa ? capa.tagName : '',
+          src: capa ? String(capa.currentSrc || capa.src || '') : '',
+        };
+      })(),
     };
   });
   checar(veioDestino === true && !antesDestino.dialogo && antesDestino.titulo === 'Importar'
@@ -680,6 +691,15 @@ try {
   'Q2 · o pacote de UMA mídia não cria nem ativa cronograma: ele abre a MESMA folha da mídia '
   + 'comum (Tocar agora · Cronograma · Playlist · Favoritos), com o item já gravado, o nome e a '
   + 'edição (e o original base) preservados', JSON.stringify(antesDestino));
+  // O CARD DA OFERTA é o de uma mídia comum (relato do operador, 22/11): tipo,
+  // qualidade (quando há), duração do TRECHO — 0:05, não a do original —,
+  // tamanho e miniatura. O registro resolvido já tem os cinco; a folha recebia
+  // só `{ name, type, size }` e mostrava "Arquivo", sem miniatura e sem duração.
+  checar(antesDestino.oferta && antesDestino.oferta.meta === 'Música · 0:05 · 2 KB'
+    && antesDestino.oferta.capa === 'IMG' && antesDestino.oferta.src.startsWith('blob:'),
+  'Q2 · a folha de destino mostra o MESMO card de uma mídia comum: o tipo, a duração do TRECHO '
+  + '(0:05, não a do original de 12 s), o tamanho e a miniatura',
+  JSON.stringify(antesDestino.oferta));
   const escolheu = veioDestino ? await U.pg.evaluate(() => {
     const b = document.querySelector('#songMenuPopup .dest-btn[data-dest="cronograma"]');
     if (!b) return false;

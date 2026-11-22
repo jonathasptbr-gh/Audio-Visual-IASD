@@ -47,9 +47,21 @@ const TIPOS = {
 // do laço de eventos para a medição falar do APP.
 const PEDACOS = 12;
 const ENTRE_MS = 120;
+// O VÍDEO DE VERDADE: o único jeito de medir miniatura/altura/duração é o
+// decode acontecer. O `.webm` de 20 s dos fixtures é o mesmo que a busca usa.
+const AQUI = path.dirname(fileURLToPath(import.meta.url));
+const VIDEO = path.join(AQUI, 'fixtures', 'video-20s.webm');
 
 const servidor = http.createServer((req, res) => {
   const u = new URL(req.url, 'http://x');
+  // O MIME DO PROVEDOR: `application/octet-stream` é o que um `/saf/` de
+  // terceiro devolve com frequência, e é justamente o que o `importShare` tem
+  // de superar com o `type` declarado.
+  if (u.pathname === '/sem-extensao') {
+    res.writeHead(200, { 'Content-Type': 'application/octet-stream' });
+    fs.createReadStream(VIDEO).pipe(res);
+    return;
+  }
   if (u.pathname === '/lento.bin') {
     res.writeHead(200, { 'Content-Type': 'video/mp4' });
     let n = 0;
@@ -203,6 +215,91 @@ try {
     aviso);
   await pg.evaluate(() => { const b = document.getElementById('appDialogOk'); if (b) b.click(); });
   await pg.evaluate(() => window.__imp4);
+
+  // ── 6. O NOME SEM EXTENSÃO NÃO PERDE TIPO, QUALIDADE NEM MINIATURA ──────
+  //
+  // O relato do operador (22/11): *"Tipo de arquivo, qualidade, thumbnail.
+  // Botão de detalhes… Nada disso está vindo com a mídia compartilhada"*.
+  // A causa medida: `guessMediaType` devolve `'application/octet-stream'` para
+  // extensão desconhecida — TRUTHY — e o `|| blob.type` do `importShare` nunca
+  // era alcançado. Um `name` sem extensão (o `DISPLAY_NAME` cru do provedor)
+  // entrava como `kind:'other'`, sem `height`, sem `seconds` e sem `thumb`.
+  //
+  // O arquivo é servido como `application/octet-stream` de propósito: só o
+  // `type` declarado pelo shell (aqui `video/webm`) pode salvá-lo. O que se mede
+  // é o FIM — registro e linha — e a OFERTA, que é onde o operador vê o card
+  // antes de escolher o destino.
+  await pg.evaluate(({ url, size }) => {
+    // A FORMA DO SHELL: `ShareIntake.describe` manda `{ name, type, size, url }`
+    // — e é o `size` dele que a oferta mostra antes de qualquer cópia.
+    window.__imp5 = importShare({ files: [{ url, name: 'Video Sem Extensao', type: 'video/webm', size }] });
+  }, { url: base + '/sem-extensao', size: fs.statSync(VIDEO).size });
+  await pg.waitForSelector('#songMenuPopup .yt-oferta', { timeout: 10000 });
+  // A OFERTA mede a duração no `<video>` que ela mesma monta: espera pelo FATO
+  // (a linha com qualidade e duração), não por um prazo.
+  await pg.waitForFunction(() => {
+    const m = document.querySelector('#songMenuPopup .yt-oferta-meta');
+    return !!m && /\d+p · \d+:\d\d/.test(m.textContent);
+  }, null, { timeout: 15000 }).catch(() => {});
+  const oferta = await pg.evaluate(() => {
+    const cx = document.querySelector('#songMenuPopup .yt-oferta');
+    const meta = cx && cx.querySelector('.yt-oferta-meta');
+    const capa = cx && cx.querySelector('.yt-oferta-thumb');
+    return {
+      meta: meta ? meta.textContent : '',
+      capa: capa ? capa.tagName : '',
+      src: capa ? String(capa.currentSrc || capa.src || '') : '',
+    };
+  });
+  await pg.evaluate(() => document.querySelector(
+    '#songMenuPopup .dest-botoes [data-dest="cronograma"]').click());
+  await pg.evaluate(() => window.__imp5);
+  await pg.waitForTimeout(500);
+  const semExt = await pg.evaluate(async () => {
+    const rec = (await AVDB.listItems('imports')).find((m) => m.name === 'Video Sem Extensao');
+    if (!rec) return null;
+    const li = [...document.querySelectorAll('.lib-item')]
+      .find((e) => (e.querySelector('.row-name') || {}).textContent === 'Video Sem Extensao');
+    const alvo = document.createElement('div');
+    alvo.className = 'item-detalhe';
+    document.body.appendChild(alvo);
+    montarDetalhesDoItem(rec, alvo);
+    const card = {
+      linhas: [...alvo.querySelectorAll('.item-detalhe-linha')].filter((e) => !e.hidden).map((e) => e.textContent),
+      thumb: !!alvo.querySelector('.item-detalhe-thumb'),
+      src: String((alvo.querySelector('.item-detalhe-thumb') || {}).src || ''),
+    };
+    alvo.remove();
+    return {
+      type: rec.type, kind: rec.kind, height: rec.height, seconds: rec.seconds,
+      thumb: rec.thumb instanceof Blob ? rec.thumb.size : 0,
+      blobType: rec.blob && rec.blob.type,
+      esperado: ['Vídeo', rec.height ? rec.height + 'p' : '',
+        rec.seconds ? fmtTime(rec.seconds) : '',
+        rec.blob && rec.blob.size ? fmtBytes(rec.blob.size) : ''].filter(Boolean).join(' · '),
+      sub: li && li.querySelector('.row-sub') ? li.querySelector('.row-sub').textContent : '',
+      thumbLista: !!li && !!li.querySelector('.thumb img'),
+      card,
+    };
+  });
+  checar(semExt && semExt.type === 'video/webm' && semExt.kind === 'video',
+    '6 · um arquivo SEM EXTENSÃO entra com o MIME que o shell mandou, e não como "other"', semExt);
+  checar(semExt && semExt.height > 0 && semExt.seconds >= 19 && semExt.thumb > 0,
+    '6 · e a importação lê altura, duração e miniatura do decode — os três que o "other" não tinha', semExt);
+  checar(semExt && semExt.blobType === 'video/webm',
+    '6 · o blob gravado carrega o MIME resolvido: é ele que o `<video>` da miniatura consulta', semExt);
+  checar(semExt && oferta.meta === semExt.esperado && oferta.capa === 'VIDEO',
+    '6 · a oferta mostra o quadro e "Vídeo · Np · 0:20 · tamanho" antes de escolher o destino',
+    { oferta, esperado: semExt && semExt.esperado });
+  checar(semExt && semExt.sub.startsWith('Vídeo · ') && /\d+p · \d+:\d\d/.test(semExt.sub),
+    '6 · a linha na lista diz o tipo, a qualidade e a duração', semExt && semExt.sub);
+  checar(semExt && semExt.thumbLista,
+    '6 · e a linha mostra a miniatura que a importação decodificou', semExt && semExt.thumbLista);
+  checar(semExt && semExt.card.linhas.some((l) => /^\d+p$/.test(l))
+    && semExt.card.linhas.includes('0:20') && semExt.card.thumb
+    && semExt.card.src.startsWith('blob:'),
+  '6 · e o card de Detalhes mostra o tipo, a qualidade, a duração e a miniatura',
+  semExt && semExt.card);
 
   checar(erros.length === 0, 'nenhum erro de página', erros);
 } finally {
